@@ -1,5 +1,4 @@
 "use client";
-import Image from "next/image";
 import EventCard from "@/components/EventCard";
 import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";

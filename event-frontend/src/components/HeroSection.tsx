@@ -1,86 +1,9 @@
-import { useEffect, useState, useCallback } from "react";
-import { BrowserProvider, Contract } from "ethers";
-import contractABI from "../contract/abi.json";
+import { useState } from "react";
+import { BrowserProvider } from "ethers";
 import { useContract } from "../context/ContractContext";
 
-// const contractAddress = "0xedAef3f9695797feA319008107C55864bD357C65";
-
 export default function HeroSection() {
-  const [provider, setProvider] = useState<BrowserProvider | null>(null);
-  // const [contract, setContract] = useState<Contract | null>(null);
-  const [account, setAccount] = useState(null);
   const { contract } = useContract();
-
-  // useEffect(() => {
-  //   if (typeof window !== "undefined" && window.ethereum) {
-  //     const web3Provider = new BrowserProvider(window.ethereum);
-  //     setProvider(web3Provider);
-  //   }
-  // }, []);
-
-  // const connectWallet = useCallback(async () => {
-  //   if (!window.ethereum) {
-  //     console.error("MetaMask is not installed.");
-  //     return;
-  //   }
-
-  //   const provider = new BrowserProvider(window.ethereum);
-
-  //   try {
-  //     // Request to switch to the correct network
-  //     await window.ethereum.request({
-  //       method: "wallet_switchEthereumChain",
-  //       params: [{ chainId: "0xAEF3" }], // Celo Mainnet: 0xa4ec, Celo Testnet: 0xaef3
-  //     });
-
-  //     // Request account access
-  //     const accounts = await provider.send("eth_requestAccounts", []);
-  //     setAccount(accounts[0]);
-
-  //     // Get signer and set contract
-  //     const signer = await provider.getSigner();
-  //     const contractInstance = new Contract(
-  //       contractAddress,
-  //       contractABI.abi,
-  //       signer
-  //     );
-  //     setContract(contractInstance);
-
-  //     console.log("Connected to:", accounts[0]);
-  //   } catch (error: any) {
-  //     if (error.code === 4902) {
-  //       // If the network is not added, add it
-  //       try {
-  //         await window.ethereum.request({
-  //           method: "wallet_addEthereumChain",
-  //           params: [
-  //             {
-  //               chainId: "0xAEF3", // Celo Testnet (Alfajores) chain ID
-  //               chainName: "Celo Testnet (Alfajores)",
-  //               rpcUrls: ["https://alfajores-forno.celo-testnet.org"],
-  //               nativeCurrency: {
-  //                 name: "CELO",
-  //                 symbol: "CELO",
-  //                 decimals: 18,
-  //               },
-  //               blockExplorerUrls: ["https://alfajores.celoscan.io"],
-  //             },
-  //           ],
-  //         });
-  //       } catch (addError) {
-  //         console.error("Failed to add network:", addError);
-  //       }
-  //     } else {
-  //       console.error("Network switch error:", error);
-  //     }
-  //   }
-  // }, []);
-
-  // const interactWithContract = async () => {
-  //   if (!contract) return;
-  //   const result = await contract.getEventLength(); // Replace with your function name
-  //   console.log(result);
-  // };
 
   const getEventLength = async () => {
     if (!contract) {
