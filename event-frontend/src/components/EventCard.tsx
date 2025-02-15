@@ -1,8 +1,20 @@
 import Image from "next/image";
 
-export default function EventCard() {
+interface Event {
+  owner: string;
+  eventName: string;
+  eventCardImgUrl: string;
+  eventDetails: string;
+  eventDate: number; // uint64 maps to `number` in TypeScript
+  startTime: number;
+  endTime: number;
+  eventLocation: string;
+  isActive: boolean;
+}
+
+export default function EventCard({ event }: { event: Event }) {
   return (
-    <div className="max-w-xs rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-200 m-5">
+    <div className="max-w-xs rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-200 mx-5 my-5">
       <Image
         src="/images/image1.jpg"
         width={500}

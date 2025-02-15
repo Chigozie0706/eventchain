@@ -17,7 +17,10 @@ export const ContractProvider = ({
   children: React.ReactNode;
 }) => {
   const [contract, setContract] = useState<Contract | null>(null);
-  const contractAddress = "0xedAef3f9695797feA319008107C55864bD357C65"; // Replace with actual contract address
+  const contractAddress = "0xaa7abfc5df91D00008f745fc8aFB96B373f0a852"; // Replace with actual contract address
+
+  // 0xedAef3f9695797feA319008107C55864bD357C65
+  // 0x2BAAB5E93f8b20A5a4cdB7938d75fdB0FB50C2e4
 
   useEffect(() => {
     const loadContract = async () => {

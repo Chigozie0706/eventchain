@@ -1,31 +1,39 @@
 "use client";
+import { useEffect, useState } from "react";
 import EventCard from "@/components/EventCard";
-import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
-import EventForm from "@/components/EventForm";
+import EventPage from "@/components/EventPage";
+import { useContract } from "../context/ContractContext";
 
 export default function Home() {
+  const [events, setEvents] = useState([]);
+  const { contract } = useContract();
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        if (!contract) {
+          console.error("Contract not found");
+          return;
+        }
+
+        const eventData = await contract.getAllEvents();
+        setEvents(eventData);
+        console.log(eventData);
+      } catch (error) {
+        console.error("Error fetching events:", error);
+      }
+    };
+
+    fetchEvents();
+  }, [contract]);
+
   return (
     <>
-      <Navbar />
-      <div className="container">
+      {/* <Navbar /> */}
+      <div className="">
         <div className="pt-16">
           <HeroSection />
-          <div className="flex items-center flex-wrap mx-auto">
-            <EventCard />
-
-            <EventCard />
-
-            <EventCard />
-
-            <EventCard />
-
-            <EventCard />
-
-            <EventCard />
-          </div>
-
-          <EventForm />
         </div>
       </div>
     </>

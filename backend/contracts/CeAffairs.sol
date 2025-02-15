@@ -1,93 +1,139 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
-import "@openzeppelin/contracts/utils/Strings.sol";
+pragma solidity ^0.8.3;
 
-contract CeAffairs{
-// Declaring variables.
-    uint internal eventLength = 0;
-    uint internal eventCommentsLength = 0; 
-
-    
-    // Ceating a struct to store event details.
+contract CeAffairs {
     struct Event {
-        address  owner;
+        address owner;
         string eventName;
         string eventCardImgUrl;
         string eventDetails;
-        uint   eventDate;
-        string eventTime;
+        uint64 eventDate;
+        uint64 startTime;
+        uint64 endTime;
         string eventLocation;
-        
+        bool isActive;
     }
 
-    //map for storing events.
-    mapping (uint => Event) internal events;
+    Event[] public events;
 
-    //map for storing list of attendees
     mapping(uint256 => address[]) internal eventAttendees;
+    mapping(address => uint256[]) internal creatorEvents; //  Tracks event indexes for each creator
 
-    // map for attendance check
-    mapping(uint => mapping(address => bool)) public attendanceCheck;
+    function createEvent(
+        string memory _eventName,
+        string memory _eventCardImgUrl,
+        string memory _eventDetails,
+        uint64 _eventDate,
+        uint64 _startTime,
+        uint64 _endTime,
+        string memory _eventLocation
+    ) public {
+        events.push(
+            Event({
+                owner: msg.sender,
+                eventName: _eventName,
+                eventCardImgUrl: _eventCardImgUrl,
+                eventDetails: _eventDetails,
+                eventDate: _eventDate,
+                startTime: _startTime,
+                endTime: _endTime,
+                eventLocation: _eventLocation,
+                isActive: true
+            })
+        );
 
+        creatorEvents[msg.sender].push(events.length - 1); // Store event index for creator
+    }
 
-    // Function to create  an event.
-    function createEvent(string memory _eventName, string memory _eventCardImgUrl,
-    string memory _eventDetails, uint  _eventDate, 
-    string memory _eventTime, string memory _eventLocation) public {
-        events[eventLength] = Event({owner : msg.sender, eventName: _eventName, eventCardImgUrl : _eventCardImgUrl, 
-     eventDetails: _eventDetails, eventDate : _eventDate, 
-     eventTime : _eventTime, eventLocation : _eventLocation});
-     eventLength++;
-}
-
-
-// Function to get a event through its id.
-    function getEventById(uint _index) public view returns (
-        address,
-        string memory,
-        string memory,
-        string memory,
-        uint,
-        string memory,
-        string memory
-        
-    ) {
-    
+    function getEventById(
+        uint256 _index
+    )
+        public
+        view
+        returns (
+            address,
+            string memory,
+            string memory,
+            string memory,
+            uint64,
+            uint64,
+            uint64,
+            string memory,
+            bool
+        )
+    {
+        require(_index < events.length, "Event does not exist");
+        Event storage ev = events[_index];
         return (
-            events[_index].owner,
-            events[_index].eventName, 
-            events[_index].eventCardImgUrl,
-            events[_index].eventDetails,
-            events[_index].eventDate,
-            events[_index].eventTime,
-            events[_index].eventLocation
+            ev.owner,
+            ev.eventName,
+            ev.eventCardImgUrl,
+            ev.eventDetails,
+            ev.eventDate,
+            ev.startTime,
+            ev.endTime,
+            ev.eventLocation,
+            ev.isActive
         );
     }
 
-//Function only a event owner can delete an event. 
-function deleteEventById(uint _index) public {
-        require(msg.sender == events[_index].owner, "you are not the owner");
-        delete events[_index];
+    function deleteEventById(uint256 _index) public {
+        require(_index < events.length, "Invalid event ID");
+        require(msg.sender == events[_index].owner, "Not event owner");
+        events[_index].isActive = false;
     }
 
-//Function to attend an event without spamming it.
     function addEventAttendees(uint256 _index) public {
-        require(events[_index].eventDate > block.timestamp,"sorry entry date has expired...");
-        require(!attendanceCheck[_index][msg.sender], "you are already an attendee");
-        attendanceCheck[_index][msg.sender] = true;
-        eventAttendees[_index].push(msg.sender);
-    
+        require(_index < events.length, "Invalid event ID");
+        require(
+            events[_index].eventDate > block.timestamp,
+            "Entry date expired"
+        );
+        require(events[_index].isActive, "Event is inactive");
+
+        address[] storage attendees = eventAttendees[_index];
+        for (uint256 i = 0; i < attendees.length; i++) {
+            require(attendees[i] != msg.sender, "Already an attendee");
+        }
+        attendees.push(msg.sender);
     }
 
-//function to get list of event attendees by event id.
-    function getAttendees(uint256 _index) public view returns (address[] memory) {
+    function getAttendees(
+        uint256 _index
+    ) public view returns (address[] memory) {
+        require(_index < events.length, "Invalid event ID");
         return eventAttendees[_index];
     }
 
+    function getEventLength() public view returns (uint256) {
+        return events.length;
+    }
 
-//function to get length of event.
-    function getEventLength() public view returns (uint) {
-        return (eventLength);
-    }    
+    //  Get all events created by an address
+    function getEventsByCreator(
+        address _creator
+    ) public view returns (uint256[] memory) {
+        return creatorEvents[_creator];
+    }
+
+    // New function: Get all active events
+    function getAllEvents() public view returns (Event[] memory) {
+        uint count = 0;
+        for (uint i = 0; i < events.length; i++) {
+            if (events[i].isActive) {
+                count++;
+            }
+        }
+
+        Event[] memory activeEvents = new Event[](count);
+        uint j = 0;
+        for (uint i = 0; i < events.length; i++) {
+            if (events[i].isActive) {
+                activeEvents[j] = events[i];
+                j++;
+            }
+        }
+        return activeEvents;
+    }
 
 }
