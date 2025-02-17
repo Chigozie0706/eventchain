@@ -1,6 +1,29 @@
 import Image from "next/image";
 
-export default function EventPage() {
+// interfaces.ts
+export interface Event {
+  owner: string;
+  eventName: string;
+  eventCardImgUrl: string;
+  eventDetails: string;
+  eventDate: number;
+  startTime: number;
+  endTime: number;
+  eventLocation: string;
+  isActive: boolean;
+}
+
+export interface EventPageProps {
+  event: Event;
+  attendees: string[];
+  createdEvents: Event[];
+}
+
+export default function EventPage({
+  event,
+  attendees,
+  createdEvents,
+}: EventPageProps) {
   return (
     <div className="container m-auto">
       <div className="relative w-full flex justify-center mt-4 h-[300px] md:h-[400px] lg:h-[450px] overflow-hidden">
@@ -9,38 +32,20 @@ export default function EventPage() {
 
         {/* Banner Image */}
         <div className="relative w-full max-w-5xl rounded-2xl overflow-hidden">
-          <Image
-            src="/images/image1.jpg"
+          <img
+            src={event.eventCardImgUrl}
             alt="Event Banner"
             width={1200} // Adjust as needed
             height={500} // Adjust as needed
-            layout="responsive"
+            // layout="responsive"
             className="rounded-2xl"
           />
         </div>
       </div>
 
       <div className="max-w-4xl p-6">
-        <h2 className="text-4xl font-bold text-gray-900">
-          Traders Fair 2025 - Nigeria, 5 APRIL, LAGOS (Financial Event)
-        </h2>
-        <p className="text-gray-600 mt-2">
-          Stocks, Forex, Futures, Cryptocurrency and Options, Investing and
-          Brokers - all in one trading educational event!
-        </p>
-
-        <div className="mt-4 flex items-center space-x-4 bg-gray-100 p-4 rounded-lg">
-          <div className="w-12 h-12 bg-yellow-400 rounded-full"></div>
-          <div>
-            <p className="font-semibold">
-              By FINEXPO - Traders Fair & Traders Awards
-            </p>
-            <p className="text-sm text-gray-500">1.3k followers</p>
-          </div>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg">
-            Follow
-          </button>
-        </div>
+        <h2 className="text-4xl font-bold text-gray-900">{event.eventName}</h2>
+        <p className="text-gray-600 mt-2">{event.eventDetails}</p>
 
         <div className="mt-6">
           <h3 className="text-xl font-semibold">Date and Time</h3>

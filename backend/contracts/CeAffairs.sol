@@ -17,7 +17,7 @@ contract CeAffairs {
     Event[] public events;
 
     mapping(uint256 => address[]) internal eventAttendees;
-    mapping(address => uint256[]) internal creatorEvents; //  Tracks event indexes for each creator
+    mapping(address => Event[]) internal creatorEvents;
 
     function createEvent(
         string memory _eventName,
@@ -28,21 +28,19 @@ contract CeAffairs {
         uint64 _endTime,
         string memory _eventLocation
     ) public {
-        events.push(
-            Event({
-                owner: msg.sender,
-                eventName: _eventName,
-                eventCardImgUrl: _eventCardImgUrl,
-                eventDetails: _eventDetails,
-                eventDate: _eventDate,
-                startTime: _startTime,
-                endTime: _endTime,
-                eventLocation: _eventLocation,
-                isActive: true
-            })
-        );
-
-        creatorEvents[msg.sender].push(events.length - 1); // Store event index for creator
+        Event memory newEvent = Event({
+            owner: msg.sender,
+            eventName: _eventName,
+            eventCardImgUrl: _eventCardImgUrl,
+            eventDetails: _eventDetails,
+            eventDate: _eventDate,
+            startTime: _startTime,
+            endTime: _endTime,
+            eventLocation: _eventLocation,
+            isActive: true
+        });
+        events.push(newEvent);
+        creatorEvents[msg.sender].push(newEvent);
     }
 
     function getEventById(
@@ -51,29 +49,16 @@ contract CeAffairs {
         public
         view
         returns (
-            address,
-            string memory,
-            string memory,
-            string memory,
-            uint64,
-            uint64,
-            uint64,
-            string memory,
-            bool
+            Event memory eventDetails,
+            address[] memory attendees,
+            Event[] memory createdEvents
         )
     {
         require(_index < events.length, "Event does not exist");
-        Event storage ev = events[_index];
         return (
-            ev.owner,
-            ev.eventName,
-            ev.eventCardImgUrl,
-            ev.eventDetails,
-            ev.eventDate,
-            ev.startTime,
-            ev.endTime,
-            ev.eventLocation,
-            ev.isActive
+            events[_index],
+            eventAttendees[_index],
+            creatorEvents[events[_index].owner]
         );
     }
 
@@ -109,15 +94,17 @@ contract CeAffairs {
         return events.length;
     }
 
-    //  Get all events created by an address
     function getEventsByCreator(
         address _creator
-    ) public view returns (uint256[] memory) {
+    ) public view returns (Event[] memory) {
         return creatorEvents[_creator];
     }
 
-    // New function: Get all active events
-    function getAllEvents() public view returns (Event[] memory) {
+    function getAllEvents()
+        public
+        view
+        returns (uint256[] memory, Event[] memory)
+    {
         uint count = 0;
         for (uint i = 0; i < events.length; i++) {
             if (events[i].isActive) {
@@ -125,15 +112,16 @@ contract CeAffairs {
             }
         }
 
+        uint256[] memory indexes = new uint256[](count);
         Event[] memory activeEvents = new Event[](count);
         uint j = 0;
         for (uint i = 0; i < events.length; i++) {
             if (events[i].isActive) {
-                activeEvents[j] = events[i];
+                indexes[j] = i; // Store index
+                activeEvents[j] = events[i]; // Store event details
                 j++;
             }
         }
-        return activeEvents;
+        return (indexes, activeEvents);
     }
-
 }

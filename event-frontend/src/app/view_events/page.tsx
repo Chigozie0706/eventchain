@@ -7,21 +7,82 @@ import { useContract } from "@/context/ContractContext";
 
 export default function Home() {
   const [events, setEvents] = useState([]);
+  const [indexes, setIndexes] = useState([]);
   const { contract } = useContract();
+
+  // useEffect(() => {
+  //   const fetchEvents = async () => {
+  //     try {
+  //       if (!contract) {
+  //         console.error("Contract not found");
+  //         return;
+  //       }
+
+  //       const rawEvents = await contract.getAllEvents();
+  //       console.log("Raw Events:", rawEvents); // Debugging
+
+  //       const formattedEvents = rawEvents.map((event: any) => ({
+  //         owner: event[0],
+  //         eventName: event[1],
+  //         eventCardImgUrl: event[2],
+  //         eventDetails: event[3],
+  //         eventDate: Number(event[4]), // Convert BigInt to Number
+  //         startTime: Number(event[5]), // Convert BigInt to Number
+  //         endTime: Number(event[6]), // Convert BigInt to Number
+  //         eventLocation: event[7],
+  //         isActive: event[8],
+  //       }));
+
+  //       setEvents(formattedEvents);
+  //       console.log("Formatted Events:", formattedEvents);
+  //     } catch (error) {
+  //       console.error("Error fetching events:", error);
+  //     }
+  //   };
+
+  //   fetchEvents();
+  // }, [contract]);
 
   useEffect(() => {
     const fetchEvents = async () => {
       try {
         if (!contract) {
-          console.error("Contract not found");
+          console.error("❌ Contract instance not found");
           return;
         }
 
-        const eventData = await contract.getAllEvents();
-        setEvents(eventData);
-        console.log(eventData);
+        // Fetch all active events along with their indexes
+        const rawData = await contract.getAllEvents();
+        console.log("🔹 Raw Events Data:", rawData); // Debugging
+
+        if (!rawData || rawData.length !== 2) {
+          console.error("❌ Unexpected data format from contract");
+          return;
+        }
+
+        const [rawIndexes, rawEvents] = rawData; // Extract indexes and events
+
+        // Convert to a structured format
+        const formattedEvents = rawEvents.map(
+          (event: any[], idx: string | number) => ({
+            index: Number(rawIndexes[idx]), // Ensure index is stored
+            owner: event[0],
+            eventName: event[1],
+            eventCardImgUrl: event[2],
+            eventDetails: event[3],
+            eventDate: Number(event[4]), // Convert BigInt to Number
+            startTime: Number(event[5]), // Convert BigInt to Number
+            endTime: Number(event[6]), // Convert BigInt to Number
+            eventLocation: event[7],
+            isActive: event[8],
+          })
+        );
+
+        setIndexes(rawIndexes.map(Number)); // Store indexes separately
+        setEvents(formattedEvents);
+        console.log("✅ Formatted Events:", formattedEvents); // Debugging
       } catch (error) {
-        console.error("Error fetching events:", error);
+        console.error("❌ Error fetching events:", error);
       }
     };
 
