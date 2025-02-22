@@ -1,12 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-import EventCard from "@/components/EventCard";
 import HeroSection from "@/components/HeroSection";
-import EventPage from "@/components/EventPage";
 import { useContract } from "../context/ContractContext";
 
 export default function Home() {
-  const [events, setEvents] = useState([]);
+  const [, setEvents] = useState([]);
   const { contract } = useContract();
 
   useEffect(() => {

@@ -12,7 +12,7 @@ interface EventData {
   eventPrice: string;
 }
 
-const EventForm1: React.FC = () => {
+const EventForm: React.FC = () => {
   const [eventData, setEventData] = useState<EventData>({
     eventName: "",
     eventCardImgUrl: "",
@@ -269,4 +269,4 @@ const EventForm1: React.FC = () => {
   );
 };
 
-export default EventForm1;
+export default EventForm;

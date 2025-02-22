@@ -1,5 +1,3 @@
-// import { useState } from "react";
-// import { BrowserProvider } from "ethers";
 import { useContract } from "../context/ContractContext";
 
 export default function HeroSection() {

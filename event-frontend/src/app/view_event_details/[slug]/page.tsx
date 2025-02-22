@@ -107,62 +107,6 @@ export default function Home() {
     fetchEventById();
   }, [contract]);
 
-  // const buyTicket = async () => {
-  //   if (!contract) {
-  //     alert("Smart contract not loaded.");
-  //     return;
-  //   }
-
-  //   try {
-  //     // setLoading(true);
-
-  //     // Convert cUSD price to Wei
-  //     // const ticketPriceWei = ethers.utils.parseUnits(event.ticketPrice.toString(), "ether");
-  //     const ticketPriceWei = parseUnits(event.ticketPrice.toString(), "ether");
-
-  //     // Call the buyTicket function on the contract
-  //     const tx = await contract.buyTicket(0, { value: ticketPriceWei });
-  //     await tx.wait();
-
-  //     alert("Ticket Purchased Successfully!");
-  //   } catch (error) {
-  //     console.error("Error purchasing ticket:", error);
-  //     alert("Transaction Failed!");
-  //   } finally {
-  //     // setLoading(false);
-  //   }
-  // };
-
-  // Function to approve and buy a ticket
-  // const buyTicket = async () => {
-  //   if (!contract || !cUSDToken) {
-  //     alert("Contract or cUSD token not loaded.");
-  //     return;
-  //   }
-
-  //   try {
-  //     setLoading(true);
-
-  //     // Convert cUSD price to Wei
-  //     const ticketPriceWei = ethers.utils.parseUnits(event.ticketPrice.toString(), "ether");
-
-  //     // Step 1: Approve Contract to Spend cUSD
-  //     const approveTx = await cUSDToken.approve(contractAddress, ticketPriceWei);
-  //     await approveTx.wait(); // Wait for approval transaction to be mined
-
-  //     // Step 2: Buy Ticket
-  //     const tx = await contract.buyTicket(0); // Pass the event ID
-  //     await tx.wait(); // Wait for the ticket purchase transaction to be mined
-
-  //     alert("Ticket Purchased Successfully!");
-  //   } catch (error) {
-  //     console.error("Error purchasing ticket:", error);
-  //     alert("Transaction Failed!");
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
   const buyTicket = async () => {
     if (!contract || !cUSDToken) return;
 
