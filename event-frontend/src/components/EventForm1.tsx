@@ -9,6 +9,7 @@ interface EventData {
   startTime: string;
   endTime: string;
   eventLocation: string;
+  eventPrice: string;
 }
 
 const EventForm1: React.FC = () => {
@@ -20,6 +21,7 @@ const EventForm1: React.FC = () => {
     startTime: "",
     endTime: "",
     eventLocation: "",
+    eventPrice: "",
   });
 
   const { contract } = useContract();
@@ -41,7 +43,8 @@ const EventForm1: React.FC = () => {
       !eventData.eventDate ||
       !eventData.startTime ||
       !eventData.endTime ||
-      !eventData.eventLocation
+      !eventData.eventLocation ||
+      !eventData.eventPrice
     ) {
       setError("Please fill in all required fields.");
       return false;
@@ -51,6 +54,12 @@ const EventForm1: React.FC = () => {
     const eventTimestamp = new Date(eventData.eventDate).getTime();
     if (eventTimestamp < Date.now()) {
       setError("The event date must be in the future.");
+      return false;
+    }
+
+    const price = parseFloat(eventData.eventPrice);
+    if (isNaN(price) || price <= 0) {
+      setError("Please enter a valid price in cUSD.");
       return false;
     }
 
@@ -83,6 +92,8 @@ const EventForm1: React.FC = () => {
         new Date(`${eventData.eventDate}T${eventData.endTime}`).getTime() / 1000
       );
 
+      const priceInWei = (parseFloat(eventData.eventPrice) * 1e18).toString();
+
       // Send transaction
       const tx = await contract.createEvent(
         eventData.eventName,
@@ -91,7 +102,8 @@ const EventForm1: React.FC = () => {
         eventDate,
         startTime,
         endTime,
-        eventData.eventLocation
+        eventData.eventLocation,
+        priceInWei
       );
 
       await tx.wait();
@@ -104,6 +116,7 @@ const EventForm1: React.FC = () => {
         startTime: "",
         endTime: "",
         eventLocation: "",
+        eventPrice: "",
       });
     } catch (err: any) {
       setError(err.message || "An error occurred.");
@@ -225,6 +238,21 @@ const EventForm1: React.FC = () => {
           value={eventData.eventLocation}
           onChange={handleChange}
           placeholder="Enter event location"
+          className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      {/* Event Price (cUSD) */}
+      <div className="mb-4">
+        <label className="block text-gray-700 font-medium mb-2">
+          Ticket Price (cUSD) *
+        </label>
+        <input
+          type="number"
+          name="eventPrice"
+          value={eventData.eventPrice}
+          onChange={handleChange}
+          placeholder="Enter ticket price in cUSD"
           className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>

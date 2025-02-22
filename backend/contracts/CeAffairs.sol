@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.3;
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 contract CeAffairs {
+    IERC20 public cUSDToken;
+
+    constructor(address _cUSDAddress) {
+        cUSDToken = IERC20(_cUSDAddress);
+    }
+
     struct Event {
         address owner;
         string eventName;
@@ -12,12 +20,14 @@ contract CeAffairs {
         uint64 endTime;
         string eventLocation;
         bool isActive;
+        uint256 ticketPrice;
     }
 
     Event[] public events;
 
     mapping(uint256 => address[]) internal eventAttendees;
     mapping(address => Event[]) internal creatorEvents;
+    mapping(uint256 => mapping(address => bool)) public hasPurchasedTicket;
 
     function createEvent(
         string memory _eventName,
@@ -26,7 +36,8 @@ contract CeAffairs {
         uint64 _eventDate,
         uint64 _startTime,
         uint64 _endTime,
-        string memory _eventLocation
+        string memory _eventLocation,
+        uint256 _ticketPrice
     ) public {
         Event memory newEvent = Event({
             owner: msg.sender,
@@ -37,6 +48,7 @@ contract CeAffairs {
             startTime: _startTime,
             endTime: _endTime,
             eventLocation: _eventLocation,
+            ticketPrice: _ticketPrice,
             isActive: true
         });
         events.push(newEvent);
@@ -81,6 +93,29 @@ contract CeAffairs {
             require(attendees[i] != msg.sender, "Already an attendee");
         }
         attendees.push(msg.sender);
+    }
+
+    function buyTicket(uint256 _index) public {
+        require(_index < events.length, "Invalid event ID");
+        require(events[_index].eventDate > block.timestamp, "Event expired");
+        require(events[_index].isActive, "Event is inactive");
+        require(
+            !hasPurchasedTicket[_index][msg.sender],
+            "Ticket already purchased"
+        );
+
+        uint256 price = events[_index].ticketPrice;
+        require(price > 0, "Free event, no purchase needed");
+
+        // Transfer cUSD from buyer to event owner
+        require(
+            cUSDToken.transferFrom(msg.sender, events[_index].owner, price),
+            "cUSD Payment failed"
+        );
+
+        // Mark the user as a ticket holder
+        hasPurchasedTicket[_index][msg.sender] = true;
+        eventAttendees[_index].push(msg.sender);
     }
 
     function getAttendees(

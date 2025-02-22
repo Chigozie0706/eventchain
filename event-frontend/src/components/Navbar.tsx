@@ -1,8 +1,35 @@
+"use client";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useContract } from "../context/ContractContext";
+import { ethers } from "ethers";
 
 export default function Navbar() {
+  const { cUSDToken, address } = useContract(); // ✅ Get `address` from context
+  const pathname = usePathname();
+  const [balance, setBalance] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchBalance = async () => {
+      if (!cUSDToken || !address) return;
+      try {
+        const bal = await cUSDToken.balanceOf(address);
+        setBalance(ethers.formatUnits(bal, 18)); // ✅ Convert balance from Wei
+      } catch (error) {
+        console.error("Error fetching balance:", error);
+      }
+    };
+
+    fetchBalance();
+  }, [cUSDToken, address]);
+
+  // Helper function for active nav link styling
+  const linkClass = (path: string) =>
+    pathname === path ? "text-orange-600 font-bold" : "text-gray-700";
+
   return (
-    <nav className="flex items-center justify-between bg-white px-6 py-3 shadow-md fixed w-full z-50 ">
+    <nav className="flex items-center justify-between bg-white px-6 py-3 shadow-md fixed w-full z-50">
       {/* Left: Logo */}
       <div className="text-orange-500 text-2xl font-bold">
         <Link href="/">EventCelo</Link>
@@ -10,30 +37,34 @@ export default function Navbar() {
 
       {/* Right: Actions */}
       <div className="flex items-center space-x-6 text-gray-700">
-        <button className="flex items-center text-sm">
+        <button
+          className={`flex items-center text-sm ${linkClass("/create_event")}`}
+        >
           <Link href="/create_event">
-            ➕ <span className="ml-1">Create Event</span>
+            <span className="ml-1">Create Event</span>
           </Link>
         </button>
-        <button className="flex items-center text-sm">
-          <Link href="view_events">
-            ❤️ <span className="ml-1">View Events</span>
-          </Link>
-        </button>
-
-        <button className="flex items-center text-sm">
-          <Link href="view_event_details">
-            ❤️ <span className="ml-1">View Event</span>
+        <button
+          className={`flex items-center text-sm ${linkClass("/view_events")}`}
+        >
+          <Link href="/view_events">
+            <span className="ml-1">View Events</span>
           </Link>
         </button>
 
         <button className="flex items-center text-sm">
-          🎟️ <span className="ml-1 ">Tickets</span>
+          <span className="ml-1 ">Tickets</span>
         </button>
-        <div className="flex items-center space-x-2 text-xs">
-          <div className="bg-gray-300 rounded-full p-2">👤</div>
-          <span className="">chigoziejacob@gmail.com</span>
-        </div>
+
+        {/* ✅ Display Address & Balance */}
+        {address && (
+          <div className="flex items-center space-x-2 text-xs bg-gray-100 px-3 py-1 rounded-full">
+            <span className="font-semibold">
+              {address.slice(0, 6)}...{address.slice(-4)}
+            </span>
+            {balance && <span className="text-orange-600">{balance} cUSD</span>}
+          </div>
+        )}
       </div>
     </nav>
   );

@@ -11,22 +11,54 @@ export interface Event {
   endTime: number;
   eventLocation: string;
   isActive: boolean;
+  ticketPrice: number;
 }
 
 export interface EventPageProps {
   event: Event;
   attendees: string[];
   createdEvents: Event[];
+  buyTicket: () => Promise<void>;
 }
 
 export default function EventPage({
   event,
   attendees,
   createdEvents,
+  buyTicket,
 }: EventPageProps) {
+  const formattedDate = new Date(event.eventDate * 1000).toLocaleDateString(
+    undefined, // Uses the user's locale
+    {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    }
+  );
+
+  // Format time dynamically based on user locale
+  const formattedStartTime = new Date(
+    event.startTime * 1000
+  ).toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "numeric",
+    hour12: true, // Ensures AM/PM format based on locale preference
+  });
+
+  const formattedEndTime = new Date(event.endTime * 1000).toLocaleTimeString(
+    undefined,
+    {
+      hour: "numeric",
+      minute: "numeric",
+      hour12: true,
+    }
+  );
+
   return (
-    <div className="container m-auto">
-      <div className="relative w-full flex justify-center mt-4 h-[300px] md:h-[400px] lg:h-[450px] overflow-hidden">
+    <div className="container mx-auto px-6 md:px-12 lg:px-20 py-8">
+      {/* Banner Section */}
+      <div className="relative w-full flex justify-center mt-4 h-[300px] md:h-[400px] lg:h-[450px] overflow-hidden rounded-2xl">
         {/* Background Blur Effect */}
         <div className="absolute inset-0 bg-gradient-to-r from-gray-900/40 via-gray-800/40 to-gray-900/40 backdrop-blur-md rounded-2xl"></div>
 
@@ -35,52 +67,77 @@ export default function EventPage({
           <img
             src={event.eventCardImgUrl}
             alt="Event Banner"
-            width={1200} // Adjust as needed
-            height={500} // Adjust as needed
-            // layout="responsive"
+            width={1200}
+            height={500}
             className="rounded-2xl"
           />
         </div>
       </div>
 
-      <div className="max-w-4xl p-6">
-        <h2 className="text-4xl font-bold text-gray-900">{event.eventName}</h2>
-        <p className="text-gray-600 mt-2">{event.eventDetails}</p>
+      {/* Event Details Section */}
+      <div className="flex flex-col md:flex-row md:justify-between md:space-x-8 mt-10">
+        {/* Left Side (Event Info) */}
+        <div className="max-w-4xl bg-white  p-6 md:p-8 ">
+          <h2 className="text-4xl font-bold text-gray-900">
+            {event.eventName}
+          </h2>
+          <p className="text-gray-600 mt-2">{event.eventDetails}</p>
 
-        <div className="mt-6">
-          <h3 className="text-xl font-semibold">Date and Time</h3>
-          <p className="flex items-center space-x-2 text-gray-700">
-            <span className="w-5 h-5 inline-block bg-gray-300 rounded-full"></span>
-            <span>Saturday, April 5 · 10am - 7pm WAT</span>
-          </p>
+          {/* Date and Time */}
+          <div className="mt-6">
+            <h3 className="text-xl font-semibold">Date and Time</h3>
+            <p className="flex items-center space-x-2 text-gray-700">
+              <span className="w-2 h-2 inline-block bg-gray-300 rounded-full"></span>
+              <span className="text-sm">
+                {formattedDate} · {formattedStartTime} - {formattedEndTime}
+              </span>
+            </p>
+          </div>
+
+          {/* Location */}
+          <div className="mt-6">
+            <h3 className="text-xl font-semibold">Location</h3>
+            <p className="flex items-center space-x-2 text-gray-700">
+              <span className="w-2 h-2 inline-block bg-gray-300 rounded-full"></span>
+              <span className="text-sm">{event.eventLocation}</span>
+            </p>
+          </div>
+
+          {/* Location */}
+          <div className="mt-6">
+            <h3 className="text-xl font-semibold">Ticket Price</h3>
+            <p className="flex items-center space-x-2 text-gray-700">
+              <span className="w-2 h-2 inline-block bg-gray-300 rounded-full"></span>
+              <span className="text-sm">
+                {(event.ticketPrice / 1e18).toFixed(2)} cUSD
+              </span>
+            </p>
+          </div>
+
+          {/* Refund Policy */}
+          <div className="mt-6">
+            <h3 className="text-xl font-semibold">Refund Policy</h3>
+            <p className="text-gray-700 text-sm">
+              Contact the organizer to request a refund.
+            </p>
+          </div>
         </div>
 
-        <div className="mt-6">
-          <h3 className="text-xl font-semibold">Location</h3>
-          <p className="flex items-center space-x-2 text-gray-700">
-            <span className="w-5 h-5 inline-block bg-gray-300 rounded-full"></span>
-            <span>Lagos Continental Hotel</span>
-          </p>
-          <p className="text-gray-500">
-            52a Kofo Abayomi Street, Lagos, LA 101241
-          </p>
-        </div>
-
-        <div className="mt-6">
-          <h3 className="text-xl font-semibold">Refund Policy</h3>
-          <p className="text-gray-700">
-            Contact the organizer to request a refund.
-          </p>
-        </div>
-
-        <div className="mt-6">
-          <h3 className="text-xl font-semibold">About this event</h3>
-          <p className="text-gray-700">Event lasts 9 hours</p>
-        </div>
-
-        <div className="mt-8 text-center">
-          <button className="bg-red-600 text-white px-6 py-3 rounded-lg text-lg font-semibold">
-            Select Tickets
+        {/* Right Side (Ticket Selection) */}
+        <div className="p-6 md:p-8  w-full md:w-1/3">
+          <div className="border p-4 rounded-lg flex justify-between items-center">
+            <div>
+              <p className="font-semibold"> Reserve a spot</p>
+              <p className="text-gray-500">
+                Price: {(event.ticketPrice / 1e18).toFixed(2)} cUSD
+              </p>
+            </div>
+          </div>
+          <button
+            className="w-full bg-red-600 text-white mt-4 py-2 rounded-lg text-lg font-semibold"
+            onClick={buyTicket}
+          >
+            Register
           </button>
         </div>
       </div>

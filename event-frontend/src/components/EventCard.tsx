@@ -39,9 +39,7 @@ export default function EventCard({ event }: { event: Event }) {
         <span className="bg-purple-200 text-purple-700 text-xs font-bold px-3 py-1 rounded-full w-50">
           {shortAddress}
         </span>
-        <h2 className="text-sm font-semibold mt-2">
-          Traders Fair 2025 - Nigeria, 5 APRIL, LAGOS (Financial Event)
-        </h2>
+        <h2 className="text-sm font-semibold mt-2">{event.eventName}</h2>
         <p className="text-gray-600 text-xs mt-1">
           <span className="font-semibold">Date:</span> {formattedDate}
         </p>

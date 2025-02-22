@@ -2,6 +2,8 @@
 import { useState, useEffect } from "react";
 import EventPage from "@/components/EventPage";
 import { useContract } from "@/context/ContractContext";
+// import { ethers } from "ethers"; // Import ethers.js for transaction handling
+import { parseUnits } from "ethers";
 
 export interface Event {
   owner: string;
@@ -13,6 +15,7 @@ export interface Event {
   endTime: number;
   eventLocation: string;
   isActive: boolean;
+  ticketPrice: number;
 }
 
 export default function Home() {
@@ -20,7 +23,7 @@ export default function Home() {
   // const [event, setEvent] = useState(null);
   const [attendees, setAttendees] = useState([]);
   const [createdEvents, setCreatedEvents] = useState([]);
-  const { contract } = useContract();
+  const { contract, cUSDToken } = useContract();
 
   const [event, setEvent] = useState<Event>({
     owner: "",
@@ -32,6 +35,7 @@ export default function Home() {
     endTime: 0,
     eventLocation: "",
     isActive: false,
+    ticketPrice: 0,
   });
 
   useEffect(() => {
@@ -65,6 +69,7 @@ export default function Home() {
           endTime: Number(eventDetails.endTime), // Convert BigInt to Number
           eventLocation: eventDetails.eventLocation,
           isActive: eventDetails.isActive,
+          ticketPrice: Number(eventDetails.ticketPrice),
         };
 
         // Format attendees (array of addresses)
@@ -83,6 +88,7 @@ export default function Home() {
           endTime: Number(event.endTime), // Convert BigInt to Number
           eventLocation: event.eventLocation,
           isActive: event.isActive,
+          ticketPrice: Number(event.ticketPrice),
         }));
 
         console.log(formattedEvent);
@@ -100,6 +106,87 @@ export default function Home() {
 
     fetchEventById();
   }, [contract]);
+
+  // const buyTicket = async () => {
+  //   if (!contract) {
+  //     alert("Smart contract not loaded.");
+  //     return;
+  //   }
+
+  //   try {
+  //     // setLoading(true);
+
+  //     // Convert cUSD price to Wei
+  //     // const ticketPriceWei = ethers.utils.parseUnits(event.ticketPrice.toString(), "ether");
+  //     const ticketPriceWei = parseUnits(event.ticketPrice.toString(), "ether");
+
+  //     // Call the buyTicket function on the contract
+  //     const tx = await contract.buyTicket(0, { value: ticketPriceWei });
+  //     await tx.wait();
+
+  //     alert("Ticket Purchased Successfully!");
+  //   } catch (error) {
+  //     console.error("Error purchasing ticket:", error);
+  //     alert("Transaction Failed!");
+  //   } finally {
+  //     // setLoading(false);
+  //   }
+  // };
+
+  // Function to approve and buy a ticket
+  // const buyTicket = async () => {
+  //   if (!contract || !cUSDToken) {
+  //     alert("Contract or cUSD token not loaded.");
+  //     return;
+  //   }
+
+  //   try {
+  //     setLoading(true);
+
+  //     // Convert cUSD price to Wei
+  //     const ticketPriceWei = ethers.utils.parseUnits(event.ticketPrice.toString(), "ether");
+
+  //     // Step 1: Approve Contract to Spend cUSD
+  //     const approveTx = await cUSDToken.approve(contractAddress, ticketPriceWei);
+  //     await approveTx.wait(); // Wait for approval transaction to be mined
+
+  //     // Step 2: Buy Ticket
+  //     const tx = await contract.buyTicket(0); // Pass the event ID
+  //     await tx.wait(); // Wait for the ticket purchase transaction to be mined
+
+  //     alert("Ticket Purchased Successfully!");
+  //   } catch (error) {
+  //     console.error("Error purchasing ticket:", error);
+  //     alert("Transaction Failed!");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  const buyTicket = async () => {
+    if (!contract || !cUSDToken) return;
+
+    try {
+      //  const ticketPriceWei = ethers.utils.parseUnits(event.ticketPrice.toString(), "ether");
+      const ticketPriceWei = parseUnits(event.ticketPrice.toString(), "ether");
+
+      // Step 1: Approve contract to spend cUSD
+      const approveTx = await cUSDToken.approve(
+        contract.target,
+        ticketPriceWei
+      );
+      await approveTx.wait();
+
+      // Step 2: Buy ticket
+      const buyTx = await contract.buyTicket(0);
+      await buyTx.wait();
+
+      console.log("✅ Ticket purchased successfully!");
+    } catch (error) {
+      console.error("❌ Error buying ticket:", error);
+    }
+  };
+
   return (
     <>
       <div className="pt-16">
@@ -107,6 +194,7 @@ export default function Home() {
           event={event}
           attendees={attendees}
           createdEvents={createdEvents}
+          buyTicket={buyTicket}
         />
       </div>
     </>

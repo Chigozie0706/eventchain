@@ -1,11 +1,19 @@
 "use client";
 import { createContext, useContext, useEffect, useState } from "react";
 import { BrowserProvider, Contract } from "ethers";
-import contractABI from "../contract/abi.json"; // Ensure ABI path is correct
+import contractABI from "../contract/abi.json";
+
+const cUSD_ABI = [
+  "function approve(address spender, uint256 amount) public returns (bool)",
+  "function transferFrom(address sender, address recipient, uint256 amount) public returns (bool)",
+  "function balanceOf(address owner) public view returns (uint256)",
+];
 
 // Define context type
 interface ContractContextType {
   contract: Contract | null;
+  cUSDToken: Contract | null;
+  address: string | null;
 }
 
 // Create context with proper type
@@ -17,22 +25,30 @@ export const ContractProvider = ({
   children: React.ReactNode;
 }) => {
   const [contract, setContract] = useState<Contract | null>(null);
-  const contractAddress = "0xa7aA17B0fe25C2085deDA9441DE3FfD713EA4589"; // Replace with actual contract address
+  const [cUSDToken, setCUSDToken] = useState<Contract | null>(null);
+  const [address, setAddress] = useState<string | null>(null);
 
-  // 0xedAef3f9695797feA319008107C55864bD357C65
-  // 0x2BAAB5E93f8b20A5a4cdB7938d75fdB0FB50C2e4
+  const contractAddress = "0x3F1e2BBD47e3305FC0e4c13c108764578ff74a97";
+  const cUSDTokenAddress = "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1";
 
   useEffect(() => {
     const loadContract = async () => {
       if (typeof window !== "undefined" && window.ethereum) {
         const provider = new BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
+
+        const userAddress = await signer.getAddress(); // Get user address
+        setAddress(userAddress); // Store in state
+
         const contractInstance = new Contract(
           contractAddress,
           contractABI.abi,
           signer
         );
         setContract(contractInstance);
+
+        const cUSDContract = new Contract(cUSDTokenAddress, cUSD_ABI, signer);
+        setCUSDToken(cUSDContract);
       }
     };
 
@@ -40,7 +56,7 @@ export const ContractProvider = ({
   }, []);
 
   return (
-    <ContractContext.Provider value={{ contract }}>
+    <ContractContext.Provider value={{ contract, cUSDToken, address }}>
       {children}
     </ContractContext.Provider>
   );
