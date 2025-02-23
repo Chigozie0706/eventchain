@@ -28,7 +28,7 @@ export default function EventCard({ event }: { event: Event }) {
 
   return (
     <div className="max-w-xs rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-200  my-5">
-      <img
+      <Image
         src={event.eventCardImgUrl}
         width={500}
         height={300}
