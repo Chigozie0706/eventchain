@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useContract } from "../context/ContractContext";
+import toast from "react-hot-toast";
+import { useRouter } from "next/navigation"; // For App Router
 
 interface EventData {
   eventName: string;
@@ -25,6 +27,7 @@ const EventForm: React.FC = () => {
   });
 
   const { contract } = useContract();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -46,20 +49,20 @@ const EventForm: React.FC = () => {
       !eventData.eventLocation ||
       !eventData.eventPrice
     ) {
-      setError("Please fill in all required fields.");
+      toast.error("Please fill in all required fields.");
       return false;
     }
 
     // Validate event date (must be in the future)
     const eventTimestamp = new Date(eventData.eventDate).getTime();
     if (eventTimestamp < Date.now()) {
-      setError("The event date must be in the future.");
+      toast.error("The event date must be in the future.");
       return false;
     }
 
     const price = parseFloat(eventData.eventPrice);
     if (isNaN(price) || price <= 0) {
-      setError("Please enter a valid price in cUSD.");
+      toast.error("Please enter a valid price in cUSD.");
       return false;
     }
 
@@ -72,6 +75,8 @@ const EventForm: React.FC = () => {
 
     if (!contract) {
       console.error("Contract not found");
+      toast.error("Contract not found");
+
       return;
     }
 
@@ -107,7 +112,8 @@ const EventForm: React.FC = () => {
       );
 
       await tx.wait();
-      setSuccess("Event successfully created!");
+      toast.success("Event successfully created!");
+
       setEventData({
         eventName: "",
         eventCardImgUrl: "",
@@ -118,8 +124,10 @@ const EventForm: React.FC = () => {
         eventLocation: "",
         eventPrice: "",
       });
+
+      router.push("/view_events");
     } catch (err: any) {
-      setError(err.message || "An error occurred.");
+      toast.error(err.message || "An error occurred.");
     } finally {
       setLoading(false);
     }
@@ -127,24 +135,13 @@ const EventForm: React.FC = () => {
 
   return (
     <div className="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-lg my-20">
-      <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-        Create Event
+      <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">
+        Create Your Event
       </h2>
-
-      {error && (
-        <div className="bg-red-100 text-red-700 p-3 rounded-md mb-4">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="bg-green-100 text-green-700 p-3 rounded-md mb-4">
-          {success}
-        </div>
-      )}
 
       {/* Event Title */}
       <div className="mb-4">
-        <label className="block text-gray-700 font-medium mb-2">
+        <label className="block text-gray-700 font-medium text-sm mb-2">
           Event Title *
         </label>
         <input
@@ -153,13 +150,13 @@ const EventForm: React.FC = () => {
           value={eventData.eventName}
           onChange={handleChange}
           placeholder="Enter event title"
-          className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
         />
       </div>
 
       {/* Event Card Image */}
       <div className="mb-4">
-        <label className="block text-gray-700 font-medium mb-2">
+        <label className="block text-gray-700 font-medium text-sm mb-2">
           Event Image URL *
         </label>
         <input
@@ -168,13 +165,13 @@ const EventForm: React.FC = () => {
           value={eventData.eventCardImgUrl}
           onChange={handleChange}
           placeholder="https://example.com/image.jpg"
-          className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
         />
       </div>
 
       {/* Event Details */}
       <div className="mb-4">
-        <label className="block text-gray-700 font-medium mb-2">
+        <label className="block text-gray-700 font-medium mb-2 text-sm">
           Event Description *
         </label>
         <textarea
@@ -189,20 +186,22 @@ const EventForm: React.FC = () => {
 
       {/* Event Date */}
       <div className="mb-4">
-        <label className="block text-gray-700 font-medium mb-2">Date *</label>
+        <label className="block text-gray-700 font-medium mb-2 text-sm">
+          Date *
+        </label>
         <input
           type="date"
           name="eventDate"
           value={eventData.eventDate}
           onChange={handleChange}
-          className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
         />
       </div>
 
       {/* Start & End Time */}
       <div className="flex gap-4 mb-4">
         <div className="flex-1">
-          <label className="block text-gray-700 font-medium mb-2">
+          <label className="block text-gray-700 font-medium mb-2 text-sm">
             Start Time *
           </label>
           <input
@@ -210,11 +209,11 @@ const EventForm: React.FC = () => {
             name="startTime"
             value={eventData.startTime}
             onChange={handleChange}
-            className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
           />
         </div>
         <div className="flex-1">
-          <label className="block text-gray-700 font-medium mb-2">
+          <label className="block text-gray-700 font-medium mb-2 text-sm">
             End Time *
           </label>
           <input
@@ -222,14 +221,14 @@ const EventForm: React.FC = () => {
             name="endTime"
             value={eventData.endTime}
             onChange={handleChange}
-            className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
           />
         </div>
       </div>
 
       {/* Event Location */}
       <div className="mb-4">
-        <label className="block text-gray-700 font-medium mb-2">
+        <label className="block text-gray-700 font-medium mb-2 text-sm">
           Location *
         </label>
         <input
@@ -238,13 +237,13 @@ const EventForm: React.FC = () => {
           value={eventData.eventLocation}
           onChange={handleChange}
           placeholder="Enter event location"
-          className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
         />
       </div>
 
       {/* Event Price (cUSD) */}
       <div className="mb-4">
-        <label className="block text-gray-700 font-medium mb-2">
+        <label className="block text-gray-700 font-medium mb-2 text-sm">
           Ticket Price (cUSD) *
         </label>
         <input
@@ -253,13 +252,13 @@ const EventForm: React.FC = () => {
           value={eventData.eventPrice}
           onChange={handleChange}
           placeholder="Enter ticket price in cUSD"
-          className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
         />
       </div>
 
       {/* Submit Button */}
       <button
-        className="w-full bg-blue-600 text-white p-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+        className="w-full bg-orange-700 text-white p-3 rounded-lg font-semibold hover:bg-orange-800 transition"
         disabled={loading}
         onClick={handleSubmit}
       >

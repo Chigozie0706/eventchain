@@ -2,8 +2,9 @@
 
 ## Overview
 
-Frontend Deployment:  
-GitHub Repository: [EventChain Repository](https://github.com/Chigozie0706/eventchain)
+[Demo](https://eventchain-git-main-chigozie0706s-projects.vercel.app/)
+
+[Repository](https://github.com/Chigozie0706/eventchain)
 
 EventChain is a decentralized event management smart contract deployed on the Celo blockchain. It allows users to create events, buy tickets using cUSD, and manage event participation in a transparent and immutable manner.
 

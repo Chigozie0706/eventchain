@@ -6,7 +6,7 @@ import { useContract } from "../context/ContractContext";
 import { ethers } from "ethers";
 
 export default function Navbar() {
-  const { cUSDToken, address } = useContract(); // ✅ Get `address` from context
+  const { cUSDToken, address } = useContract();
   const pathname = usePathname();
   const [balance, setBalance] = useState<string | null>(null);
 
@@ -15,7 +15,7 @@ export default function Navbar() {
       if (!cUSDToken || !address) return;
       try {
         const bal = await cUSDToken.balanceOf(address);
-        setBalance(ethers.formatUnits(bal, 18)); // ✅ Convert balance from Wei
+        setBalance(ethers.formatUnits(bal, 18));
       } catch (error) {
         console.error("Error fetching balance:", error);
       }
@@ -38,23 +38,23 @@ export default function Navbar() {
       {/* Right: Actions */}
       <div className="flex items-center space-x-6 text-gray-700">
         <button
-          className={`flex items-center text-sm ${linkClass("/create_event")}`}
+          className={`flex items-center text-xs ${linkClass("/create_event")}`}
         >
           <Link href="/create_event">
             <span className="ml-1">Create Event</span>
           </Link>
         </button>
         <button
-          className={`flex items-center text-sm ${linkClass("/view_events")}`}
+          className={`flex items-center text-xs ${linkClass("/view_events")}`}
         >
           <Link href="/view_events">
             <span className="ml-1">View Events</span>
           </Link>
         </button>
 
-        <button className="flex items-center text-sm">
+        {/* <button className="flex items-center text-xs">
           <span className="ml-1 ">Tickets</span>
-        </button>
+        </button> */}
 
         {/* ✅ Display Address & Balance */}
         {address && (

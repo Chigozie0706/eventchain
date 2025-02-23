@@ -2,8 +2,9 @@
 import { useState, useEffect } from "react";
 import EventPage from "@/components/EventPage";
 import { useContract } from "@/context/ContractContext";
-// import { ethers } from "ethers"; // Import ethers.js for transaction handling
 import { parseUnits } from "ethers";
+import { useParams } from "next/navigation";
+import { toast } from "react-hot-toast";
 
 export interface Event {
   owner: string;
@@ -19,11 +20,13 @@ export interface Event {
 }
 
 export default function Home() {
-  // const [event, setEvent] = useState({});
-  // const [event, setEvent] = useState(null);
   const [attendees, setAttendees] = useState([]);
   const [createdEvents, setCreatedEvents] = useState([]);
+  const [loading, setLoading] = useState(false);
   const { contract, cUSDToken } = useContract();
+  const { id } = useParams();
+
+  console.log("id", id);
 
   const [event, setEvent] = useState<Event>({
     owner: "",
@@ -47,7 +50,7 @@ export default function Home() {
         }
 
         // Fetch event details, attendees, and created events
-        const rawData = await contract.getEventById(0);
+        const rawData = await contract.getEventById(id);
         console.log("🔹 Raw Event Data:", rawData); // Debugging
 
         if (!rawData || rawData.length !== 3) {
@@ -110,8 +113,10 @@ export default function Home() {
   const buyTicket = async () => {
     if (!contract || !cUSDToken) return;
 
+    setLoading(true);
+    const toastId = toast.loading("Processing your ticket purchase...");
+
     try {
-      //  const ticketPriceWei = ethers.utils.parseUnits(event.ticketPrice.toString(), "ether");
       const ticketPriceWei = parseUnits(event.ticketPrice.toString(), "ether");
 
       // Step 1: Approve contract to spend cUSD
@@ -122,12 +127,29 @@ export default function Home() {
       await approveTx.wait();
 
       // Step 2: Buy ticket
-      const buyTx = await contract.buyTicket(0);
+      const buyTx = await contract.buyTicket(id);
       await buyTx.wait();
 
-      console.log("✅ Ticket purchased successfully!");
-    } catch (error) {
-      console.error("❌ Error buying ticket:", error);
+      // Dismiss loading toast and show success message
+      toast.dismiss(toastId);
+      toast.success(" Ticket purchased successfully!");
+
+      console.log(" Ticket purchased successfully!");
+    } catch (error: any) {
+      console.error(" Error buying ticket:", error);
+
+      // Dismiss loading toast and show error message
+      toast.dismiss(toastId);
+
+      if (error.reason) {
+        toast.error(`Transaction Reverted: ${error.reason}`);
+      } else if (error.data?.message) {
+        toast.error(`Smart Contract Error: ${error.data.message}`);
+      } else {
+        toast.error("Transaction failed. Please check console for details.");
+      }
+    } finally {
+      setLoading(false); // Ensure loading state is turned off after completion
     }
   };
 
@@ -139,6 +161,7 @@ export default function Home() {
           attendees={attendees}
           createdEvents={createdEvents}
           buyTicket={buyTicket}
+          loading={loading}
         />
       </div>
     </>

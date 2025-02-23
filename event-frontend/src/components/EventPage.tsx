@@ -1,4 +1,5 @@
-import Image from "next/image";
+"use client";
+import AttendeeList from "./AttendeeList";
 
 // interfaces.ts
 export interface Event {
@@ -16,9 +17,10 @@ export interface Event {
 
 export interface EventPageProps {
   event: Event;
-  attendees: string[];
+  attendees: [];
   createdEvents: Event[];
   buyTicket: () => Promise<void>;
+  loading: boolean;
 }
 
 export default function EventPage({
@@ -26,6 +28,7 @@ export default function EventPage({
   attendees,
   createdEvents,
   buyTicket,
+  loading,
 }: EventPageProps) {
   const formattedDate = new Date(event.eventDate * 1000).toLocaleDateString(
     undefined, // Uses the user's locale
@@ -37,13 +40,12 @@ export default function EventPage({
     }
   );
 
-  // Format time dynamically based on user locale
   const formattedStartTime = new Date(
     event.startTime * 1000
   ).toLocaleTimeString(undefined, {
     hour: "numeric",
     minute: "numeric",
-    hour12: true, // Ensures AM/PM format based on locale preference
+    hour12: true,
   });
 
   const formattedEndTime = new Date(event.endTime * 1000).toLocaleTimeString(
@@ -54,7 +56,23 @@ export default function EventPage({
       hour12: true,
     }
   );
-
+  const attendees1 = [
+    "0xAbC1234567890DeF1234567890abcdef12345678",
+    "0x9876543210fedcba9876543210fedcba98765432",
+    "0xabcdefabcdefabcdefabcdefabcdefabcdef",
+    "0xAbC1234567890DeF1234567890abcdef12345678",
+    "0x9876543210fedcba9876543210fedcba98765432",
+    "0xabcdefabcdefabcdefabcdefabcdefabcdef",
+    "0xAbC1234567890DeF1234567890abcdef12345678",
+    "0x9876543210fedcba9876543210fedcba98765432",
+    "0xabcdefabcdefabcdefabcdefabcdefabcdef",
+    "0xAbC1234567890DeF1234567890abcdef12345678",
+    "0x9876543210fedcba9876543210fedcba98765432",
+    "0xabcdefabcdefabcdefabcdefabcdefabcdef",
+    "0xAbC1234567890DeF1234567890abcdef12345678",
+    "0x9876543210fedcba9876543210fedcba98765432",
+    "0xabcdefabcdefabcdefabcdefabcdefabcdef",
+  ];
   return (
     <div className="container mx-auto px-6 md:px-12 lg:px-20 py-8">
       {/* Banner Section */}
@@ -77,11 +95,11 @@ export default function EventPage({
       {/* Event Details Section */}
       <div className="flex flex-col md:flex-row md:justify-between md:space-x-8 mt-10">
         {/* Left Side (Event Info) */}
-        <div className="max-w-4xl bg-white  p-6 md:p-8 ">
-          <h2 className="text-4xl font-bold text-gray-900">
+        <div className="max-w-4xl bg-white p-6 md:p-8">
+          <h2 className="text-2xl font-bold text-gray-900">
             {event.eventName}
           </h2>
-          <p className="text-gray-600 mt-2">{event.eventDetails}</p>
+          <p className="text-gray-600 mt-2 text-sm">{event.eventDetails}</p>
 
           {/* Date and Time */}
           <div className="mt-6">
@@ -103,7 +121,7 @@ export default function EventPage({
             </p>
           </div>
 
-          {/* Location */}
+          {/* Ticket Price */}
           <div className="mt-6">
             <h3 className="text-xl font-semibold">Ticket Price</h3>
             <p className="flex items-center space-x-2 text-gray-700">
@@ -121,23 +139,29 @@ export default function EventPage({
               Contact the organizer to request a refund.
             </p>
           </div>
+
+          <div className="mt-6">
+            <h3 className="text-xl font-semibold mb-4">AttendeeList </h3>
+            <AttendeeList attendees={attendees} />
+          </div>
         </div>
 
         {/* Right Side (Ticket Selection) */}
-        <div className="p-6 md:p-8  w-full md:w-1/3">
+        <div className="p-6 md:p-8 w-full md:w-1/4">
           <div className="border p-4 rounded-lg flex justify-between items-center">
             <div>
-              <p className="font-semibold"> Reserve a spot</p>
-              <p className="text-gray-500">
+              <p className="font-semibold text-sm mb-2">Reserve a spot</p>
+              <p className="text-gray-500 text-sm">
                 Price: {(event.ticketPrice / 1e18).toFixed(2)} cUSD
               </p>
             </div>
           </div>
           <button
-            className="w-full bg-red-600 text-white mt-4 py-2 rounded-lg text-lg font-semibold"
+            className="w-full bg-orange-700 text-white mt-4 py-2 rounded-lg text-sm font-semibold"
             onClick={buyTicket}
+            disabled={loading}
           >
-            Register
+            {loading ? "Processing..." : "Register"}
           </button>
         </div>
       </div>
