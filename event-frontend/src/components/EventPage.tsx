@@ -17,7 +17,7 @@ export interface Event {
 
 export interface EventPageProps {
   event: Event;
-  attendees: [];
+  attendees: string[];
   createdEvents: Event[];
   buyTicket: () => Promise<void>;
   loading: boolean;
