@@ -52,11 +52,17 @@ export default function Navbar() {
           </Link>
         </button>
 
-        {/* <button className="flex items-center text-xs">
-          <span className="ml-1 ">Tickets</span>
-        </button> */}
+        <button
+          className={`flex items-center text-xs ${linkClass(
+            "/view_created_events"
+          )}`}
+        >
+          <Link href="/view_created_events">
+            <span className="ml-1">Created Events</span>
+          </Link>
+        </button>
 
-        {/* ✅ Display Address & Balance */}
+        {/*  Display Address & Balance */}
         {address && (
           <div className="flex items-center space-x-2 text-xs bg-gray-100 px-3 py-1 rounded-full">
             <span className="font-semibold">

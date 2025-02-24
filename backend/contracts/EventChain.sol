@@ -3,7 +3,7 @@ pragma solidity ^0.8.3;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract CeAffairs {
+contract EventChain {
     IERC20 public cUSDToken;
 
     constructor(address _cUSDAddress) {
@@ -159,4 +159,29 @@ contract CeAffairs {
         }
         return (indexes, activeEvents);
     }
+
+    function getActiveEventsByCreator() public view returns (uint256[] memory, Event[] memory) {
+    uint count = 0;
+
+    // Count active events
+    for (uint i = 0; i < events.length; i++) {
+        if (events[i].owner == msg.sender && events[i].isActive) {
+            count++;
+        }
+    }
+
+    // Store active event IDs and events
+    uint256[] memory eventIds = new uint256[](count);
+    Event[] memory activeEvents = new Event[](count);
+    uint j = 0;
+    for (uint i = 0; i < events.length; i++) {
+        if (events[i].owner == msg.sender && events[i].isActive) {
+            eventIds[j] = i; // Store event index
+            activeEvents[j] = events[i]; // Store event details
+            j++;
+        }
+    }
+    return (eventIds, activeEvents);
+}
+
 }

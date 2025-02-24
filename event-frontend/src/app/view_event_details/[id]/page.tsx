@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import EventPage from "@/components/EventPage";
 import { useContract } from "@/context/ContractContext";
 import { parseUnits } from "ethers";
@@ -41,74 +41,67 @@ export default function Home() {
     ticketPrice: 0,
   });
 
-  useEffect(() => {
-    const fetchEventById = async () => {
-      try {
-        if (!contract) {
-          console.error(" Contract instance not found");
-          return;
-        }
-
-        // Fetch event details, attendees, and created events
-        const rawData = await contract.getEventById(id);
-        console.log("🔹 Raw Event Data:", rawData); // Debugging
-
-        if (!rawData || rawData.length !== 3) {
-          console.error(" Unexpected data format from contract");
-          return;
-        }
-
-        // Extract event details, attendees, and created events
-        const [eventDetails, rawAttendees, rawCreatedEvents] = rawData;
-
-        // Format event details
-        const formattedEvent = {
-          owner: eventDetails.owner,
-          eventName: eventDetails.eventName,
-          eventCardImgUrl: eventDetails.eventCardImgUrl,
-          eventDetails: eventDetails.eventDetails,
-          eventDate: Number(eventDetails.eventDate), // Convert BigInt to Number
-          startTime: Number(eventDetails.startTime), // Convert BigInt to Number
-          endTime: Number(eventDetails.endTime), // Convert BigInt to Number
-          eventLocation: eventDetails.eventLocation,
-          isActive: eventDetails.isActive,
-          ticketPrice: Number(eventDetails.ticketPrice),
-        };
-
-        // Format attendees (array of addresses)
-        const formattedAttendees = rawAttendees.map(
-          (attendee: any) => attendee
-        );
-
-        // Format created events (array of Event structs)
-        const formattedCreatedEvents = rawCreatedEvents.map((event: any) => ({
-          owner: event.owner,
-          eventName: event.eventName,
-          eventCardImgUrl: event.eventCardImgUrl,
-          eventDetails: event.eventDetails,
-          eventDate: Number(event.eventDate), // Convert BigInt to Number
-          startTime: Number(event.startTime), // Convert BigInt to Number
-          endTime: Number(event.endTime), // Convert BigInt to Number
-          eventLocation: event.eventLocation,
-          isActive: event.isActive,
-          ticketPrice: Number(event.ticketPrice),
-        }));
-
-        console.log(formattedEvent);
-        // Update state
-        setEvent(formattedEvent);
-        setAttendees(formattedAttendees);
-        setCreatedEvents(formattedCreatedEvents);
-        console.log(" Formatted Event:", formattedEvent); // Debugging
-        console.log(" Formatted Attendees:", formattedAttendees); // Debugging
-        console.log(" Formatted Created Events:", formattedCreatedEvents); // Debugging
-      } catch (error) {
-        console.error(" Error fetching event by ID:", error);
+  // Move fetchEventById outside useEffect so it can be called manually
+  const fetchEventById = useCallback(async () => {
+    try {
+      if (!contract) {
+        console.error(" Contract instance not found");
+        return;
       }
-    };
 
+      const rawData = await contract.getEventById(id);
+      console.log("🔹 Raw Event Data:", rawData); // Debugging
+
+      if (!rawData || rawData.length !== 3) {
+        console.error(" Unexpected data format from contract");
+        return;
+      }
+
+      const [eventDetails, rawAttendees, rawCreatedEvents] = rawData;
+
+      const formattedEvent = {
+        owner: eventDetails.owner,
+        eventName: eventDetails.eventName,
+        eventCardImgUrl: eventDetails.eventCardImgUrl,
+        eventDetails: eventDetails.eventDetails,
+        eventDate: Number(eventDetails.eventDate),
+        startTime: Number(eventDetails.startTime),
+        endTime: Number(eventDetails.endTime),
+        eventLocation: eventDetails.eventLocation,
+        isActive: eventDetails.isActive,
+        ticketPrice: Number(eventDetails.ticketPrice),
+      };
+
+      const formattedAttendees = rawAttendees.map((attendee: any) => attendee);
+
+      const formattedCreatedEvents = rawCreatedEvents.map((event: any) => ({
+        owner: event.owner,
+        eventName: event.eventName,
+        eventCardImgUrl: event.eventCardImgUrl,
+        eventDetails: event.eventDetails,
+        eventDate: Number(event.eventDate),
+        startTime: Number(event.startTime),
+        endTime: Number(event.endTime),
+        eventLocation: event.eventLocation,
+        isActive: event.isActive,
+        ticketPrice: Number(event.ticketPrice),
+      }));
+
+      setEvent(formattedEvent);
+      setAttendees(formattedAttendees);
+      setCreatedEvents(formattedCreatedEvents);
+
+      console.log(" Formatted Event:", formattedEvent);
+      console.log(" Formatted Attendees:", formattedAttendees);
+      console.log(" Formatted Created Events:", formattedCreatedEvents);
+    } catch (error) {
+      console.error(" Error fetching event by ID:", error);
+    }
+  }, [contract, id]);
+
+  useEffect(() => {
     fetchEventById();
-  }, [contract]);
+  }, [contract, fetchEventById]);
 
   const buyTicket = async () => {
     if (!contract || !cUSDToken) return;
@@ -135,6 +128,7 @@ export default function Home() {
       toast.success(" Ticket purchased successfully!");
 
       console.log(" Ticket purchased successfully!");
+      fetchEventById();
     } catch (error: any) {
       console.error(" Error buying ticket:", error);
 

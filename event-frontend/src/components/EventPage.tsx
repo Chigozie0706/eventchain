@@ -56,23 +56,7 @@ export default function EventPage({
       hour12: true,
     }
   );
-  const attendees1 = [
-    "0xAbC1234567890DeF1234567890abcdef12345678",
-    "0x9876543210fedcba9876543210fedcba98765432",
-    "0xabcdefabcdefabcdefabcdefabcdefabcdef",
-    "0xAbC1234567890DeF1234567890abcdef12345678",
-    "0x9876543210fedcba9876543210fedcba98765432",
-    "0xabcdefabcdefabcdefabcdefabcdefabcdef",
-    "0xAbC1234567890DeF1234567890abcdef12345678",
-    "0x9876543210fedcba9876543210fedcba98765432",
-    "0xabcdefabcdefabcdefabcdefabcdefabcdef",
-    "0xAbC1234567890DeF1234567890abcdef12345678",
-    "0x9876543210fedcba9876543210fedcba98765432",
-    "0xabcdefabcdefabcdefabcdefabcdefabcdef",
-    "0xAbC1234567890DeF1234567890abcdef12345678",
-    "0x9876543210fedcba9876543210fedcba98765432",
-    "0xabcdefabcdefabcdefabcdefabcdefabcdef",
-  ];
+
   return (
     <div className="container mx-auto px-6 md:px-12 lg:px-20 py-8">
       {/* Banner Section */}

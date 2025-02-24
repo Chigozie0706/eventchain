@@ -56,7 +56,6 @@ export default function Home() {
 
   return (
     <>
-      {/* <Navbar /> */}
       <div className="">
         <div className="pt-16">
           <h3 className="text-1xl md:text-2xl font-bold mt-20 m-5">

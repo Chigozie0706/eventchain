@@ -28,9 +28,10 @@ export const ContractProvider = ({
   const [cUSDToken, setCUSDToken] = useState<Contract | null>(null);
   const [address, setAddress] = useState<string | null>(null);
 
-  const contractAddress = "0x3F1e2BBD47e3305FC0e4c13c108764578ff74a97";
+  const contractAddress = "0xBa26366767eA843A656853d348c763c41f9D67Ca";
   const cUSDTokenAddress = "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1";
 
+  // 0x3F1e2BBD47e3305FC0e4c13c108764578ff74a97
   useEffect(() => {
     const loadContract = async () => {
       if (typeof window !== "undefined" && window.ethereum) {
