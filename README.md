@@ -132,7 +132,7 @@ Returns all active events along with their indexes.
 
 ## How It Works
 
-1. **Deploy the Contract**: Deploy `CeAffairs` to the Celo blockchain with the cUSD contract address as a parameter.
+1. **Deploy the Contract**: Deploy `EventChain` to the Celo blockchain with the cUSD contract address as a parameter.
 2. **Create Events**: Users can create events by calling `createEvent`.
 3. **View Events**: Users can fetch event details using `getEventById` or list all events using `getAllEvents`.
 4. **Buy Tickets**: Users can purchase tickets using `buyTicket`, which transfers cUSD to the event creator.
@@ -178,7 +178,7 @@ The project is divided into two main folders:
    ```
 4. Deploy the contract to Celo Alfajores:
    ```sh
-   npx hardhat ignition deploy ./ignition/modules/CeAffairs.js --network celo_alfajores
+   npx hardhat ignition deploy ./ignition/modules/EventChain.js --network celo_alfajores
    ```
 
 ### Frontend Setup
@@ -195,6 +195,8 @@ The project is divided into two main folders:
    ```sh
    yarn dev
    ```
+
+- Note: you can use pnpm also
 
 ## License
 

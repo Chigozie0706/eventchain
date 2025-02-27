@@ -1,15 +1,32 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.3;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+/**
+ * @title EventChain
+ * @dev A decentralized event management contract built on the Celo blockchain.
+ *      Allows users to create, join, and manage events while providing
+ *      secure ticket purchases via cUSD.
+ */
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+/// @dev cUSD token interface for handling ticket payments.
 contract EventChain {
     IERC20 public cUSDToken;
 
+
+/**
+ * @dev Deploys the contract and sets the cUSD token address.
+ * @param _cUSDAddress The address of the cUSD token contract on Celo.
+*/
     constructor(address _cUSDAddress) {
         cUSDToken = IERC20(_cUSDAddress);
     }
 
+
+/**
+ * @dev Represents an Event with details such as owner, name, time, location,
+ *      ticket price, and active status.
+*/
     struct Event {
         address owner;
         string eventName;
@@ -23,6 +40,7 @@ contract EventChain {
         uint256 ticketPrice;
     }
 
+/// @dev Stores all events created on the platform.
     Event[] public events;
 
     mapping(uint256 => address[]) internal eventAttendees;
