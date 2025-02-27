@@ -24,6 +24,25 @@ EventChain is a decentralized event management smart contract deployed on the Ce
 - **License**: MIT
 - **Solidity Version**: ^0.8.3
 
+## Deployed Contract Addresses on Celo
+
+- **contract address**: 0xBa26366767eA843A656853d348c763c41f9D67Ca
+
+- [Celo explorer](https://alfajores.celoscan.io/address/0xBa26366767eA843A656853d348c763c41f9D67Ca)
+
+## Contracts Should Be Verified
+
+[Celo explorer](https://alfajores.celoscan.io/address/0xBa26366767eA843A656853d348c763c41f9D67Ca)
+
+## Screenshots
+
+![Image](https://github.com/user-attachments/assets/b796ae16-92c8-4592-a55f-25cc575a3c10)
+![Image](https://github.com/user-attachments/assets/c37491ec-c0d8-43cd-980e-8086c04e5994)
+![Image](https://github.com/user-attachments/assets/1317079a-d067-4d99-ae08-0ca5c731e4e0)
+![Image](https://github.com/user-attachments/assets/c89c9386-51ea-4116-b3d2-6acd2c463626)
+![Image](https://github.com/user-attachments/assets/33a042eb-2f1e-4cfd-b3ed-00e90c318ae8)
+![Image](https://github.com/user-attachments/assets/c784d079-1c17-4b95-a32d-6b396e21e19e)
+
 ## Functions
 
 ### 1. `createEvent`
