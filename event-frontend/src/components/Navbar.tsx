@@ -32,7 +32,7 @@ export default function Navbar() {
     <nav className="flex items-center justify-between bg-white px-6 py-3 shadow-md fixed w-full z-50">
       {/* Left: Logo */}
       <div className="text-orange-500 text-2xl font-bold">
-        <Link href="/">EventCelo</Link>
+        <Link href="/">EventChain</Link>
       </div>
 
       {/* Right: Actions */}
