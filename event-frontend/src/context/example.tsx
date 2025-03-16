@@ -34,13 +34,9 @@ export const ContractProvider = ({
   const [cUSDToken, setCUSDToken] = useState<Contract | null>(null);
   const [address, setAddress] = useState<string | null>(null);
 
-  const contractAddress = "0x5D8628Ac24Df37257Ef1104965298FF07C354299";
+  const contractAddress = "0xBa26366767eA843A656853d348c763c41f9D67Ca";
   const cUSDTokenAddress = "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1";
-  const CELO_RPC = "https://alfajores-forno.celo-testnet.org";
-
-  // 0x3032C5677f6126c4BC0618F425e76496B34D5dE7
-  // 0xBa26366767eA843A656853d348c763c41f9D67Ca
-  // 0x3032C5677f6126c4BC0618F425e76496B34D5dE7
+  const CELO_RPC = "https://alfajores-forno.celo-testnet.org"; // Read-only RPC
 
   // Initialize read-only contract on load
   useEffect(() => {

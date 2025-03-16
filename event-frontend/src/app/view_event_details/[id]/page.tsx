@@ -23,7 +23,7 @@ export default function Home() {
   const [attendees, setAttendees] = useState([]);
   const [createdEvents, setCreatedEvents] = useState([]);
   const [loading, setLoading] = useState(false);
-  const { contract, cUSDToken } = useContract();
+  const { contract, readOnlyContract, cUSDToken } = useContract();
   const { id } = useParams();
 
   console.log("id", id);
@@ -44,16 +44,16 @@ export default function Home() {
   // Move fetchEventById outside useEffect so it can be called manually
   const fetchEventById = useCallback(async () => {
     try {
-      if (!contract) {
-        console.error(" Contract instance not found");
+      if (!readOnlyContract) {
+        console.error(" readOnlyContract instance not found");
         return;
       }
 
-      const rawData = await contract.getEventById(id);
+      const rawData = await readOnlyContract.getEventById(id);
       console.log("🔹 Raw Event Data:", rawData); // Debugging
 
       if (!rawData || rawData.length !== 3) {
-        console.error(" Unexpected data format from contract");
+        console.error(" Unexpected data format from readOnlyContract");
         return;
       }
 
@@ -101,7 +101,7 @@ export default function Home() {
 
   useEffect(() => {
     fetchEventById();
-  }, [contract, fetchEventById]);
+  }, [readOnlyContract, fetchEventById]);
 
   const buyTicket = async () => {
     if (!contract || !cUSDToken) return;
@@ -147,6 +147,38 @@ export default function Home() {
     }
   };
 
+  const requestRefund = async () => {
+    if (!contract) return;
+
+    setLoading(true);
+    const toastId = toast.loading("Processing refund request...");
+
+    try {
+      const refundTx = await contract.requestRefund(id);
+      await refundTx.wait();
+
+      toast.dismiss(toastId);
+      toast.success("Refund processed successfully!");
+
+      console.log("Refund successful!");
+      fetchEventById(); // Refresh event details
+    } catch (error: any) {
+      console.error("Error requesting refund:", error);
+
+      toast.dismiss(toastId);
+
+      if (error.reason) {
+        toast.error(`Transaction Reverted: ${error.reason}`);
+      } else if (error.data?.message) {
+        toast.error(`Smart Contract Error: ${error.data.message}`);
+      } else {
+        toast.error("Transaction failed. Please check console for details.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
       <div className="pt-16">
@@ -155,6 +187,7 @@ export default function Home() {
           attendees={attendees}
           createdEvents={createdEvents}
           buyTicket={buyTicket}
+          requestRefund={requestRefund}
           loading={loading}
         />
       </div>

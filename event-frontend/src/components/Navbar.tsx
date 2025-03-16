@@ -6,7 +6,7 @@ import { useContract } from "../context/ContractContext";
 import { ethers } from "ethers";
 
 export default function Navbar() {
-  const { cUSDToken, address } = useContract();
+  const { cUSDToken, address, connectWallet } = useContract();
   const pathname = usePathname();
   const [balance, setBalance] = useState<string | null>(null);
 
@@ -63,13 +63,20 @@ export default function Navbar() {
         </button>
 
         {/*  Display Address & Balance */}
-        {address && (
+        {address ? (
           <div className="flex items-center space-x-2 text-xs bg-gray-100 px-3 py-1 rounded-full">
             <span className="font-semibold">
               {address.slice(0, 6)}...{address.slice(-4)}
             </span>
             {balance && <span className="text-orange-600">{balance} cUSD</span>}
           </div>
+        ) : (
+          <button
+            onClick={connectWallet}
+            className="bg-orange-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-orange-600 transition"
+          >
+            Connect Wallet
+          </button>
         )}
       </div>
     </nav>

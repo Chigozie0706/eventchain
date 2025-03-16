@@ -20,6 +20,7 @@ export interface EventPageProps {
   attendees: string[];
   createdEvents: Event[];
   buyTicket: () => Promise<void>;
+  requestRefund: () => Promise<void>;
   loading: boolean;
 }
 
@@ -28,6 +29,7 @@ export default function EventPage({
   attendees,
   createdEvents,
   buyTicket,
+  requestRefund,
   loading,
 }: EventPageProps) {
   const formattedDate = new Date(event.eventDate * 1000).toLocaleDateString(
@@ -146,6 +148,14 @@ export default function EventPage({
             disabled={loading}
           >
             {loading ? "Processing..." : "Register"}
+          </button>
+
+          <button
+            onClick={requestRefund}
+            className="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600 transition"
+            disabled={loading}
+          >
+            {loading ? "Processing..." : "Request Refund"}
           </button>
         </div>
       </div>

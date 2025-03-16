@@ -26,7 +26,7 @@ const EventForm: React.FC = () => {
     eventPrice: "",
   });
 
-  const { contract } = useContract();
+  const { contract, connectWallet } = useContract();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,20 +70,103 @@ const EventForm: React.FC = () => {
     return true;
   };
 
+  // const handleSubmit = async () => {
+  //   if (!validateForm()) return;
+
+  //   if (!contract) {
+  //     console.error("Contract not found");
+  //     toast.error("Contract not found");
+
+  //     return;
+  //   }
+
+  //   try {
+  //     setLoading(true);
+  //     setSuccess(null);
+  //     setError(null);
+
+  //     // Convert time strings to UNIX timestamps
+  //     const eventDate = Math.floor(
+  //       new Date(eventData.eventDate).getTime() / 1000
+  //     );
+  //     const startTime = Math.floor(
+  //       new Date(`${eventData.eventDate}T${eventData.startTime}`).getTime() /
+  //         1000
+  //     );
+  //     const endTime = Math.floor(
+  //       new Date(`${eventData.eventDate}T${eventData.endTime}`).getTime() / 1000
+  //     );
+
+  //     const priceInWei = (parseFloat(eventData.eventPrice) * 1e18).toString();
+
+  //     // Send transaction
+  //     const tx = await contract.createEvent(
+  //       eventData.eventName,
+  //       eventData.eventCardImgUrl,
+  //       eventData.eventDetails,
+  //       eventDate,
+  //       startTime,
+  //       endTime,
+  //       eventData.eventLocation,
+  //       priceInWei
+  //     );
+
+  //     await tx.wait();
+  //     toast.success("Event successfully created!");
+
+  //     setEventData({
+  //       eventName: "",
+  //       eventCardImgUrl: "",
+  //       eventDetails: "",
+  //       eventDate: "",
+  //       startTime: "",
+  //       endTime: "",
+  //       eventLocation: "",
+  //       eventPrice: "",
+  //     });
+
+  //     router.push("/view_events");
+  //   } catch (err: any) {
+  //     toast.error(err.message || "An error occurred.");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
-    if (!contract) {
-      console.error("Contract not found");
-      toast.error("Contract not found");
+    // if (!contract) {
+    //   console.error("Contract not found");
+    //   toast.error("Contract not found");
 
-      return;
-    }
+    //   return;
+    // }
+
+    // if (!contract) {
+    //   await connectWallet();
+
+    //   return;
+    // }
+
+    setLoading(true);
+    setSuccess(null);
+    setError(null);
 
     try {
-      setLoading(true);
-      setSuccess(null);
-      setError(null);
+      let activeContract = contract;
+
+      // If contract is null, connect wallet and get the contract instance
+      if (!activeContract) {
+        activeContract = await connectWallet();
+      }
+
+      // If contract is still null, show error
+      if (!activeContract) {
+        toast.error("Failed to connect to the contract. Please try again.");
+        setLoading(false);
+        return;
+      }
 
       // Convert time strings to UNIX timestamps
       const eventDate = Math.floor(
@@ -100,7 +183,7 @@ const EventForm: React.FC = () => {
       const priceInWei = (parseFloat(eventData.eventPrice) * 1e18).toString();
 
       // Send transaction
-      const tx = await contract.createEvent(
+      const tx = await activeContract.createEvent(
         eventData.eventName,
         eventData.eventCardImgUrl,
         eventData.eventDetails,

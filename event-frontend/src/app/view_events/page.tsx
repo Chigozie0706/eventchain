@@ -6,22 +6,22 @@ import { useContract } from "@/context/ContractContext";
 export default function Home() {
   const [events, setEvents] = useState([]);
   const [, setIndexes] = useState([]);
-  const { contract } = useContract();
+  const { contract, readOnlyContract } = useContract();
 
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        if (!contract) {
-          console.error(" Contract instance not found");
+        if (!readOnlyContract) {
+          console.error(" readOnlyContract instance not found");
           return;
         }
 
         // Fetch all active events along with their indexes
-        const rawData = await contract.getAllEvents();
+        const rawData = await readOnlyContract.getAllEvents();
         console.log("🔹 Raw Events Data:", rawData); // Debugging
 
         if (!rawData || rawData.length !== 2) {
-          console.error(" Unexpected data format from contract");
+          console.error(" Unexpected data format from readOnlyContract");
           return;
         }
 
@@ -52,7 +52,7 @@ export default function Home() {
     };
 
     fetchEvents();
-  }, [contract]);
+  }, [readOnlyContract]);
 
   return (
     <>
