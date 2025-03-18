@@ -44,13 +44,10 @@ const EventForm: React.FC = () => {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     setEventData({ ...eventData, [e.target.name]: e.target.value });
-    console.log(eventData);
   };
 
   const handleTokenChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setEventData({ ...eventData, paymentToken: e.target.value });
-
-    console.log(eventData);
   };
 
   // Validate form fields
@@ -238,29 +235,136 @@ const EventForm: React.FC = () => {
   //   }
   // };
 
+  // const handleSubmit = async () => {
+  //   if (!validateForm()) return;
+
+  //   const isTokenSupported = tokenOptions.some(
+  //     (token) => token.address === eventData.paymentToken
+  //   );
+
+  //   if (!isTokenSupported) {
+  //     toast.error("Selected payment token is not supported.");
+  //     return;
+  //   }
+
+  //   setLoading(true);
+  //   setSuccess(null);
+  //   setError(null);
+
+  //   try {
+  //     let activeContract = contract;
+
+  //     // If contract is null, connect wallet and get the contract instance
+  //     if (!activeContract) {
+  //       activeContract = await connectWallet();
+  //     }
+
+  //     // If contract is still null, show error
+  //     if (!activeContract) {
+  //       toast.error("Failed to connect to the contract. Please try again.");
+  //       setLoading(false);
+  //       return;
+  //     }
+
+  //     // Convert time strings to UNIX timestamps
+  //     const eventDate = Math.floor(
+  //       new Date(eventData.eventDate).getTime() / 1000
+  //     );
+  //     const startTime = Math.floor(
+  //       new Date(`${eventData.eventDate}T${eventData.startTime}`).getTime() /
+  //         1000
+  //     );
+  //     const endTime = Math.floor(
+  //       new Date(`${eventData.eventDate}T${eventData.endTime}`).getTime() / 1000
+  //     );
+
+  //     // Validate timestamps
+  //     if (startTime < eventDate || endTime < eventDate) {
+  //       toast.error("Start and end times must be after the event date.");
+  //       setLoading(false);
+  //       return;
+  //     }
+
+  //     const priceInWei = (parseFloat(eventData.eventPrice) * 1e18).toString();
+
+  //     // Validate payment token
+  //     if (
+  //       !tokenOptions.some((token) => token.address === eventData.paymentToken)
+  //     ) {
+  //       toast.error("Selected payment token is not supported.");
+  //       setLoading(false);
+  //       return;
+  //     }
+
+  //     // Send transaction
+  //     const tx = await activeContract.createEvent(
+  //       eventData.eventName,
+  //       eventData.eventCardImgUrl,
+  //       eventData.eventDetails,
+  //       eventDate,
+  //       startTime,
+  //       endTime,
+  //       eventData.eventLocation,
+  //       priceInWei,
+  //       eventData.paymentToken,
+  //       { gasLimit: 500000 } // Increase gas limit
+  //     );
+
+  //     await tx.wait();
+  //     toast.success("Event successfully created!");
+
+  //     setEventData({
+  //       eventName: "",
+  //       eventCardImgUrl: "",
+  //       eventDetails: "",
+  //       eventDate: "",
+  //       startTime: "",
+  //       endTime: "",
+  //       eventLocation: "",
+  //       eventPrice: "",
+  //       paymentToken: "",
+  //     });
+
+  //     router.push("/view_events");
+  //   } catch (err: any) {
+  //     toast.error(err.message || "An error occurred.");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   const handleSubmit = async () => {
+    // Check if all required fields are filled
     if (!validateForm()) return;
 
+    // Ensure the selected payment token is supported
+    const isTokenSupported = tokenOptions.some(
+      (token) => token.address === eventData.paymentToken
+    );
+
+    if (!isTokenSupported) {
+      toast.error("Selected payment token is not supported.");
+      return;
+    }
+
+    // Proceed with event creation
     setLoading(true);
-    setSuccess(null);
-    setError(null);
 
     try {
       let activeContract = contract;
 
-      // If contract is null, connect wallet and get the contract instance
+      // Connect wallet if not already connected
       if (!activeContract) {
         activeContract = await connectWallet();
       }
 
-      // If contract is still null, show error
       if (!activeContract) {
         toast.error("Failed to connect to the contract. Please try again.");
         setLoading(false);
         return;
       }
 
-      // Convert time strings to UNIX timestamps
+      // Convert timestamps to Unix format
       const eventDate = Math.floor(
         new Date(eventData.eventDate).getTime() / 1000
       );
@@ -272,25 +376,10 @@ const EventForm: React.FC = () => {
         new Date(`${eventData.eventDate}T${eventData.endTime}`).getTime() / 1000
       );
 
-      // Validate timestamps
-      if (startTime < eventDate || endTime < eventDate) {
-        toast.error("Start and end times must be after the event date.");
-        setLoading(false);
-        return;
-      }
-
+      // Convert ticket price to wei
       const priceInWei = (parseFloat(eventData.eventPrice) * 1e18).toString();
 
-      // Validate payment token
-      if (
-        !tokenOptions.some((token) => token.address === eventData.paymentToken)
-      ) {
-        toast.error("Selected payment token is not supported.");
-        setLoading(false);
-        return;
-      }
-
-      // Send transaction
+      // Send transaction to create event
       const tx = await activeContract.createEvent(
         eventData.eventName,
         eventData.eventCardImgUrl,
@@ -301,12 +390,13 @@ const EventForm: React.FC = () => {
         eventData.eventLocation,
         priceInWei,
         eventData.paymentToken,
-        { gasLimit: 500000 } // Increase gas limit
+        { gasLimit: 5000000 } // Increase gas limit
       );
 
       await tx.wait();
       toast.success("Event successfully created!");
 
+      // Reset form
       setEventData({
         eventName: "",
         eventCardImgUrl: "",
@@ -319,6 +409,7 @@ const EventForm: React.FC = () => {
         paymentToken: "",
       });
 
+      // Redirect to view events page
       router.push("/view_events");
     } catch (err: any) {
       toast.error(err.message || "An error occurred.");

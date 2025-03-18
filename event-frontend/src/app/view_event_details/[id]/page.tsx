@@ -5,6 +5,7 @@ import { useContract } from "@/context/ContractContext";
 import { parseUnits } from "ethers";
 import { useParams } from "next/navigation";
 import { toast } from "react-hot-toast";
+import { ethers } from "ethers";
 
 export interface Event {
   owner: string;
@@ -101,7 +102,7 @@ export default function Home() {
         fundsHeld: Number(event.fundsHeld),
         isCanceled: event.isCanceled,
         fundsReleased: event.fundsReleased,
-        paymentToken: event.paymentToken,
+        paymentToken: ethers.getAddress(eventDetails.paymentToken), // Ensure checksummed
       }));
 
       setEvent(formattedEvent);
@@ -120,7 +121,131 @@ export default function Home() {
     fetchEventById();
   }, [readOnlyContract, fetchEventById]);
 
-  const buyTicket = async () => {
+  // const buyTicket = async () => {
+  //   console.log("Attempting to buy ticket with:", event.paymentToken);
+
+  //   if (!address) {
+  //     toast.error("Please connect your wallet first.");
+  //     return;
+  //   }
+
+  //   if (!contract) {
+  //     toast.error("Contract not initialized.");
+  //     return;
+  //   }
+
+  //   const paymentTokenContract =
+  //     mentoTokenContracts["0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1"];
+  //   if (!paymentTokenContract) {
+  //     toast.error(`Unsupported payment token: ${event.paymentToken}`);
+  //     return;
+  //   }
+
+  //   setLoading(true);
+  //   const toastId = toast.loading("Processing your ticket purchase...");
+
+  //   try {
+  //     const ticketPriceWei = parseUnits(event.ticketPrice.toString(), "ether");
+
+  //     console.log(`Approving ${event.paymentToken} spending...`);
+
+  //     // Step 1: Approve the contract to spend the token
+  //     const approveTx = await paymentTokenContract.approve(
+  //       contract.target,
+  //       ticketPriceWei
+  //     );
+  //     await approveTx.wait();
+  //     console.log("Approval successful:", approveTx);
+
+  //     console.log("Purchasing ticket...");
+
+  //     // Step 2: Buy the ticket
+  //     const buyTx = await contract.buyTicket(id);
+  //     await buyTx.wait();
+  //     console.log("Ticket purchased successfully:", buyTx);
+
+  //     toast.dismiss(toastId);
+  //     toast.success("Ticket purchased successfully!");
+
+  //     fetchEventById(); // Refresh event details
+  //   } catch (error: any) {
+  //     console.error("Error buying ticket:", error);
+
+  //     toast.dismiss(toastId);
+  //     toast.error(error.reason || "Transaction failed.");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  // const buyTicket = async () => {
+  //   console.log("Attempting to buy ticket with:", event.paymentToken);
+
+  //   if (!address) {
+  //     toast.error("Please connect your wallet first.");
+  //     return;
+  //   }
+
+  //   if (!contract) {
+  //     toast.error("Contract not initialized.");
+  //     return;
+  //   }
+
+  //   // Dynamically fetch the payment token contract
+  //   const paymentTokenContract = mentoTokenContracts[event.paymentToken];
+  //   if (!paymentTokenContract) {
+  //     toast.error(`Unsupported payment token: ${event.paymentToken}`);
+  //     return;
+  //   }
+
+  //   setLoading(true);
+  //   const toastId = toast.loading("Processing your ticket purchase...");
+
+  //   try {
+  //     const ticketPriceWei = parseUnits(event.ticketPrice.toString(), "ether");
+
+  //     console.log(`Approving ${event.paymentToken} spending...`);
+
+  //     // Step 1: Approve the contract to spend the token
+  //     // const approveAmount = ticketPriceWei.mul(110).div(100); // Approve 10% more than the ticket price
+  //         const approveAmount = (ticketPriceWei * BigInt(110)) / BigInt(100); // Approve 10% more than the ticket price
+
+  //     const approveTx = await paymentTokenContract.approve(
+  //       contract.target,
+  //       approveAmount
+  //     );
+  //     await approveTx.wait();
+  //     console.log("Approval successful:", approveTx);
+
+  //     console.log("Purchasing ticket...");
+
+  //     // Step 2: Buy the ticket
+  //     const buyTx = await contract.buyTicket(id);
+  //     await buyTx.wait();
+  //     console.log("Ticket purchased successfully:", buyTx);
+
+  //     toast.dismiss(toastId);
+  //     toast.success("Ticket purchased successfully!");
+
+  //     fetchEventById(); // Refresh event details
+  //   } catch (error: any) {
+  //     console.error("Error buying ticket:", error);
+
+  //     toast.dismiss(toastId);
+
+  //     if (error.reason) {
+  //       toast.error(`Transaction Reverted: ${error.reason}`);
+  //     } else if (error.data?.message) {
+  //       toast.error(`Smart Contract Error: ${error.data.message}`);
+  //     } else {
+  //       toast.error("Transaction failed. Please check console for details.");
+  //     }
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  const buyTicket1 = async () => {
     console.log("Attempting to buy ticket with:", event.paymentToken);
 
     if (!address) {
@@ -133,9 +258,20 @@ export default function Home() {
       return;
     }
 
+    // Log mentoTokenContracts for debugging
+    console.log(
+      "Mento Token Contracts:",
+      mentoTokenContracts[event.paymentToken]
+    );
+
+    // Log event.paymentToken for debugging
+    console.log("Event Payment Token:", event.paymentToken);
+
+    // Check if the payment token is supported
     const paymentTokenContract = mentoTokenContracts[event.paymentToken];
     if (!paymentTokenContract) {
-      toast.error(`Unsupported payment token: ${event.paymentToken}`);
+      console.error("Unsupported payment token:", event.paymentToken);
+      toast.error(`Unsupport payment token: ${event.paymentToken}`);
       return;
     }
 
@@ -148,9 +284,10 @@ export default function Home() {
       console.log(`Approving ${event.paymentToken} spending...`);
 
       // Step 1: Approve the contract to spend the token
+      const approveAmount = (ticketPriceWei * BigInt(110)) / BigInt(100); // Approve 10% more than the ticket price
       const approveTx = await paymentTokenContract.approve(
         contract.target,
-        ticketPriceWei
+        approveAmount
       );
       await approveTx.wait();
       console.log("Approval successful:", approveTx);
@@ -170,7 +307,86 @@ export default function Home() {
       console.error("Error buying ticket:", error);
 
       toast.dismiss(toastId);
-      toast.error(error.reason || "Transaction failed.");
+
+      if (error.reason) {
+        toast.error(`Transaction Reverted: ${error.reason}`);
+      } else if (error.data?.message) {
+        toast.error(`Smart Contract Error: ${error.data.message}`);
+      } else {
+        toast.error("Transaction failed. Please check console for details.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const buyTicket = async () => {
+    console.log("Attempting to buy ticket with:", event.paymentToken);
+
+    if (!address) {
+      toast.error("Please connect your wallet first.");
+      return;
+    }
+
+    if (!contract) {
+      toast.error("Contract not initialized.");
+      return;
+    }
+
+    // Log mentoTokenContracts for debugging
+    console.log("Mento Token Contracts:", mentoTokenContracts);
+
+    // Log event.paymentToken for debugging
+    console.log("Event Payment Token:", event.paymentToken);
+
+    // Check if the payment token is supported
+    const paymentTokenContract = mentoTokenContracts[event.paymentToken];
+    if (!paymentTokenContract) {
+      console.error("Unsupported payment token:", event.paymentToken);
+      toast.error(`Unsupported payment token: ${event.paymentToken}`);
+      return;
+    }
+
+    setLoading(true);
+    const toastId = toast.loading("Processing your ticket purchase...");
+
+    try {
+      const ticketPriceWei = parseUnits(event.ticketPrice.toString(), "ether");
+
+      console.log(`Approving ${event.paymentToken} spending...`);
+
+      // Step 1: Approve the contract to spend the token
+      const approveAmount = (ticketPriceWei * BigInt(110)) / BigInt(100); // Approve 10% more than the ticket price
+      const approveTx = await paymentTokenContract.approve(
+        contract.target,
+        approveAmount
+      );
+      await approveTx.wait();
+      console.log("Approval successful:", approveTx);
+
+      console.log("Purchasing ticket...");
+
+      // Step 2: Buy the ticket
+      const buyTx = await contract.buyTicket(id);
+      await buyTx.wait();
+      console.log("Ticket purchased successfully:", buyTx);
+
+      toast.dismiss(toastId);
+      toast.success("Ticket purchased successfully!");
+
+      fetchEventById(); // Refresh event details
+    } catch (error: any) {
+      console.error("Error buying ticket:", error);
+
+      toast.dismiss(toastId);
+
+      if (error.reason) {
+        toast.error(`Transaction Reverted: ${error.reason}`);
+      } else if (error.data?.message) {
+        toast.error(`Smart Contract Error: ${error.data.message}`);
+      } else {
+        toast.error("Transaction failed. Please check console for details.");
+      }
     } finally {
       setLoading(false);
     }

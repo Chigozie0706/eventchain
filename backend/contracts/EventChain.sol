@@ -10,18 +10,11 @@ pragma solidity ^0.8.3;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-interface IMentoExchange {
-    function exchange(address sellToken, address buyToken, uint256 sellAmount, uint256 minBuyAmount) external returns (uint256);
-}
-
-
 
 contract EventChain {
-    IMentoExchange public mentoExchange;
     mapping(address => bool) public supportedTokens; // Mento supported tokens (cUSD, cEUR, cCOP)
 
-    constructor(address _mentoExchange, address[] memory _supportedTokens) {
-        mentoExchange = IMentoExchange(_mentoExchange);
+    constructor(address[] memory _supportedTokens) {
         for (uint256 i = 0; i < _supportedTokens.length; i++) {
             supportedTokens[_supportedTokens[i]] = true;
         }
@@ -50,7 +43,6 @@ contract EventChain {
     mapping(address => Event[]) internal creatorEvents;
     mapping(uint256 => mapping(address => bool)) public hasPurchasedTicket;
 
-    // event TicketPurchased(uint256 indexed eventId, address indexed buyer, uint256 amount);
 
     event TicketPurchased(uint256 indexed eventId, address indexed buyer, uint256 amount, address paymentToken);
     event EventCanceled(uint256 indexed eventId);
@@ -74,6 +66,10 @@ contract EventChain {
         address _paymentToken
 
     ) public {
+
+     require(supportedTokens[_paymentToken], "Unsupported payment token");
+
+
         Event memory newEvent = Event({
             owner: msg.sender,
             eventName: _eventName,
