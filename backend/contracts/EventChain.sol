@@ -10,11 +10,21 @@ pragma solidity ^0.8.3;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract EventChain {
-    IERC20 public cUSDToken;
+interface IMentoExchange {
+    function exchange(address sellToken, address buyToken, uint256 sellAmount, uint256 minBuyAmount) external returns (uint256);
+}
 
-    constructor(address _cUSDAddress) {
-        cUSDToken = IERC20(_cUSDAddress);
+
+
+contract EventChain {
+    IMentoExchange public mentoExchange;
+    mapping(address => bool) public supportedTokens; // Mento supported tokens (cUSD, cEUR, cCOP)
+
+    constructor(address _mentoExchange, address[] memory _supportedTokens) {
+        mentoExchange = IMentoExchange(_mentoExchange);
+        for (uint256 i = 0; i < _supportedTokens.length; i++) {
+            supportedTokens[_supportedTokens[i]] = true;
+        }
     }
 
     struct Event {
@@ -31,6 +41,7 @@ contract EventChain {
         uint256 fundsHeld;  
         bool isCanceled;
         bool fundsReleased;
+        address paymentToken;
     }
 
     Event[] public events;
@@ -39,7 +50,9 @@ contract EventChain {
     mapping(address => Event[]) internal creatorEvents;
     mapping(uint256 => mapping(address => bool)) public hasPurchasedTicket;
 
-    event TicketPurchased(uint256 indexed eventId, address indexed buyer, uint256 amount);
+    // event TicketPurchased(uint256 indexed eventId, address indexed buyer, uint256 amount);
+
+    event TicketPurchased(uint256 indexed eventId, address indexed buyer, uint256 amount, address paymentToken);
     event EventCanceled(uint256 indexed eventId);
     event RefundIssued(uint256 indexed eventId, address indexed user, uint256 amount);
     event FundsReleased(uint256 indexed eventId, uint256 amount);
@@ -57,7 +70,9 @@ contract EventChain {
         uint64 _startTime,
         uint64 _endTime,
         string memory _eventLocation,
-        uint256 _ticketPrice
+        uint256 _ticketPrice,
+        address _paymentToken
+
     ) public {
         Event memory newEvent = Event({
             owner: msg.sender,
@@ -72,30 +87,44 @@ contract EventChain {
             isActive: true,
             fundsHeld: 0,
             isCanceled: false,
-            fundsReleased: false
+            fundsReleased: false,
+            paymentToken: _paymentToken
+
         });
 
         events.push(newEvent);
         creatorEvents[msg.sender].push(newEvent);
     }
 
-    function buyTicket(uint256 _index) public {
-        require(_index < events.length, "Invalid event ID");
-        require(events[_index].eventDate > block.timestamp, "Event expired");
-        require(events[_index].isActive, "Event is inactive");
-        require(!hasPurchasedTicket[_index][msg.sender], "Already purchased");
+function buyTicket(uint256 _index) public {
+    require(_index < events.length, "Invalid event ID");
+    require(events[_index].eventDate > block.timestamp, "Event expired");
+    require(events[_index].isActive, "Event is inactive");
+    require(!hasPurchasedTicket[_index][msg.sender], "Already purchased");
 
-        uint256 price = events[_index].ticketPrice;
-        require(price > 0, "Free event, no purchase needed");
+    uint256 price = events[_index].ticketPrice;
+    address eventToken = events[_index].paymentToken;
 
-        require(cUSDToken.transferFrom(msg.sender, address(this), price), "Payment failed");
+    // Ensure the user has approved the contract to spend the event token
+    require(
+        IERC20(eventToken).allowance(msg.sender, address(this)) >= price,
+        "Insufficient token allowance"
+    );
 
-        hasPurchasedTicket[_index][msg.sender] = true;
-        eventAttendees[_index].push(msg.sender);
-        events[_index].fundsHeld += price; // Funds stored in escrow
+    // Transfer payment to the contract
+    require(
+        IERC20(eventToken).transferFrom(msg.sender, address(this), price),
+        "Payment failed"
+    );
 
-        emit TicketPurchased(_index, msg.sender, price);
-    }
+    // Update state
+    hasPurchasedTicket[_index][msg.sender] = true;
+    eventAttendees[_index].push(msg.sender);
+    events[_index].fundsHeld += price;
+
+    emit TicketPurchased(_index, msg.sender, price, eventToken);
+}
+
 
     function cancelEvent(uint256 _index) public onlyOwner(_index) {
         require(_index < events.length, "Invalid event ID");
@@ -133,7 +162,10 @@ function requestRefund(uint256 _index) public {
         }
     }
 
-    require(cUSDToken.transfer(msg.sender, refundAmount), "Refund failed");
+   // require(cUSDToken.transfer(msg.sender, refundAmount), "Refund failed");
+
+    require(IERC20(events[_index].paymentToken).transfer(msg.sender, refundAmount), "Refund failed");
+
 
     emit RefundIssued(_index, msg.sender, refundAmount);
 }
@@ -148,7 +180,10 @@ function requestRefund(uint256 _index) public {
         events[_index].fundsHeld = 0;
         events[_index].fundsReleased = true;
 
-        require(cUSDToken.transfer(events[_index].owner, amountToRelease), "Fund transfer failed");
+        // require(cUSDToken.transfer(events[_index].owner, amountToRelease), "Fund transfer failed");
+
+        // require(IERC20(events[_index].paymentToken).transfer(msg.sender, refundAmount), "Refund failed");
+
 
         emit FundsReleased(_index, amountToRelease);
     }

@@ -12,6 +12,7 @@ interface EventData {
   endTime: string;
   eventLocation: string;
   eventPrice: string;
+  paymentToken: string;
 }
 
 const EventForm: React.FC = () => {
@@ -24,6 +25,7 @@ const EventForm: React.FC = () => {
     endTime: "",
     eventLocation: "",
     eventPrice: "",
+    paymentToken: "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1",
   });
 
   const { contract, connectWallet } = useContract();
@@ -32,10 +34,23 @@ const EventForm: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const tokenOptions = [
+    { symbol: "cUSD", address: "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1" },
+    { symbol: "cEUR", address: "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F" },
+    { symbol: "cCOP", address: "0xE4D517785D091D3c54818832dB6094bcc2744545" },
+  ];
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     setEventData({ ...eventData, [e.target.name]: e.target.value });
+    console.log(eventData);
+  };
+
+  const handleTokenChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setEventData({ ...eventData, paymentToken: e.target.value });
+
+    console.log(eventData);
   };
 
   // Validate form fields
@@ -133,21 +148,98 @@ const EventForm: React.FC = () => {
   //   }
   // };
 
+  // const handleSubmit = async () => {
+  //   if (!validateForm()) return;
+
+  //   // if (!contract) {
+  //   //   console.error("Contract not found");
+  //   //   toast.error("Contract not found");
+
+  //   //   return;
+  //   // }
+
+  //   // if (!contract) {
+  //   //   await connectWallet();
+
+  //   //   return;
+  //   // }
+
+  //   setLoading(true);
+  //   setSuccess(null);
+  //   setError(null);
+
+  //   try {
+  //     let activeContract = contract;
+
+  //     // If contract is null, connect wallet and get the contract instance
+  //     if (!activeContract) {
+  //       activeContract = await connectWallet();
+  //     }
+
+  //     // If contract is still null, show error
+  //     if (!activeContract) {
+  //       toast.error("Failed to connect to the contract. Please try again.");
+  //       setLoading(false);
+  //       return;
+  //     }
+
+  //     // Convert time strings to UNIX timestamps
+  //     const eventDate = Math.floor(
+  //       new Date(eventData.eventDate).getTime() / 1000
+  //     );
+  //     const startTime = Math.floor(
+  //       new Date(`${eventData.eventDate}T${eventData.startTime}`).getTime() /
+  //         1000
+  //     );
+  //     const endTime = Math.floor(
+  //       new Date(`${eventData.eventDate}T${eventData.endTime}`).getTime() / 1000
+  //     );
+
+  //     const priceInWei = (parseFloat(eventData.eventPrice) * 1e18).toString();
+
+  //     if (!eventData.paymentToken) {
+  //       toast.error("Please select a payment token.");
+  //       return;
+  //     }
+
+  //     // Send transaction
+  //     const tx = await activeContract.createEvent(
+  //       eventData.eventName,
+  //       eventData.eventCardImgUrl,
+  //       eventData.eventDetails,
+  //       eventDate,
+  //       startTime,
+  //       endTime,
+  //       eventData.eventLocation,
+  //       priceInWei,
+  //       eventData.paymentToken
+  //     );
+
+  //     await tx.wait();
+  //     toast.success("Event successfully created!");
+
+  //     setEventData({
+  //       eventName: "",
+  //       eventCardImgUrl: "",
+  //       eventDetails: "",
+  //       eventDate: "",
+  //       startTime: "",
+  //       endTime: "",
+  //       eventLocation: "",
+  //       eventPrice: "",
+  //       paymentToken: "",
+  //     });
+
+  //     router.push("/view_events");
+  //   } catch (err: any) {
+  //     toast.error(err.message || "An error occurred.");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   const handleSubmit = async () => {
     if (!validateForm()) return;
-
-    // if (!contract) {
-    //   console.error("Contract not found");
-    //   toast.error("Contract not found");
-
-    //   return;
-    // }
-
-    // if (!contract) {
-    //   await connectWallet();
-
-    //   return;
-    // }
 
     setLoading(true);
     setSuccess(null);
@@ -180,7 +272,23 @@ const EventForm: React.FC = () => {
         new Date(`${eventData.eventDate}T${eventData.endTime}`).getTime() / 1000
       );
 
+      // Validate timestamps
+      if (startTime < eventDate || endTime < eventDate) {
+        toast.error("Start and end times must be after the event date.");
+        setLoading(false);
+        return;
+      }
+
       const priceInWei = (parseFloat(eventData.eventPrice) * 1e18).toString();
+
+      // Validate payment token
+      if (
+        !tokenOptions.some((token) => token.address === eventData.paymentToken)
+      ) {
+        toast.error("Selected payment token is not supported.");
+        setLoading(false);
+        return;
+      }
 
       // Send transaction
       const tx = await activeContract.createEvent(
@@ -191,7 +299,9 @@ const EventForm: React.FC = () => {
         startTime,
         endTime,
         eventData.eventLocation,
-        priceInWei
+        priceInWei,
+        eventData.paymentToken,
+        { gasLimit: 500000 } // Increase gas limit
       );
 
       await tx.wait();
@@ -206,6 +316,7 @@ const EventForm: React.FC = () => {
         endTime: "",
         eventLocation: "",
         eventPrice: "",
+        paymentToken: "",
       });
 
       router.push("/view_events");
@@ -337,6 +448,28 @@ const EventForm: React.FC = () => {
           placeholder="Enter ticket price in cUSD"
           className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
         />
+      </div>
+
+      {/* Select Payment Token */}
+      <div className="mb-4">
+        <label className="block text-gray-700 font-medium text-sm mb-2">
+          Payment Token *
+        </label>
+        <select
+          name="paymentToken"
+          value={eventData.paymentToken}
+          onChange={handleTokenChange}
+          className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
+        >
+          <option value="" disabled>
+            Select a payment token
+          </option>
+          {tokenOptions.map((token) => (
+            <option key={token.address} value={token.address}>
+              {token.symbol}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Submit Button */}

@@ -17,13 +17,18 @@ export interface Event {
   eventLocation: string;
   isActive: boolean;
   ticketPrice: number;
+  fundsHeld: number;
+  isCanceled: boolean;
+  fundsReleased: boolean;
+  paymentToken: string;
 }
 
 export default function Home() {
   const [attendees, setAttendees] = useState([]);
   const [createdEvents, setCreatedEvents] = useState([]);
   const [loading, setLoading] = useState(false);
-  const { contract, readOnlyContract, cUSDToken } = useContract();
+  const { contract, readOnlyContract, address, mentoTokenContracts } =
+    useContract();
   const { id } = useParams();
 
   console.log("id", id);
@@ -39,6 +44,10 @@ export default function Home() {
     eventLocation: "",
     isActive: false,
     ticketPrice: 0,
+    fundsHeld: 0,
+    isCanceled: false,
+    fundsReleased: false,
+    paymentToken: "",
   });
 
   // Move fetchEventById outside useEffect so it can be called manually
@@ -70,6 +79,10 @@ export default function Home() {
         eventLocation: eventDetails.eventLocation,
         isActive: eventDetails.isActive,
         ticketPrice: Number(eventDetails.ticketPrice),
+        fundsHeld: Number(eventDetails.fundsHeld),
+        isCanceled: eventDetails.isCanceled,
+        fundsReleased: eventDetails.isCanceled,
+        paymentToken: eventDetails.paymentToken,
       };
 
       const formattedAttendees = rawAttendees.map((attendee: any) => attendee);
@@ -85,6 +98,10 @@ export default function Home() {
         eventLocation: event.eventLocation,
         isActive: event.isActive,
         ticketPrice: Number(event.ticketPrice),
+        fundsHeld: Number(event.fundsHeld),
+        isCanceled: event.isCanceled,
+        fundsReleased: event.fundsReleased,
+        paymentToken: event.paymentToken,
       }));
 
       setEvent(formattedEvent);
@@ -104,7 +121,23 @@ export default function Home() {
   }, [readOnlyContract, fetchEventById]);
 
   const buyTicket = async () => {
-    if (!contract || !cUSDToken) return;
+    console.log("Attempting to buy ticket with:", event.paymentToken);
+
+    if (!address) {
+      toast.error("Please connect your wallet first.");
+      return;
+    }
+
+    if (!contract) {
+      toast.error("Contract not initialized.");
+      return;
+    }
+
+    const paymentTokenContract = mentoTokenContracts[event.paymentToken];
+    if (!paymentTokenContract) {
+      toast.error(`Unsupported payment token: ${event.paymentToken}`);
+      return;
+    }
 
     setLoading(true);
     const toastId = toast.loading("Processing your ticket purchase...");
@@ -112,38 +145,34 @@ export default function Home() {
     try {
       const ticketPriceWei = parseUnits(event.ticketPrice.toString(), "ether");
 
-      // Step 1: Approve contract to spend cUSD
-      const approveTx = await cUSDToken.approve(
+      console.log(`Approving ${event.paymentToken} spending...`);
+
+      // Step 1: Approve the contract to spend the token
+      const approveTx = await paymentTokenContract.approve(
         contract.target,
         ticketPriceWei
       );
       await approveTx.wait();
+      console.log("Approval successful:", approveTx);
 
-      // Step 2: Buy ticket
+      console.log("Purchasing ticket...");
+
+      // Step 2: Buy the ticket
       const buyTx = await contract.buyTicket(id);
       await buyTx.wait();
+      console.log("Ticket purchased successfully:", buyTx);
 
-      // Dismiss loading toast and show success message
       toast.dismiss(toastId);
-      toast.success(" Ticket purchased successfully!");
+      toast.success("Ticket purchased successfully!");
 
-      console.log(" Ticket purchased successfully!");
-      fetchEventById();
+      fetchEventById(); // Refresh event details
     } catch (error: any) {
-      console.error(" Error buying ticket:", error);
+      console.error("Error buying ticket:", error);
 
-      // Dismiss loading toast and show error message
       toast.dismiss(toastId);
-
-      if (error.reason) {
-        toast.error(`Transaction Reverted: ${error.reason}`);
-      } else if (error.data?.message) {
-        toast.error(`Smart Contract Error: ${error.data.message}`);
-      } else {
-        toast.error("Transaction failed. Please check console for details.");
-      }
+      toast.error(error.reason || "Transaction failed.");
     } finally {
-      setLoading(false); // Ensure loading state is turned off after completion
+      setLoading(false);
     }
   };
 
