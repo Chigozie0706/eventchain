@@ -61,16 +61,21 @@ export default function Home() {
           <h3 className="text-1xl md:text-2xl font-bold mt-20 m-5">
             Featured & Upcoming Events
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 px-5">
-            {events.length > 0 ? (
-              events.map((event, index) => (
-                <EventCard key={index} event={event} />
-              ))
-            ) : (
-              <p className="text-center text-gray-500 col-span-full">
-                No events found.
-              </p>
-            )}
+
+          <div className="w-full px-4">
+            {/* <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mx-auto"> */}
+            {/* <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 px-5"> */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 justify-center">
+              {events.length > 0 ? (
+                events.map((event, index) => (
+                  <EventCard key={index} event={event} />
+                ))
+              ) : (
+                <p className="text-center text-gray-500 col-span-full">
+                  No events found.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>

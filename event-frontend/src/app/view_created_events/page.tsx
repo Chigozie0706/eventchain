@@ -8,7 +8,7 @@ import { toast } from "react-hot-toast";
 export default function MyEvents() {
   const [events, setEvents] = useState([]);
   const [, setIndexes] = useState([]);
-  const { contract } = useContract();
+  const { contract, readOnlyContract } = useContract();
   const [loading, setLoading] = useState(false);
 
   // Fetch events
@@ -121,7 +121,10 @@ export default function MyEvents() {
           <h3 className="text-1xl md:text-2xl font-bold mt-20 m-5">
             Created Events
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 px-5">
+          {/* <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 px-5"> */}
+          {/* <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 px-5 justify-items-center"> */}
+          {/* <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 px-5 justify-items-stretch"> */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mx-auto">
             {events.length > 0 ? (
               events.map((event, index) => (
                 <CreatorEventCard
