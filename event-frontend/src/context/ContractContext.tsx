@@ -12,12 +12,6 @@ const ERC20_ABI = [
   "function symbol() public view returns (string)",
 ];
 
-// const mentoTokens = {
-//   cUSD: "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1",
-//   cEUR: "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F",
-//   cCOP: "0xE4D517785D091D3c54818832dB6094bcc2744545",
-// };
-
 const mentoTokens = {
   "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1": "cUSD", // cUSD
   "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F": "cEUR", // cEUR
@@ -31,6 +25,7 @@ interface ContractContextType {
   address: string | null;
   connectWallet: () => Promise<Contract | null>;
   mentoTokenContracts: { [key: string]: Contract };
+  mentoTokens: {};
 }
 
 const ContractContext = createContext<ContractContextType | null>(null);
@@ -62,45 +57,6 @@ export const ContractProvider = ({
     );
     setReadOnlyContract(readContract);
   }, []);
-
-  // const connectWallet = async (): Promise<Contract | null> => {
-  //   if (typeof window !== "undefined" && window.ethereum) {
-  //     try {
-  //       const provider = new BrowserProvider(window.ethereum);
-  //       await provider.send("eth_requestAccounts", []);
-  //       const signer = await provider.getSigner();
-
-  //       const userAddress = await signer.getAddress();
-  //       setAddress(userAddress);
-
-  //       const contractInstance = new Contract(
-  //         contractAddress,
-  //         contractABI.abi,
-  //         signer
-  //       );
-  //       setContract(contractInstance);
-
-  //       const tokenContracts: { [key: string]: Contract } = {};
-  //       for (const [symbol, tokenAddress] of Object.entries(mentoTokens)) {
-  //         tokenContracts[symbol] = new Contract(
-  //           tokenAddress,
-  //           ERC20_ABI,
-  //           signer
-  //         );
-  //       }
-
-  //       setMentoTokenContracts(tokenContracts);
-  //       return contractInstance;
-  //     } catch (error) {
-  //       console.error("Wallet connection failed:", error);
-  //       toast.error("Failed to connect wallet. Please try again.");
-  //       return null;
-  //     }
-  //   } else {
-  //     toast.error("Please install MetaMask or use a Web3-enabled browser.");
-  //     return null;
-  //   }
-  // };
 
   const connectWallet = async (): Promise<Contract | null> => {
     if (typeof window !== "undefined" && window.ethereum) {
@@ -158,6 +114,7 @@ export const ContractProvider = ({
         cUSDToken,
         address,
         connectWallet,
+        mentoTokens,
         mentoTokenContracts,
       }}
     >

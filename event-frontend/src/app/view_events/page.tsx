@@ -57,7 +57,7 @@ export default function Home() {
   return (
     <>
       <div className="">
-        <div className="pt-16">
+        <div className="">
           <h3 className="text-1xl md:text-2xl font-bold mt-20 m-5">
             Featured & Upcoming Events
           </h3>

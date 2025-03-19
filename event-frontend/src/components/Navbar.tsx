@@ -34,73 +34,71 @@ export default function Navbar() {
 
   return (
     <nav className="flex items-center justify-between bg-white px-6 py-4 shadow-md fixed w-full z-50">
-      <div className="text-orange-500 text-2xl font-bold">
+      {/* Logo */}
+      <div className="text-orange-500 text-xl font-bold">
         <Link href="/">EventChain</Link>
       </div>
 
-      {/* Mobile Menu Button */}
-      <button
-        onClick={() => setMenuOpen(!menuOpen)}
-        className="md:hidden focus:outline-none"
-      >
-        {menuOpen ? <X size={24} /> : <Menu size={24} />}
-      </button>
-
-      {/* Navigation Links */}
-      <div
-        className={`md:flex md:items-center md:space-x-6 text-gray-700 absolute md:static top-16 left-0 w-full md:w-auto bg-white shadow-md md:shadow-none px-6 py-4 md:p-0 transition-all duration-300 ${
-          menuOpen ? "block" : "hidden"
-        }`}
-      >
-        <Link href="/create_event" className={linkClass("/create_event")}>
-          Create Event
-        </Link>
-        <Link href="/view_events" className={linkClass("/view_events")}>
-          View Events
-        </Link>
-        <Link
-          href="/view_created_events"
-          className={linkClass("/view_created_events")}
+      {/* Right Section (Links + Wallet) */}
+      <div className="ml-auto flex items-center">
+        {/* Navigation Links */}
+        <div
+          className={`md:flex md:items-center md:space-x-6 text-sm absolute md:static top-16 left-0 w-full md:w-auto bg-white shadow-md md:shadow-none px-6 py-4 md:p-0 transition-all duration-300 ${
+            menuOpen ? "flex flex-col space-y-4 text-center" : "hidden"
+          }`}
         >
-          Created Events
-        </Link>
-      </div>
+          <Link href="/" className={linkClass("/")}>
+            Home
+          </Link>
 
-      {/* Wallet & Token Section */}
-      <div className="hidden md:flex items-center space-x-4 text-sm">
-        {address && (
-          <div className="flex items-center space-x-2 bg-gray-100 px-3 py-1 rounded-full text-xs">
-            {/* <select
-              value={selectedToken}
-              onChange={(e) => setSelectedToken(e.target.value)}
-              className="bg-transparent outline-none cursor-pointer"
-            >
-              {Object.keys(mentoTokenContracts).map((token) => (
-                <option key={token} value={token}>
-                  {token}
-                </option>
-              ))}
-            </select> */}
-            {balance && (
-              <span className="text-orange-600">
-                {balance} {selectedToken}
-              </span>
-            )}
-          </div>
-        )}
+          <Link href="/" className={linkClass("/view_events")}>
+            Tickets
+          </Link>
+          <Link href="/create_event" className={linkClass("/create_event")}>
+            Create Event
+          </Link>
 
-        {!address ? (
-          <button
-            onClick={connectWallet}
-            className="bg-orange-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-orange-600 transition"
+          <Link
+            href="/view_created_events"
+            className={linkClass("/view_created_events")}
           >
-            Connect Wallet
-          </button>
-        ) : (
-          <div className="text-xs bg-gray-100 px-3 py-1 rounded-full">
-            {address.slice(0, 6)}...{address.slice(-4)}
-          </div>
-        )}
+            Created Events
+          </Link>
+        </div>
+
+        {/* Wallet & Token Section */}
+        <div className="hidden md:flex items-center space-x-4 text-xs">
+          {address && (
+            <div className="flex items-center space-x-2 bg-gray-100 px-3 py-1 rounded-full">
+              {balance && (
+                <span className="text-orange-600">
+                  {balance} {selectedToken}
+                </span>
+              )}
+            </div>
+          )}
+
+          {!address ? (
+            <button
+              onClick={connectWallet}
+              className="bg-orange-500 text-white px-4 py-2 rounded-lg text-xs hover:bg-orange-600 transition"
+            >
+              Connect Wallet
+            </button>
+          ) : (
+            <div className="bg-gray-100 px-3 py-1 rounded-full">
+              {address.slice(0, 6)}...{address.slice(-4)}
+            </div>
+          )}
+        </div>
+
+        {/* Mobile Menu Button */}
+        <button
+          onClick={() => setMenuOpen(!menuOpen)}
+          className="md:hidden focus:outline-none ml-4"
+        >
+          {menuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
       </div>
     </nav>
   );
