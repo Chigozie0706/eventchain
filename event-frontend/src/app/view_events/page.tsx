@@ -18,7 +18,7 @@ export default function Home() {
 
         // Fetch all active events along with their indexes
         const rawData = await readOnlyContract.getAllEvents();
-        console.log("🔹 Raw Events Data:", rawData); // Debugging
+        console.log(" Raw Events Data:", rawData); // Debugging
 
         if (!rawData || rawData.length !== 2) {
           console.error(" Unexpected data format from readOnlyContract");
@@ -57,14 +57,12 @@ export default function Home() {
   return (
     <>
       <div className="">
-        <div className="">
+        <div className="pt-16">
           <h3 className="text-1xl md:text-2xl font-bold mt-20 m-5">
             Featured & Upcoming Events
           </h3>
 
           <div className="w-full px-4">
-            {/* <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mx-auto"> */}
-            {/* <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 px-5"> */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 justify-center">
               {events.length > 0 ? (
                 events.map((event, index) => (
