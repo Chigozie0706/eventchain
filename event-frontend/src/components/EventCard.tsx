@@ -27,9 +27,6 @@ export default function EventCard({ event }: { event: Event }) {
   const shortAddress = `${event.owner.slice(0, 6)}...${event.owner.slice(-4)}`;
 
   return (
-    // <div className="max-w-xs rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-200">
-    // <div className="w-full max-w-xs rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-200">
-    // <div className="w-full md:max-w-sm rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-200">
     <div className="w-full max-w-xs md:max-w-sm rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-200 mx-auto">
       <img
         src={event.eventCardImgUrl}
@@ -42,7 +39,7 @@ export default function EventCard({ event }: { event: Event }) {
         <span className="bg-purple-200 text-purple-700 text-xs font-bold px-3 py-1 rounded-full w-50">
           {shortAddress}
         </span>
-        {/* <h2 className="text-sm font-semibold mt-2">{event.eventName}</h2> */}
+
         <h2 className="text-sm md:text-base lg:text-lg font-semibold mt-2">
           {event.eventName}
         </h2>

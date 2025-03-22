@@ -17,7 +17,8 @@ contract EventChain {
         string eventName;
         string eventCardImgUrl;
         string eventDetails;
-        uint64 eventDate;
+        uint64 startDate;
+        uint64 endDate;
         uint64 startTime;
         uint64 endTime;
         string eventLocation;
@@ -68,7 +69,8 @@ contract EventChain {
         string memory _eventName,
         string memory _eventCardImgUrl,
         string memory _eventDetails,
-        uint64 _eventDate,
+        uint64 _startDate,
+        uint64 _endDate, 
         uint64 _startTime,
         uint64 _endTime,
         string memory _eventLocation,
@@ -76,13 +78,15 @@ contract EventChain {
         address _paymentToken
     ) public {
         require(supportedTokens[_paymentToken], "Unsupported payment token");
+        require(_endDate >= _startDate, "End date must be after start date"); 
 
         Event memory newEvent = Event({
             owner: msg.sender,
             eventName: _eventName,
             eventCardImgUrl: _eventCardImgUrl,
             eventDetails: _eventDetails,
-            eventDate: _eventDate,
+            startDate: _startDate,
+            endDate: _endDate,
             startTime: _startTime,
             endTime: _endTime,
             eventLocation: _eventLocation,
@@ -102,7 +106,7 @@ contract EventChain {
 
     function buyTicket(uint256 _index) public {
         require(_index < events.length, "Invalid event ID");
-        require(events[_index].eventDate > block.timestamp, "Event expired");
+        require(events[_index].startDate > block.timestamp, "Event expired");
         require(events[_index].isActive, "Event is inactive");
         require(!hasPurchasedTicket[_index][msg.sender], "Already purchased");
 
@@ -141,10 +145,8 @@ contract EventChain {
         require(hasPurchasedTicket[_index][msg.sender], "No ticket purchased");
 
         if (!events[_index].isCanceled) {
-            require(
-                block.timestamp < events[_index].startTime - 5 hours,
-                "Refund period has ended"
-            );
+            require(block.timestamp < events[_index].startTime - (5 * 1 hours), "Refund period has ended");
+
         }
 
         uint256 refundAmount = events[_index].ticketPrice;
@@ -179,9 +181,9 @@ contract EventChain {
     function releaseFunds(uint256 _index) public onlyOwner(_index) {
         require(_index < events.length, "Invalid event ID");
         require(
-            block.timestamp > events[_index].eventDate,
-            "Event has not occurred yet"
-        );
+        block.timestamp > events[_index].endDate,
+        "Event has not ended yet"
+    );
         require(
             !events[_index].isCanceled,
             "Cannot release funds for a canceled event"
@@ -255,6 +257,34 @@ contract EventChain {
         }
         return (indexes, activeEvents);
     }
+
+    function getUserEvents() public view returns (uint256[] memory, Event[] memory) {
+    uint count = 0;
+
+    // Count the number of events the user has purchased a ticket for
+    for (uint i = 0; i < events.length; i++) {
+        if (hasPurchasedTicket[i][msg.sender]) {
+            count++;
+        }
+    }
+
+    // Create arrays with the correct size
+    uint256[] memory eventIds = new uint256[](count);
+    Event[] memory userEvents = new Event[](count);
+    uint j = 0;
+
+    // Populate the arrays with the user's events
+    for (uint i = 0; i < events.length; i++) {
+        if (hasPurchasedTicket[i][msg.sender]) {
+            eventIds[j] = i;
+            userEvents[j] = events[i];
+            j++;
+        }
+    }
+
+    return (eventIds, userEvents);
+}
+
 
     function getActiveEventsByCreator()
         public

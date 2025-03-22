@@ -13,7 +13,8 @@ export interface Event {
   eventName: string;
   eventCardImgUrl: string;
   eventDetails: string;
-  eventDate: number;
+  startDate: number;
+  endDate: number;
   startTime: number;
   endTime: number;
   eventLocation: string;
@@ -44,8 +45,17 @@ export default function EventPage({
   refunding,
 }: EventPageProps) {
   // const { mentoTokens } = useContract();
-  const formattedDate = new Date(event.eventDate * 1000).toLocaleDateString(
-    undefined, // Uses the user's locale
+  const formattedStartDate = new Date(
+    event.startDate * 1000
+  ).toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  const formattedEndDate = new Date(event.endDate * 1000).toLocaleDateString(
+    undefined,
     {
       weekday: "long",
       month: "long",
@@ -115,8 +125,12 @@ export default function EventPage({
               <CalendarDays className="w-5 h-5 text-gray-600" />
               <span>Date & Time</span>
             </h3>
+            <p className="text-gray-700 text-sm mb-3">
+              {formattedStartDate} - {formattedEndDate}
+            </p>
+
             <p className="text-gray-700 text-sm">
-              {formattedDate} · {formattedStartTime} - {formattedEndTime}
+              {formattedStartTime} - {formattedEndTime}
             </p>
           </div>
 
@@ -146,8 +160,16 @@ export default function EventPage({
               <Handshake className="w-5 h-5 text-gray-600" />
               <span>Refund Policy</span>
             </h3>
-            <p className="text-gray-700 text-sm">
-              Contact the organizer to request a refund.
+            <p className="text-gray-700 text-sm text-justify">
+              Refunds are available if the event is canceled or if requested at
+              least 5 hours before the event starts, provided funds are still in
+              escrow. Refunds are issued in the same token used for payment and
+              processed automatically. No refunds are available once the event
+              has started, if funds have been released to the organizer, or if
+              the request is made too late.
+              <br />
+              To request a refund, use the "Request Refund" button on the event
+              page. If you experience issues, contact the organizer.
             </p>
           </div>
 

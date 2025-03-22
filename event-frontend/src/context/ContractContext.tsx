@@ -49,9 +49,12 @@ export const ContractProvider = ({
   }>({});
   const [balances, setBalances] = useState<Record<string, string>>({});
 
-  const contractAddress = "0xc8C114775C346669FF6Cf740d9C1eb4EAfD17c77";
+  const contractAddress = "0x556875cd1681947F2dd71f6BAC20b09c0deD5186";
 
   // 0xC152EF3B6Ac036F312bfFC1881CF23e496884e16
+  // 0xc8C114775C346669FF6Cf740d9C1eb4EAfD17c77
+  // 0x8e8Cd6dc1e9486C018AC14b216c3808575Edcba6
+
   const CELO_RPC = "https://alfajores-forno.celo-testnet.org";
 
   useEffect(() => {
@@ -64,53 +67,16 @@ export const ContractProvider = ({
     setReadOnlyContract(readContract);
   }, []);
 
-  // useEffect(() => {
-  //   const restoreWallet = async () => {
-  //     const storedAddress = localStorage.getItem("walletAddress");
-  //     if (storedAddress && typeof window !== "undefined" && window.ethereum) {
-  //       try {
-  //         const provider = new BrowserProvider(window.ethereum);
-  //         const signer = await provider.getSigner();
-
-  //         setAddress(storedAddress);
-
-  //         const contractInstance = new Contract(
-  //           contractAddress,
-  //           contractABI.abi,
-  //           signer
-  //         );
-  //         setContract(contractInstance);
-
-  //         const tokenContracts: { [key: string]: Contract } = {};
-  //         for (const [tokenAddress, symbol] of Object.entries(mentoTokens)) {
-  //           tokenContracts[tokenAddress] = new Contract(
-  //             tokenAddress,
-  //             ERC20_ABI,
-  //             signer
-  //           );
-  //         }
-  //         setMentoTokenContracts(tokenContracts);
-  //       } catch (error) {
-  //         console.error("Error restoring wallet:", error);
-  //         toast.error("Failed to restore wallet. Please reconnect.");
-  //         localStorage.removeItem("walletAddress"); // Remove if invalid
-  //       }
-  //     }
-  //   };
-
-  //   restoreWallet();
-  // }, []);
-
   useEffect(() => {
     const restoreWallet = async () => {
-      if (typeof window === "undefined") return; // ✅ Prevents SSR issues
+      if (typeof window === "undefined") return;
 
       const storedAddress = localStorage.getItem("walletAddress");
 
       if (storedAddress && window.ethereum) {
         try {
           const provider = new BrowserProvider(window.ethereum);
-          await provider.send("eth_requestAccounts", []); // Ensure connection
+          await provider.send("eth_requestAccounts", []);
           const signer = await provider.getSigner();
 
           setAddress(storedAddress);
@@ -134,7 +100,7 @@ export const ContractProvider = ({
         } catch (error) {
           console.error("Error restoring wallet:", error);
           toast.error("Failed to restore wallet. Please reconnect.");
-          localStorage.removeItem("walletAddress"); // Remove if invalid
+          localStorage.removeItem("walletAddress");
         }
       }
     };

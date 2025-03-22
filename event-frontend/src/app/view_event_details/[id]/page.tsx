@@ -12,7 +12,8 @@ export interface Event {
   eventName: string;
   eventCardImgUrl: string;
   eventDetails: string;
-  eventDate: number;
+  startDate: number;
+  endDate: number;
   startTime: number;
   endTime: number;
   eventLocation: string;
@@ -48,7 +49,8 @@ export default function Home() {
     eventName: "",
     eventCardImgUrl: "",
     eventDetails: "",
-    eventDate: 0,
+    startDate: 0,
+    endDate: 0,
     startTime: 0,
     endTime: 0,
     eventLocation: "",
@@ -89,7 +91,8 @@ export default function Home() {
         eventName: eventDetails.eventName,
         eventCardImgUrl: eventDetails.eventCardImgUrl,
         eventDetails: eventDetails.eventDetails,
-        eventDate: Number(eventDetails.eventDate),
+        startDate: Number(eventDetails.startDate),
+        endDate: Number(eventDetails.endDate),
         startTime: Number(eventDetails.startTime),
         endTime: Number(eventDetails.endTime),
         eventLocation: eventDetails.eventLocation,
@@ -108,7 +111,8 @@ export default function Home() {
         eventName: event.eventName,
         eventCardImgUrl: event.eventCardImgUrl,
         eventDetails: event.eventDetails,
-        eventDate: Number(event.eventDate),
+        startDate: Number(event.startDate),
+        endDate: Number(event.endDate),
         startTime: Number(event.startTime),
         endTime: Number(event.endTime),
         eventLocation: event.eventLocation,

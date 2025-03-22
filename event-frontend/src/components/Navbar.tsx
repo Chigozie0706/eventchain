@@ -194,13 +194,13 @@ export default function Navbar() {
 
                   <hr className="my-2 border-gray-300" />
                   <Link
-                    href="/view_events"
+                    href="/event_tickets"
                     className="block px-4 py-2 hover:bg-gray-100"
                   >
                     Tickets
                   </Link>
                   <Link
-                    href="/view_created_events"
+                    href="/event_tickets"
                     className="block px-4 py-2 hover:bg-gray-100"
                   >
                     Created Events
