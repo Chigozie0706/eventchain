@@ -526,21 +526,6 @@ const EventForm: React.FC = () => {
         />
       </div>
 
-      {/* Event Price (cUSD) */}
-      <div className="mb-4">
-        <label className="block text-gray-700 font-medium mb-2 text-sm">
-          Ticket Price (cUSD) *
-        </label>
-        <input
-          type="number"
-          name="eventPrice"
-          value={eventData.eventPrice}
-          onChange={handleChange}
-          placeholder="Enter ticket price in cUSD"
-          className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
-        />
-      </div>
-
       {/* Select Payment Token */}
       <div className="mb-4">
         <label className="block text-gray-700 font-medium text-sm mb-2">
@@ -561,6 +546,21 @@ const EventForm: React.FC = () => {
             </option>
           ))}
         </select>
+      </div>
+
+      {/* Event Price */}
+      <div className="mb-4">
+        <label className="block text-gray-700 font-medium mb-2 text-sm">
+          Ticket Price (cUSD, cEUR, cCOP)*
+        </label>
+        <input
+          type="number"
+          name="eventPrice"
+          value={eventData.eventPrice}
+          onChange={handleChange}
+          placeholder="Enter ticket price"
+          className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
+        />
       </div>
 
       {/* Submit Button */}

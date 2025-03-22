@@ -120,16 +120,14 @@ export default function HeroSection() {
                 Create an Event
               </button>
             </Link>
-            <Link href="/">
+            <Link href="/view_events">
               <button className="bg-blue-600 px-6 py-3 rounded-md text-lg font-semibold hover:bg-blue-700 transition">
-                View Tickets
+                View Events
               </button>
             </Link>
           </div>
         </div>
       </section>
-
-      {/* <Home /> */}
 
       <div className="">
         <div className="">
@@ -137,7 +135,7 @@ export default function HeroSection() {
             Featured & Upcoming Events
           </h3>
 
-          <div className="w-full px-4">
+          <div className="w-full px-4 mb-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 justify-center">
               {events.length > 0 ? (
                 events.map((event, index) => (

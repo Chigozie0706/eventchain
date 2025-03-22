@@ -13,9 +13,9 @@ const mentoTokens: Record<string, string> = {
 };
 
 export default function Navbar() {
-  const { mentoTokenContracts, address, connectWallet } = useContract();
+  const { mentoTokenContracts, address, connectWallet, balances, setBalances } =
+    useContract();
   const pathname = usePathname();
-  const [balances, setBalances] = useState<Record<string, string>>({});
   const [menuOpen, setMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -44,7 +44,7 @@ export default function Navbar() {
     };
 
     fetchBalances();
-  }, [mentoTokenContracts, address]);
+  }, [mentoTokenContracts, address, setBalances]);
 
   return (
     <nav className="flex items-center justify-between bg-white px-6 py-4 shadow-md fixed w-full z-50">

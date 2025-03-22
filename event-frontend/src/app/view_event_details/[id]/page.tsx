@@ -28,11 +28,20 @@ export default function Home() {
   const [attendees, setAttendees] = useState([]);
   const [createdEvents, setCreatedEvents] = useState([]);
   const [loading, setLoading] = useState(false);
-  const { contract, readOnlyContract, address, mentoTokenContracts } =
-    useContract();
+  const {
+    contract,
+    readOnlyContract,
+    address,
+    mentoTokenContracts,
+    balances,
+    setBalances,
+  } = useContract();
   const { id } = useParams();
 
   console.log("id", id);
+
+  const [registering, setRegistering] = useState(false);
+  const [refunding, setRefunding] = useState(false);
 
   const [event, setEvent] = useState<Event>({
     owner: "",
@@ -50,6 +59,12 @@ export default function Home() {
     fundsReleased: false,
     paymentToken: "",
   });
+
+  const mentoTokens: Record<string, string> = {
+    "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1": "cUSD",
+    "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F": "cEUR",
+    "0xE4D517785D091D3c54818832dB6094bcc2744545": "cCOP",
+  };
 
   // Move fetchEventById outside useEffect so it can be called manually
   const fetchEventById = useCallback(async () => {
@@ -121,6 +136,29 @@ export default function Home() {
     fetchEventById();
   }, [readOnlyContract, fetchEventById]);
 
+  const fetchBalances = async () => {
+    if (!mentoTokenContracts || !address) return;
+
+    const newBalances: Record<string, string> = {};
+    for (const [tokenAddress, contract] of Object.entries(
+      mentoTokenContracts
+    )) {
+      try {
+        const bal = await contract.balanceOf(address);
+        const formattedBalance = parseFloat(
+          ethers.formatUnits(bal, 18)
+        ).toFixed(2);
+        const tokenName = mentoTokens[tokenAddress] || tokenAddress;
+        newBalances[tokenName] = formattedBalance;
+      } catch (error) {
+        console.error(`Error fetching balance for ${tokenAddress}:`, error);
+        const tokenName = mentoTokens[tokenAddress] || tokenAddress;
+        newBalances[tokenName] = "0";
+      }
+    }
+    setBalances(newBalances);
+  };
+
   const buyTicket = async () => {
     console.log("Attempting to buy ticket with:", event.paymentToken);
 
@@ -148,6 +186,7 @@ export default function Home() {
       return;
     }
 
+    setRegistering(true);
     setLoading(true);
     const toastId = toast.loading("Processing your ticket purchase...");
 
@@ -175,7 +214,8 @@ export default function Home() {
       toast.dismiss(toastId);
       toast.success("Ticket purchased successfully!");
 
-      fetchEventById(); // Refresh event details
+      fetchEventById();
+      fetchBalances();
     } catch (error: any) {
       console.error("Error buying ticket:", error);
 
@@ -189,6 +229,7 @@ export default function Home() {
         toast.error("Transaction failed. Please check console for details.");
       }
     } finally {
+      setRegistering(false);
       setLoading(false);
     }
   };
@@ -196,6 +237,7 @@ export default function Home() {
   const requestRefund = async () => {
     if (!contract) return;
 
+    setRefunding(true);
     setLoading(true);
     const toastId = toast.loading("Processing refund request...");
 
@@ -207,7 +249,8 @@ export default function Home() {
       toast.success("Refund processed successfully!");
 
       console.log("Refund successful!");
-      fetchEventById(); // Refresh event details
+      fetchEventById();
+      fetchBalances();
     } catch (error: any) {
       console.error("Error requesting refund:", error);
 
@@ -221,6 +264,7 @@ export default function Home() {
         toast.error("Transaction failed. Please check console for details.");
       }
     } finally {
+      setRefunding(false);
       setLoading(false);
     }
   };
@@ -235,6 +279,8 @@ export default function Home() {
           buyTicket={buyTicket}
           requestRefund={requestRefund}
           loading={loading}
+          registering={registering}
+          refunding={refunding}
         />
       </div>
     </>

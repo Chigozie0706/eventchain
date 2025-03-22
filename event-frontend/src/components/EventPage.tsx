@@ -29,6 +29,8 @@ export interface EventPageProps {
   buyTicket: () => Promise<void>;
   requestRefund: () => Promise<void>;
   loading: boolean;
+  registering: boolean;
+  refunding: boolean;
 }
 
 export default function EventPage({
@@ -38,6 +40,8 @@ export default function EventPage({
   buyTicket,
   requestRefund,
   loading,
+  registering,
+  refunding,
 }: EventPageProps) {
   // const { mentoTokens } = useContract();
   const formattedDate = new Date(event.eventDate * 1000).toLocaleDateString(
@@ -176,7 +180,7 @@ export default function EventPage({
             onClick={buyTicket}
             disabled={loading}
           >
-            {loading ? "Processing..." : "Register"}
+            {registering ? "Processing..." : "Register"}
           </button>
 
           <button
@@ -184,7 +188,7 @@ export default function EventPage({
             className="w-full bg-red-500 text-white mt-4 py-2 rounded-lg text-lg font-semibold hover:bg-red-600 transition"
             disabled={loading}
           >
-            {loading ? "Processing..." : "Request Refund"}
+            {refunding ? "Processing..." : "Request Refund"}
           </button>
         </div>
       </div>

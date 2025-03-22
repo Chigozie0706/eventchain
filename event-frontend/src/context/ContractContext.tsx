@@ -26,6 +26,9 @@ interface ContractContextType {
   connectWallet: () => Promise<Contract | null>;
   mentoTokenContracts: { [key: string]: Contract };
   mentoTokens: {};
+  balances: Record<string, string>;
+  setBalances: (balances: Record<string, string>) => void;
+  disconnectWallet: () => void;
 }
 
 const ContractContext = createContext<ContractContextType | null>(null);
@@ -44,8 +47,11 @@ export const ContractProvider = ({
   const [mentoTokenContracts, setMentoTokenContracts] = useState<{
     [key: string]: Contract;
   }>({});
+  const [balances, setBalances] = useState<Record<string, string>>({});
 
-  const contractAddress = "0xC152EF3B6Ac036F312bfFC1881CF23e496884e16";
+  const contractAddress = "0xc8C114775C346669FF6Cf740d9C1eb4EAfD17c77";
+
+  // 0xC152EF3B6Ac036F312bfFC1881CF23e496884e16
   const CELO_RPC = "https://alfajores-forno.celo-testnet.org";
 
   useEffect(() => {
@@ -56,6 +62,43 @@ export const ContractProvider = ({
       provider
     );
     setReadOnlyContract(readContract);
+  }, []);
+
+  useEffect(() => {
+    const restoreWallet = async () => {
+      const storedAddress = localStorage.getItem("walletAddress");
+      if (storedAddress && typeof window !== "undefined" && window.ethereum) {
+        try {
+          const provider = new BrowserProvider(window.ethereum);
+          const signer = await provider.getSigner();
+
+          setAddress(storedAddress);
+
+          const contractInstance = new Contract(
+            contractAddress,
+            contractABI.abi,
+            signer
+          );
+          setContract(contractInstance);
+
+          const tokenContracts: { [key: string]: Contract } = {};
+          for (const [tokenAddress, symbol] of Object.entries(mentoTokens)) {
+            tokenContracts[tokenAddress] = new Contract(
+              tokenAddress,
+              ERC20_ABI,
+              signer
+            );
+          }
+          setMentoTokenContracts(tokenContracts);
+        } catch (error) {
+          console.error("Error restoring wallet:", error);
+          toast.error("Failed to restore wallet. Please reconnect.");
+          localStorage.removeItem("walletAddress"); // Remove if invalid
+        }
+      }
+    };
+
+    restoreWallet();
   }, []);
 
   const connectWallet = async (): Promise<Contract | null> => {
@@ -76,6 +119,7 @@ export const ContractProvider = ({
         }
 
         setAddress(userAddress);
+        localStorage.setItem("walletAddress", userAddress); // Store in localStorage
 
         const contractInstance = new Contract(
           contractAddress,
@@ -106,6 +150,25 @@ export const ContractProvider = ({
     }
   };
 
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      localStorage.removeItem("walletAddress"); // Ensure it gets cleared
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
+
+  const disconnectWallet = () => {
+    setContract(null);
+    setAddress(null);
+    setMentoTokenContracts({});
+    localStorage.removeItem("walletAddress"); // Clear storage
+    toast.success("Wallet disconnected successfully.");
+  };
+
   return (
     <ContractContext.Provider
       value={{
@@ -116,6 +179,9 @@ export const ContractProvider = ({
         connectWallet,
         mentoTokens,
         mentoTokenContracts,
+        balances,
+        setBalances,
+        disconnectWallet,
       }}
     >
       {children}
