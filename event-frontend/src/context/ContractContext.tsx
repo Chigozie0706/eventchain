@@ -64,12 +64,53 @@ export const ContractProvider = ({
     setReadOnlyContract(readContract);
   }, []);
 
+  // useEffect(() => {
+  //   const restoreWallet = async () => {
+  //     const storedAddress = localStorage.getItem("walletAddress");
+  //     if (storedAddress && typeof window !== "undefined" && window.ethereum) {
+  //       try {
+  //         const provider = new BrowserProvider(window.ethereum);
+  //         const signer = await provider.getSigner();
+
+  //         setAddress(storedAddress);
+
+  //         const contractInstance = new Contract(
+  //           contractAddress,
+  //           contractABI.abi,
+  //           signer
+  //         );
+  //         setContract(contractInstance);
+
+  //         const tokenContracts: { [key: string]: Contract } = {};
+  //         for (const [tokenAddress, symbol] of Object.entries(mentoTokens)) {
+  //           tokenContracts[tokenAddress] = new Contract(
+  //             tokenAddress,
+  //             ERC20_ABI,
+  //             signer
+  //           );
+  //         }
+  //         setMentoTokenContracts(tokenContracts);
+  //       } catch (error) {
+  //         console.error("Error restoring wallet:", error);
+  //         toast.error("Failed to restore wallet. Please reconnect.");
+  //         localStorage.removeItem("walletAddress"); // Remove if invalid
+  //       }
+  //     }
+  //   };
+
+  //   restoreWallet();
+  // }, []);
+
   useEffect(() => {
     const restoreWallet = async () => {
+      if (typeof window === "undefined") return; // ✅ Prevents SSR issues
+
       const storedAddress = localStorage.getItem("walletAddress");
-      if (storedAddress && typeof window !== "undefined" && window.ethereum) {
+
+      if (storedAddress && window.ethereum) {
         try {
           const provider = new BrowserProvider(window.ethereum);
+          await provider.send("eth_requestAccounts", []); // Ensure connection
           const signer = await provider.getSigner();
 
           setAddress(storedAddress);
@@ -98,7 +139,9 @@ export const ContractProvider = ({
       }
     };
 
-    restoreWallet();
+    if (typeof window !== "undefined") {
+      restoreWallet();
+    }
   }, []);
 
   const connectWallet = async (): Promise<Contract | null> => {
@@ -149,17 +192,6 @@ export const ContractProvider = ({
       return null;
     }
   };
-
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      localStorage.removeItem("walletAddress"); // Ensure it gets cleared
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, []);
 
   const disconnectWallet = () => {
     setContract(null);

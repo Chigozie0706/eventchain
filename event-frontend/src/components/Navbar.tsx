@@ -13,8 +13,14 @@ const mentoTokens: Record<string, string> = {
 };
 
 export default function Navbar() {
-  const { mentoTokenContracts, address, connectWallet, balances, setBalances } =
-    useContract();
+  const {
+    mentoTokenContracts,
+    address,
+    connectWallet,
+    balances,
+    setBalances,
+    disconnectWallet,
+  } = useContract();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -138,7 +144,10 @@ export default function Navbar() {
                   </Link>
 
                   <hr className="my-2 border-gray-300" />
-                  <button className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100">
+                  <button
+                    className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100"
+                    onClick={disconnectWallet}
+                  >
                     Disconnect Wallet
                   </button>
                 </div>
@@ -198,7 +207,10 @@ export default function Navbar() {
                   </Link>
 
                   <hr className="my-2 border-gray-300" />
-                  <button className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100">
+                  <button
+                    className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100"
+                    onClick={disconnectWallet}
+                  >
                     Disconnect Wallet
                   </button>
                 </div>
