@@ -39,7 +39,7 @@ const EventForm: React.FC = () => {
   const tokenOptions = [
     { symbol: "cUSD", address: "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1" },
     { symbol: "cEUR", address: "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F" },
-    { symbol: "cCOP", address: "0xE4D517785D091D3c54818832dB6094bcc2744545" },
+    { symbol: "cREAL", address: "0xE4D517785D091D3c54818832dB6094bcc2744545" },
   ];
 
   const handleChange = (
@@ -331,7 +331,7 @@ const EventForm: React.FC = () => {
       {/* Event Price */}
       <div className="mb-4">
         <label className="block text-gray-700 font-medium mb-2 text-sm">
-          Ticket Price (cUSD, cEUR, cCOP)*
+          Ticket Price (cUSD, cEUR, cREAL)*
         </label>
         <input
           type="number"

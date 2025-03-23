@@ -84,7 +84,7 @@ export default function EventPage({
   const mentoTokens: Record<string, string> = {
     "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1": "cUSD",
     "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F": "cEUR",
-    "0xE4D517785D091D3c54818832dB6094bcc2744545": "cCOP",
+    "0xE4D517785D091D3c54818832dB6094bcc2744545": "cREAL",
   };
 
   // Find the token name using the event's paymentToken address
@@ -154,6 +154,15 @@ export default function EventPage({
             </p>
           </div>
 
+          {/* Attendee List */}
+          <div className="mt-6">
+            <h3 className="text-md font-semibold mb-4 flex items-center space-x-2 text-gray-800">
+              <UsersRound className="w-5 h-5 text-gray-600" />
+              <span>Attendees</span>
+            </h3>
+            <AttendeeList attendees={attendees} />
+          </div>
+
           {/* Refund Policy */}
           <div className="mt-6">
             <h3 className="text-md font-semibold flex items-center space-x-2 text-gray-800">
@@ -171,15 +180,6 @@ export default function EventPage({
               To request a refund, use the "Request Refund" button on the event
               page. If you experience issues, contact the organizer.
             </p>
-          </div>
-
-          {/* Attendee List */}
-          <div className="mt-6">
-            <h3 className="text-md font-semibold mb-4 flex items-center space-x-2 text-gray-800">
-              <UsersRound className="w-5 h-5 text-gray-600" />
-              <span>Attendees</span>
-            </h3>
-            <AttendeeList attendees={attendees} />
           </div>
         </div>
 

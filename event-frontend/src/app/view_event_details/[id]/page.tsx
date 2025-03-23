@@ -65,7 +65,7 @@ export default function Home() {
   const mentoTokens: Record<string, string> = {
     "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1": "cUSD",
     "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F": "cEUR",
-    "0xE4D517785D091D3c54818832dB6094bcc2744545": "cCOP",
+    "0xE4D517785D091D3c54818832dB6094bcc2744545": "cREAL",
   };
 
   // Move fetchEventById outside useEffect so it can be called manually
@@ -121,7 +121,7 @@ export default function Home() {
         fundsHeld: Number(event.fundsHeld),
         isCanceled: event.isCanceled,
         fundsReleased: event.fundsReleased,
-        paymentToken: ethers.getAddress(eventDetails.paymentToken), // Ensure checksummed
+        paymentToken: ethers.getAddress(eventDetails.paymentToken),
       }));
 
       setEvent(formattedEvent);

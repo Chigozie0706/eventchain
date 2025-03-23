@@ -3,8 +3,8 @@ pragma solidity ^0.8.3;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract EventChain {
-    mapping(address => bool) public supportedTokens; // Mento supported tokens (cUSD, cEUR, cCOP)
+contract EventChain {cREAL
+    mapping(address => bool) public supportedTokens; // Mento supported tokens (cUSD, cEUR, cREAL)
 
     constructor(address[] memory _supportedTokens) {
         for (uint256 i = 0; i < _supportedTokens.length; i++) {
