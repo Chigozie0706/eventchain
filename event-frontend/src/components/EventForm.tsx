@@ -309,7 +309,7 @@ const EventForm: React.FC = () => {
       {/* Select Payment Token */}
       <div className="mb-4">
         <label className="block text-gray-700 font-medium text-sm mb-2">
-          Payment Token *
+          Payment Token (cUSD, cEUR, cREAL)*
         </label>
         <select
           name="paymentToken"
@@ -331,7 +331,7 @@ const EventForm: React.FC = () => {
       {/* Event Price */}
       <div className="mb-4">
         <label className="block text-gray-700 font-medium mb-2 text-sm">
-          Ticket Price (cUSD, cEUR, cREAL)*
+          Ticket Price *
         </label>
         <input
           type="number"

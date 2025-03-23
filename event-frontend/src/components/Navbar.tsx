@@ -131,7 +131,7 @@ export default function Navbar() {
 
                   <hr className="my-2 border-gray-300" />
                   <Link
-                    href="/view_events"
+                    href="/event_tickets"
                     className="block px-4 py-2 hover:bg-gray-100"
                   >
                     Tickets
@@ -163,7 +163,6 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* Wallet Button (Visible on Desktop) */}
         {/* Wallet Button (Visible on Desktop) */}
         <div className="hidden md:block ml-6">
           {address ? (
@@ -200,7 +199,7 @@ export default function Navbar() {
                     Tickets
                   </Link>
                   <Link
-                    href="/event_tickets"
+                    href="/view_created_events"
                     className="block px-4 py-2 hover:bg-gray-100"
                   >
                     Created Events

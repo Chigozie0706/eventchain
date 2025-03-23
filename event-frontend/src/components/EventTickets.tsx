@@ -106,6 +106,7 @@ export default function EventTickets() {
       toast.success("Refund processed successfully!");
 
       fetchUserEvents();
+      fetchBalances();
     } catch (error: any) {
       console.error("Error requesting refund:", error);
 
@@ -117,6 +118,29 @@ export default function EventTickets() {
       setRefunding(false);
       setLoading(false);
     }
+  };
+
+  const fetchBalances = async () => {
+    if (!mentoTokenContracts || !address) return;
+
+    const newBalances: Record<string, string> = {};
+    for (const [tokenAddress, contract] of Object.entries(
+      mentoTokenContracts
+    )) {
+      try {
+        const bal = await contract.balanceOf(address);
+        const formattedBalance = parseFloat(
+          ethers.formatUnits(bal, 18)
+        ).toFixed(2);
+        const tokenName = mentoTokens[tokenAddress] || tokenAddress;
+        newBalances[tokenName] = formattedBalance;
+      } catch (error) {
+        console.error(`Error fetching balance for ${tokenAddress}:`, error);
+        const tokenName = mentoTokens[tokenAddress] || tokenAddress;
+        newBalances[tokenName] = "0";
+      }
+    }
+    setBalances(newBalances);
   };
 
   return (
