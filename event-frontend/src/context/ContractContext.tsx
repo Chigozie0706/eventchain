@@ -51,10 +51,6 @@ export const ContractProvider = ({
 
   const contractAddress = "0x556875cd1681947F2dd71f6BAC20b09c0deD5186";
 
-  // 0xC152EF3B6Ac036F312bfFC1881CF23e496884e16
-  // 0xc8C114775C346669FF6Cf740d9C1eb4EAfD17c77
-  // 0x8e8Cd6dc1e9486C018AC14b216c3808575Edcba6
-
   const CELO_RPC = "https://alfajores-forno.celo-testnet.org";
 
   useEffect(() => {

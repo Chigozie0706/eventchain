@@ -58,39 +58,6 @@ export default function HeroSection() {
 
   return (
     <>
-      {/* <section>
-        <div className="relative w-full h-[70vh] flex flex-col items-center justify-center text-center px-6 overflow-hidden">
-          <div className="absolute inset-0 w-full h-full">
-            <img
-              src="/images/banner.png"
-              alt="Event background"
-              className="object-cover opacity-90"
-            />
-          </div>
-          <div className="z-10 max-w-3xl">
-            <h2 className="text-4xl font-extrabold md:text-6xl">
-              Discover & Book Events Anywhere!
-            </h2>
-            <p className="text-lg mt-4 md:text-xl">
-              Find exciting concerts, workshops, and conferences worldwide. Stay
-              connected to what matters!
-            </p>
-            <div className="mt-6 flex space-x-4 justify-center">
-              <Link href="/create-event">
-                <button className="bg-orange-500 px-6 py-3 rounded-md text-lg hover:bg-orange-600 transition">
-                  Host an Event
-                </button>
-              </Link>
-              <Link href="/view-events">
-                <button className="bg-blue-600 px-6 py-3 rounded-md text-lg hover:bg-blue-700 transition">
-                  View Events
-                </button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section> */}
-
       <section className="relative w-full h-[70vh] flex flex-col items-center justify-center text-center px-6 overflow-hidden">
         {/* Background Image with Overlay */}
         <div className="absolute inset-0 w-full h-full">

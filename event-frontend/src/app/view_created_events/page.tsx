@@ -7,21 +7,20 @@ import { ethers } from "ethers";
 
 export default function MyEvents() {
   const [events, setEvents] = useState([]);
-  const [mentoTokens, setMentoTokens] = useState<Record<string, string>>({});
   const { contract } = useContract();
   const [loading, setLoading] = useState(false);
 
-  // Fetch events
+  // Function to fetch events created by the user
   const fetchCreatorEvents = useCallback(async () => {
     try {
       if (!contract) {
-        console.error("Contract instance not found");
         return;
       }
 
+      // Fetch active events created by the user from the smart contract
       const rawData = await contract.getActiveEventsByCreator();
-      console.log("🔹 Raw Creator Events Data:", rawData);
 
+      // Validate the expected data structure
       if (!rawData || rawData.length !== 2) {
         console.error("Unexpected data format from contract");
         return;
@@ -29,6 +28,7 @@ export default function MyEvents() {
 
       const [rawIndexes, rawEvents] = rawData;
 
+      // Format the raw event data into a structured format for rendering
       const formattedEvents = rawEvents.map((event: any[], idx: number) => ({
         index: Number(rawIndexes[idx]),
         owner: event[0],
@@ -48,17 +48,19 @@ export default function MyEvents() {
       }));
 
       setEvents(formattedEvents);
-      console.log("✅ Updated Creator Events:", formattedEvents);
+      console.log(" Updated Creator Events:", formattedEvents);
     } catch (error) {
       console.error("Error fetching creator events:", error);
       toast.error("Failed to fetch events.");
     }
   }, [contract]);
 
+  // Fetch events whenever the contract instance changes
   useEffect(() => {
     fetchCreatorEvents();
   }, [contract, fetchCreatorEvents]);
 
+  // Function to delete an event
   const deleteEvent = async (eventId: number) => {
     if (!contract) return;
 
@@ -98,6 +100,7 @@ export default function MyEvents() {
       <div className="pt-16 px-4">
         <h3 className="text-2xl font-bold mt-10 mb-6">Created Events</h3>
 
+        {/* Grid layout for displaying created events */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 ">
           {events.length > 0 ? (
             events.map((event, index) => (

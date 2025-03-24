@@ -1,203 +1,157 @@
-# EventChain
+# **EventChain**
 
-## Overview
+A **decentralized event ticketing platform** built on the **Celo blockchain**, allowing users to create events, buy tickets, and request refunds in multiple tokens.
 
-[Demo](https://eventchain-git-main-chigozie0706s-projects.vercel.app/)
+**[Live Demo](https://eventchain-git-main-chigozie0706s-projects.vercel.app/)**  
+**[GitHub Repository](https://github.com/Chigozie0706/eventchain)**
 
-[Repository](https://github.com/Chigozie0706/eventchain)
+---
 
-EventChain is a decentralized event management smart contract deployed on the Celo blockchain. It allows users to create events, buy tickets using cUSD, and manage event participation in a transparent and immutable manner.
+## **Features**
 
-## Features
+**Decentralized Ticketing** – Secure and transparent event ticketing powered by **smart contracts**.  
+**Multi-Token Payments** – Buy tickets using **cUSD, cEUR, cREAL**, and more.  
+**Refund System** – Request refunds in the same token used for payment if an event is canceled.  
+**Event Management** – Organizers can create, update, and deactivate events.  
+**Celo Integration** – Uses Celo blockchain for payments and event validation.
 
-- **Event Creation**: Organizers can create events with details such as name, date, location, ticket price, and an image.
-- **Event Listing**: Users can view all active events and details about specific events.
-- **Ticket Purchase**: Users can buy tickets for events using cUSD, ensuring secure and traceable transactions.
-- **Event Attendance**: Users can register as attendees for events they have purchased tickets for.
-- **Event Management**: Event creators can deactivate their events.
+---
 
-## Contract Details
+## **Project Structure**
 
-- **Frontend Framework**: Next.js
-- **Network**: Celo
-- **Token Used**: cUSD (Celo Dollar)
-- **License**: MIT
-- **Solidity Version**: ^0.8.3
-
-## Deployed Contract Addresses on Celo
-
-- **contract address**: 0xBa26366767eA843A656853d348c763c41f9D67Ca
-
-- [Celo explorer](https://alfajores.celoscan.io/address/0xBa26366767eA843A656853d348c763c41f9D67Ca)
-
-## Contracts Should Be Verified
-
-[Celo explorer](https://alfajores.celoscan.io/address/0xBa26366767eA843A656853d348c763c41f9D67Ca)
-
-## Screenshots
-
-![Image](https://github.com/user-attachments/assets/b796ae16-92c8-4592-a55f-25cc575a3c10)
-![Image](https://github.com/user-attachments/assets/c37491ec-c0d8-43cd-980e-8086c04e5994)
-![Image](https://github.com/user-attachments/assets/1317079a-d067-4d99-ae08-0ca5c731e4e0)
-![Image](https://github.com/user-attachments/assets/c89c9386-51ea-4116-b3d2-6acd2c463626)
-![Image](https://github.com/user-attachments/assets/33a042eb-2f1e-4cfd-b3ed-00e90c318ae8)
-![Image](https://github.com/user-attachments/assets/c784d079-1c17-4b95-a32d-6b396e21e19e)
-
-## Functions
-
-### 1. `createEvent`
-
-```solidity
-function createEvent(
-    string memory _eventName,
-    string memory _eventCardImgUrl,
-    string memory _eventDetails,
-    uint64 _eventDate,
-    uint64 _startTime,
-    uint64 _endTime,
-    string memory _eventLocation,
-    uint256 _ticketPrice
-) public;
+```
+EventChain/
+│── backend/          # Smart contracts (Hardhat + Solidity)
+│── event-frontend/   # Next.js frontend for interacting with the contract
+│── README.md         # Project documentation
 ```
 
-Allows users to create an event and store event details on-chain.
+---
 
-### 2. `getEventById`
+## **Installation & Setup**
 
-```solidity
-function getEventById(uint256 _index) public view returns (
-    Event memory eventDetails,
-    address[] memory attendees,
-    Event[] memory createdEvents
-);
+### **1 Clone the Repository**
+
+```sh
+git clone https://github.com/Chigozie0706/eventchain.git
+cd eventchain
 ```
 
-Retrieves details of a specific event, including attendees and other events created by the organizer.
+### **2 Install Dependencies**
 
-### 3. `deleteEventById`
+#### **Backend**
 
-```solidity
-function deleteEventById(uint256 _index) public;
+```sh
+cd backend
+pnpm install  # Or use npm install / yarn install
 ```
 
-Allows the event creator to deactivate an event.
+#### **Frontend**
 
-### 4. `addEventAttendees`
-
-```solidity
-function addEventAttendees(uint256 _index) public;
+```sh
+cd event-frontend
+pnpm install
 ```
 
-Registers a user as an attendee for a free event.
+---
 
-### 5. `buyTicket`
+## ** Environment Variables**
 
-```solidity
-function buyTicket(uint256 _index) public;
+Create a **`.env`** file in both the **backend** and **event-frontend** directories.
+
+### **Backend (`backend/.env`)**
+
+```sh
+PRIVATE_KEY=your_metamask_wallet_private_key
 ```
 
-Handles the purchase of an event ticket using cUSD.
+## **Running the Project**
 
-### 6. `getAttendees`
+### **1 compile the Smart Contract (Backend)**
 
-```solidity
-function getAttendees(uint256 _index) public view returns (address[] memory);
+```sh
+cd backend
+yarn hardhat compile
 ```
 
-Returns the list of attendees for a given event.
+### **2 Deploy the Smart Contract**
 
-### 7. `getEventLength`
-
-```solidity
-function getEventLength() public view returns (uint256);
+```sh
+npx hardhat ignition deploy ./ignition/modules/EventChain.js --network celo_alfajores
 ```
 
-Returns the total number of events created.
+### **3 Start the Frontend**
 
-### 8. `getEventsByCreator`
-
-```solidity
-function getEventsByCreator(address _creator) public view returns (Event[] memory);
+```sh
+cd event-frontend
+pnpm run dev   # Runs the Next.js app on http://localhost:3000
 ```
 
-Fetches all events created by a specific address.
+---
 
-### 9. `getAllEvents`
+## **Smart Contract Deployment**
 
-```solidity
-function getAllEvents() public view returns (uint256[] memory, Event[] memory);
-```
+Your **EventChain** smart contract is deployed on the **Celo Alfajores** testnet.
 
-Returns all active events along with their indexes.
+| Contract   | Address                                      |
+| ---------- | -------------------------------------------- |
+| EventChain | `0x556875cd1681947F2dd71f6BAC20b09c0deD5186` |
 
-## How It Works
+<!-- **[View on Celo Explorer](https://alfajores.celoscan.io/address/0xBa26366767eA843A656853d348c763c41f9D67Ca)** -->
 
-1. **Deploy the Contract**: Deploy `EventChain` to the Celo blockchain with the cUSD contract address as a parameter.
-2. **Create Events**: Users can create events by calling `createEvent`.
-3. **View Events**: Users can fetch event details using `getEventById` or list all events using `getAllEvents`.
-4. **Buy Tickets**: Users can purchase tickets using `buyTicket`, which transfers cUSD to the event creator.
-5. **Manage Attendance**: Attendees are registered upon ticket purchase.
-6. **Deactivate Events**: Organizers can mark an event as inactive using `deleteEventById`.
+---
 
-## Requirements
+## **Screenshots**
 
-- A Celo-compatible wallet
-- cUSD tokens for purchasing tickets
-- Solidity-compatible development environment (Remix, Hardhat, or Foundry)
+[Screenshots](https://drive.google.com/drive/folders/13iZviAZX3R69zmZKudesQTtxaT5Hdkvy?usp=sharing)
 
-## Installation & Deployment
+---
 
-### Cloning the Repository
+## **How It Works**
 
-1. Clone the repository:
-   ```sh
-   git clone https://github.com/Chigozie0706/eventchain.git
-   cd eventchain
-   ```
+1 **Connect your wallet** (MetaMask / Celo Extension Wallet).  
+2 **Create an event** with event name, date, location, and ticket price.  
+3 **Buy tickets** using **cUSD, cEUR, cREAL**, or other supported tokens.  
+4 **Request refunds** if the event is canceled.  
+5 **Manage events** – Event creators can **deactivate** events anytime.
 
-### Project Structure
+---
 
-The project is divided into two main folders:
+### **Architecture**
 
-- **backend**: Contains the smart contract and deployment scripts.
-- **event-frontend**: Contains the Next.js frontend for interacting with the contract.
+#### **Tech Stack**
 
-### Backend Deployment
+- **Frontend:** Next.js (React + TypeScript)
+- **Backend:** Solidity smart contract (Hardhat, Hardhat Ignition)
+- **Blockchain:** Celo (Alfajores Testnet)
+- **Wallet Integration:** MetaMask, Celo Extension Wallet
 
-1. Navigate to the backend directory:
-   ```sh
-   cd backend
-   ```
-2. Install dependencies:
-   ```sh
-   yarn install
-   ```
-3. Compile the contract:
-   ```sh
-   yarn hardhat compile
-   ```
-4. Deploy the contract to Celo Alfajores:
-   ```sh
-   npx hardhat ignition deploy ./ignition/modules/EventChain.js --network celo_alfajores
-   ```
+#### **Challenges & Implementation Notes**
 
-### Frontend Setup
+- **Multi-token support:** Implementing refunds in the same token used for purchases was tricky. Solved by restricting users to pay with the same token for all tickets in a single event and tracking purchase history for refunds.
+- **Celo blockchain integration:** Used `IERC20` for interacting with Celo stablecoins (cUSD, cEUR, cREAL).
+- **Deployment automation:** Hardhat Ignition simplified contract deployment but required additional debugging for module dependencies.
 
-1. Navigate to the frontend directory:
-   ```sh
-   cd ../event-frontend
-   ```
-2. Install dependencies:
-   ```sh
-   yarn install
-   ```
-3. Start the development server:
-   ```sh
-   yarn dev
-   ```
+#### **Future Enhancements**
 
-- Note: you can use pnpm also
+- Support for **new ERC-20 tokens** beyond Mento stable assets.
+- **NFT-based ticketing** for secure, transferable event tickets.
+- **Gas fee optimizations** for cost-efficient transactions.
+- **Frontend dashboard** for event organizers to track sales & refunds.
 
-## License
+---
 
-This project is licensed under the MIT License.
+## **Contributing**
+
+Pull requests are welcome! Follow these steps:
+
+1. **Fork** the repository.
+2. **Create a new branch** (`feature/new-feature`).
+3. **Commit** your changes.
+4. **Push** and open a **Pull Request**.
+
+---
+
+## **License**
+
+This project is **open-source** under the **MIT License**.

@@ -25,9 +25,6 @@ const mentoTokens: Record<string, string> = {
   "0xE4D517785D091D3c54818832dB6094bcc2744545": "cCOP",
 };
 
-// Find the token name using the event's paymentToken address
-// const tokenName = mentoTokens[event.paymentToken] || event.paymentToken;
-
 const CreatorEventCard: React.FC<CreatorEventCardProps> = ({
   event,
   onDelete,
@@ -37,7 +34,7 @@ const CreatorEventCard: React.FC<CreatorEventCardProps> = ({
     <div className="relative flex flex-col w-full max-w-sm p-4 bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow">
       {/* Delete Button (Top Left) */}
       <button
-        onClick={() => onDelete(event.index)}
+        //onClick={() => onDelete(event.index)}
         disabled={loading}
         className="absolute top-3 left-3 bg-red-500 text-white p-2 rounded-full shadow-md hover:bg-red-600 transition"
       >

@@ -1,36 +1,138 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# **EventChain Frontend**
 
-## Getting Started
+[![Next.js](https://img.shields.io/badge/Next.js-13+-blue)](https://nextjs.org/)  
+[![TypeScript](https://img.shields.io/badge/TypeScript-✔️-blue)](https://www.typescriptlang.org/)  
+[![Celo Blockchain](https://img.shields.io/badge/Celo-Blockchain-yellow)](https://celo.org/)  
+[![Smart Contracts](https://img.shields.io/badge/Smart_Contracts-Solidity-orange)](https://soliditylang.org/)
 
-First, run the development server:
+**EventChain** is a decentralized event ticketing platform powered by **Next.js** and **Celo blockchain**. It allows users to **create events, buy tickets, and request refunds** while ensuring **transparency and security** via smart contracts.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+**[Live Demo](https://eventchain-git-main-chigozie0706s-projects.vercel.app/)**  
+**[Backend Repository](../backend/)**
+
+---
+
+## **Features**
+
+**Decentralized Ticketing** – Tickets are securely recorded on the blockchain.  
+**Multi-Token Payments** – Supports **cUSD, cEUR, cREAL**, and more.  
+**Refund Mechanism** – Users can get refunds in case of event cancellations.  
+**Blockchain-Powered Transparency** – All transactions are visible on **Celo Explorer**.  
+**Smart Contract-Based Security** – No centralized authority, reducing fraud risks.
+
+---
+
+## **Project Structure**
+
+```plaintext
+event-frontend/
+│── src/
+│   ├── app/               # Next.js App Router structure
+│   │   ├── api/           # API handlers for contract interactions
+│   │   ├── create_event/  # Event creation UI
+│   │   ├── event_tickets/ # Ticket purchasing & management UI
+│   │   ├── view_created_events/ # Dashboard for event creators
+│   │   ├── view_event_details/ # Individual event details page
+│   │   ├── view_events/   # Event listing page
+│   │   ├── layout.tsx     # Global layout wrapper
+│   │   ├── page.tsx       # Main landing page
+│   ├── components/        # Reusable UI components
+│   │   ├── AttendeeList.tsx     # List of attendees
+│   │   ├── CreatorEventCard.tsx # Event card for organizers
+│   │   ├── EventCard.tsx        # Event preview card
+│   │   ├── EventForm.tsx        # Form for event creation
+│   │   ├── EventPage.tsx        # Full event details page
+│   │   ├── EventTickets.tsx     # Ticket purchase UI
+│   │   ├── HeroSection.tsx      # Landing page banner
+│   │   ├── Navbar.tsx           # Navigation bar
+│   ├── context/           # Context API for smart contract interactions
+│   │   ├── ContractContext.tsx  # Manages blockchain connections
+│   ├── contract/          # Smart contract-related files
+│   │   ├── abi.json       # Compiled smart contract ABI
+│── .gitignore
+│── eslint.config.mjs
+│── next-env.d.ts
+│── README.md (this file)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## **Installation & Setup**
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### **1 Prerequisites**
 
-## Learn More
+Ensure you have the following installed:
 
-To learn more about Next.js, take a look at the following resources:
+- **[Node.js](https://nodejs.org/)** (v16+ recommended)
+- **[pnpm](https://pnpm.io/)** (or npm/yarn)
+- **[Metamask](https://metamask.io/)** browser extension
+- A **Celo wallet**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### **2 Clone the Repository**
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```sh
+git clone https://github.com/Chigozie0706/eventchain.git
+cd event-frontend
+```
 
-## Deploy on Vercel
+### **3 Install Dependencies**
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```sh
+pnpm install  # Or use npm install / yarn install
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### **4 Start the Development Server**
+
+```sh
+pnpm dev  # Or use npm run dev / yarn dev
+```
+
+Your application will be available at **[http://localhost:3000](http://localhost:3000)**.
+
+---
+
+## **Smart Contract Integration**
+
+The frontend interacts with **Celo smart contracts** via the **ContractContext.tsx** file. It uses the **Web3.js** or **Ethers.js** library to:
+
+- Fetch event data from the blockchain
+- Process ticket purchases
+- Handle refunds
+
+**Key File:** [`ContractContext.tsx`](src/context/ContractContext.tsx)  
+**ABI File:** [`abi.json`](src/contract/abi.json)
+
+---
+
+## **Deployment**
+
+The frontend is deployed on **Vercel**.
+
+---
+
+## **Additional Resources**
+
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Celo Developer Docs](https://docs.celo.org/)
+- [EventChain Backend Repository](../backend/)
+
+---
+
+## **Contributing**
+
+We welcome contributions!
+
+1. **Fork** the repository
+2. **Create a new branch** (`feature/new-feature`)
+3. **Commit your changes**
+4. **Push** and open a **Pull Request**
+
+For major changes, please open an issue first to discuss them.
+
+---
+
+## **License**
+
+This project is open-source and licensed under the **MIT License**.
+
+---
