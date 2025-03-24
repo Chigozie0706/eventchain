@@ -3,15 +3,26 @@ pragma solidity ^0.8.3;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract EventChain {cREAL
-    mapping(address => bool) public supportedTokens; // Mento supported tokens (cUSD, cEUR, cREAL)
+/**
+ * @title EventChain
+ * @dev A decentralized event ticketing smart contract that supports multiple tokens.
+ */
 
+contract EventChain {
+    /// @notice Mapping to track supported payment tokens (Mento stablecoins: cUSD, cEUR, cREAL)
+    mapping(address => bool) public supportedTokens;
+
+    /**
+     * @dev Constructor to initialize supported tokens.
+     * @param _supportedTokens List of token addresses to be supported.
+     */
     constructor(address[] memory _supportedTokens) {
         for (uint256 i = 0; i < _supportedTokens.length; i++) {
             supportedTokens[_supportedTokens[i]] = true;
         }
     }
 
+    /// @notice Structure to store event details
     struct Event {
         address owner;
         string eventName;
@@ -30,47 +41,78 @@ contract EventChain {cREAL
         address paymentToken;
     }
 
+    /// @notice Array of all created events
     Event[] public events;
 
+    /// @notice Mapping of event ID to list of attendees
     mapping(uint256 => address[]) internal eventAttendees;
+
+    /// @notice Mapping of creator address to their events
     mapping(address => Event[]) internal creatorEvents;
+
+    /// @notice Mapping to track if a user has purchased a ticket for an event
     mapping(uint256 => mapping(address => bool)) public hasPurchasedTicket;
 
+    /// @notice Event emitted when a new event is created
     event EventCreated(
         uint256 indexed eventId,
         address indexed owner,
         string eventName
     );
+
+    /// @notice Event emitted when an event is updated
     event EventUpdated(
         uint256 indexed eventId,
         address indexed owner,
         string eventName
     );
+
+    /// @notice Event emitted when a ticket is purchased
     event TicketPurchased(
         uint256 indexed eventId,
         address indexed buyer,
         uint256 amount,
         address paymentToken
     );
+
+    /// @notice Event emitted when an event is canceled
     event EventCanceled(uint256 indexed eventId);
+
+    /// @notice Event emitted when a refund is issued
     event RefundIssued(
         uint256 indexed eventId,
         address indexed user,
         uint256 amount
     );
+
+    /// @notice Event emitted when funds are released to the event owner
     event FundsReleased(uint256 indexed eventId, uint256 amount);
 
+    /// @dev Modifier to check if the caller is the owner of the event
     modifier onlyOwner(uint256 _index) {
         require(events[_index].owner == msg.sender, "Not event owner");
         _;
     }
 
+    /**
+     * @notice Create a new event.
+     * @param _eventName The name of the event.
+     * @param _eventCardImgUrl Image URL for event display.
+     * @param _eventDetails Description of the event.
+     * @param _startDate Start date of the event.
+     * @param _endDate End date of the event.
+     * @param _startTime Start time of the event.
+     * @param _endTime End time of the event.
+     * @param _eventLocation Physical or virtual location of the event.
+     * @param _ticketPrice Price of one ticket in the specified payment token.
+     * @param _paymentToken Address of the token used for payment.
+     */
     function createEvent(
         string memory _eventName,
         string memory _eventCardImgUrl,
         string memory _eventDetails,
         uint64 _startDate,
-        uint64 _endDate, 
+        uint64 _endDate,
         uint64 _startTime,
         uint64 _endTime,
         string memory _eventLocation,
@@ -78,7 +120,7 @@ contract EventChain {cREAL
         address _paymentToken
     ) public {
         require(supportedTokens[_paymentToken], "Unsupported payment token");
-        require(_endDate >= _startDate, "End date must be after start date"); 
+        require(_endDate >= _startDate, "End date must be after start date");
 
         Event memory newEvent = Event({
             owner: msg.sender,
@@ -104,6 +146,10 @@ contract EventChain {cREAL
         emit EventCreated(events.length - 1, msg.sender, _eventName);
     }
 
+    /**
+     * @notice Purchase a ticket for an event.
+     * @param _index The event ID to purchase a ticket for.
+     */
     function buyTicket(uint256 _index) public {
         require(_index < events.length, "Invalid event ID");
         require(events[_index].startDate > block.timestamp, "Event expired");
@@ -130,6 +176,10 @@ contract EventChain {cREAL
         emit TicketPurchased(_index, msg.sender, price, eventToken);
     }
 
+    /**
+     * @notice Cancel an event (only the owner can cancel it).
+     * @param _index The event ID to cancel.
+     */
     function cancelEvent(uint256 _index) public onlyOwner(_index) {
         require(_index < events.length, "Invalid event ID");
         require(events[_index].isActive, "Already canceled");
@@ -140,13 +190,19 @@ contract EventChain {cREAL
         emit EventCanceled(_index);
     }
 
+    /**
+     * @notice Request a refund for a canceled event or before the refund period ends.
+     * @dev Transfers funds back to the ticket buyer.
+     */
     function requestRefund(uint256 _index) public {
         require(_index < events.length, "Invalid event ID");
         require(hasPurchasedTicket[_index][msg.sender], "No ticket purchased");
 
         if (!events[_index].isCanceled) {
-            require(block.timestamp < events[_index].startTime - (5 * 1 hours), "Refund period has ended");
-
+            require(
+                block.timestamp < events[_index].startTime - (5 * 1 hours),
+                "Refund period has ended"
+            );
         }
 
         uint256 refundAmount = events[_index].ticketPrice;
@@ -178,12 +234,16 @@ contract EventChain {cREAL
         emit RefundIssued(_index, msg.sender, refundAmount);
     }
 
+    /**
+     * @notice Release event funds to the event owner after the event has ended.
+     * @dev Transfers collected funds to the owner and emits FundsReleased event.
+     */
     function releaseFunds(uint256 _index) public onlyOwner(_index) {
         require(_index < events.length, "Invalid event ID");
         require(
-        block.timestamp > events[_index].endDate,
-        "Event has not ended yet"
-    );
+            block.timestamp > events[_index].endDate,
+            "Event has not ended yet"
+        );
         require(
             !events[_index].isCanceled,
             "Cannot release funds for a canceled event"
@@ -205,6 +265,11 @@ contract EventChain {cREAL
         emit FundsReleased(_index, amountToRelease);
     }
 
+    /**
+     * @notice Get details of an event by its ID.
+     * @param _index The event ID.
+     * @return The event details, list of attendees, and events created by the event owner.
+     */
     function getEventById(
         uint256 _index
     ) public view returns (Event memory, address[] memory, Event[] memory) {
@@ -216,6 +281,11 @@ contract EventChain {cREAL
         );
     }
 
+    /**
+     * @notice Get the list of attendees for a specific event.
+     * @param _index The event ID.
+     * @return An array of addresses of attendees.
+     */
     function getAttendees(
         uint256 _index
     ) public view returns (address[] memory) {
@@ -223,16 +293,29 @@ contract EventChain {cREAL
         return eventAttendees[_index];
     }
 
+    /**
+     * @notice Get the total number of events created.
+     * @return The total number of events.
+     */
     function getEventLength() public view returns (uint256) {
         return events.length;
     }
 
+    /**
+     * @notice Get all events created by a specific creator.
+     * @param _creator The address of the event creator.
+     * @return An array of events created by the given address.
+     */
     function getEventsByCreator(
         address _creator
     ) public view returns (Event[] memory) {
         return creatorEvents[_creator];
     }
 
+    /**
+     * @notice Get all active events.
+     * @return An array of event IDs and corresponding active event details.
+     */
     function getAllEvents()
         public
         view
@@ -258,34 +341,45 @@ contract EventChain {cREAL
         return (indexes, activeEvents);
     }
 
-    function getUserEvents() public view returns (uint256[] memory, Event[] memory) {
-    uint count = 0;
+    /**
+     * @notice Get events that the caller has purchased tickets for.
+     * @return An array of event IDs and corresponding event details.
+     */
+    function getUserEvents()
+        public
+        view
+        returns (uint256[] memory, Event[] memory)
+    {
+        uint count = 0;
 
-    // Count the number of events the user has purchased a ticket for
-    for (uint i = 0; i < events.length; i++) {
-        if (hasPurchasedTicket[i][msg.sender]) {
-            count++;
+        // Count the number of events the user has purchased a ticket for
+        for (uint i = 0; i < events.length; i++) {
+            if (hasPurchasedTicket[i][msg.sender]) {
+                count++;
+            }
         }
+
+        // Create arrays with the correct size
+        uint256[] memory eventIds = new uint256[](count);
+        Event[] memory userEvents = new Event[](count);
+        uint j = 0;
+
+        // Populate the arrays with the user's events
+        for (uint i = 0; i < events.length; i++) {
+            if (hasPurchasedTicket[i][msg.sender]) {
+                eventIds[j] = i;
+                userEvents[j] = events[i];
+                j++;
+            }
+        }
+
+        return (eventIds, userEvents);
     }
 
-    // Create arrays with the correct size
-    uint256[] memory eventIds = new uint256[](count);
-    Event[] memory userEvents = new Event[](count);
-    uint j = 0;
-
-    // Populate the arrays with the user's events
-    for (uint i = 0; i < events.length; i++) {
-        if (hasPurchasedTicket[i][msg.sender]) {
-            eventIds[j] = i;
-            userEvents[j] = events[i];
-            j++;
-        }
-    }
-
-    return (eventIds, userEvents);
-}
-
-
+    /**
+     * @notice Get all active events created by the caller.
+     * @return An array of event IDs and corresponding active event details.
+     */
     function getActiveEventsByCreator()
         public
         view
