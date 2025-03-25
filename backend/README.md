@@ -120,7 +120,7 @@ Once deployed, note the **contract address, abi** and update the frontend file a
 ## **How It Works**
 
 1 **Organizer creates an event** specifying event details and a payment token.  
-2 **Users buy tickets** using supported ERC-20 tokens.  
+2 **Users buy tickets** using supported `IERC20` - `ERC-20` tokens.  
 3 **Organizer cancels the event** (if necessary), and refunds are issued automatically.  
 4 **Event ends**, and funds are released to the organizer.
 

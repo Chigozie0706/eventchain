@@ -49,7 +49,9 @@ export const ContractProvider = ({
   }>({});
   const [balances, setBalances] = useState<Record<string, string>>({});
 
-  const contractAddress = "0x556875cd1681947F2dd71f6BAC20b09c0deD5186";
+  const contractAddress = "0x89B92c64bCB1d8Da79fAda1a84653D208E51Cea7";
+
+  // 0x556875cd1681947F2dd71f6BAC20b09c0deD5186
 
   const CELO_RPC = "https://alfajores-forno.celo-testnet.org";
 

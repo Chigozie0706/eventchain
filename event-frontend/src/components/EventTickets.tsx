@@ -149,49 +149,87 @@ export default function EventTickets() {
       {loading && <p>Loading...</p>}
       {!loading && events.length === 0 && <p>No events found.</p>}
       <ul className="space-y-4">
-        {events.map((event) => (
-          <li key={event.id} className="border p-4 rounded-lg">
-            <h2 className="text-xl font-semibold">{event.eventName}</h2>
-            <p className="text-gray-600">{event.eventDetails}</p>
+        {events.map((event) => {
+          const formattedStartTime = new Date(
+            event.startTime * 1000
+          ).toLocaleTimeString(undefined, {
+            hour: "numeric",
+            minute: "numeric",
+            hour12: true,
+          });
 
-            <p>
-              <MapPin className="inline-block w-5 h-5 mr-1 text-gray-700" />
-              <span className="font-medium">{event.eventLocation}</span>
-            </p>
+          const formattedEndTime = new Date(
+            event.endTime * 1000
+          ).toLocaleTimeString(undefined, {
+            hour: "numeric",
+            minute: "numeric",
+            hour12: true,
+          });
 
-            <p>
-              <Calendar className="inline-block w-5 h-5 mr-1 text-gray-700" />
-              Start:{" "}
-              <span className="font-medium">
-                {new Date(event.startDate * 1000).toLocaleString()}
-              </span>
-            </p>
+          const formattedStartDate = new Date(
+            event.startDate * 1000
+          ).toLocaleDateString(undefined, {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          });
 
-            <p>
-              <Flag className="inline-block w-5 h-5 mr-1 text-gray-700" />
-              End:{" "}
-              <span className="font-medium">
-                {new Date(event.endDate * 1000).toLocaleString()}
-              </span>
-            </p>
+          const formattedEndDate = new Date(
+            event.endDate * 1000
+          ).toLocaleDateString(undefined, {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          });
 
-            <p>
-              <DollarSign className="inline-block w-5 h-5 mr-1 text-gray-700" />
-              Ticket Price: {(event.ticketPrice / 1e18).toFixed(2)}{" "}
-              {mentoTokens[event.paymentToken]}
-            </p>
+          return (
+            <li key={event.id} className="border p-4 rounded-lg">
+              <h2 className="text-xl font-semibold mb-2">{event.eventName}</h2>
+              <p className="text-gray-600">{event.eventDetails}</p>
 
-            {!event.isCanceled && !event.fundsReleased && (
-              <button
-                onClick={() => requestRefund(event.id)}
-                className="mt-4 px-4 py-2 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition"
-                disabled={refunding}
-              >
-                {refunding ? "Processing..." : "Apply for Refund"}
-              </button>
-            )}
-          </li>
-        ))}
+              <p className="text-gray-600 text-sm">
+                <MapPin className="inline-block w-5 h-5 mr-1 text-gray-600" />
+                <span className="font-medium">{event.eventLocation}</span>
+              </p>
+
+              <p className="text-gray-600 text-sm">
+                <Calendar className="inline-block w-5 h-5 mr-1 text-gray-600" />
+                Start: <span className="font-medium">{formattedStartDate}</span>
+              </p>
+
+              <p className="text-gray-600 text-sm">
+                <Flag className="inline-block w-5 h-5 mr-1 text-gray-600" />
+                End: <span className="font-medium">{formattedEndDate}</span>
+              </p>
+
+              <p className="text-gray-600 text-sm">
+                <Calendar className="inline-block w-5 h-5 mr-1 text-gray-600" />
+                Time:{" "}
+                <span className="font-medium">
+                  {formattedStartTime} - {formattedEndTime}
+                </span>
+              </p>
+
+              <p className="text-gray-600 text-sm">
+                <DollarSign className="inline-block w-5 h-5 mr-1 text-gray-600 text-sm" />
+                Ticket Price: {(event.ticketPrice / 1e18).toFixed(2)}{" "}
+                {mentoTokens[event.paymentToken]}
+              </p>
+
+              {!event.isCanceled && !event.fundsReleased && (
+                <button
+                  onClick={() => requestRefund(event.id)}
+                  className="mt-4 px-4 py-2 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition text-sm"
+                  disabled={refunding}
+                >
+                  {refunding ? "Processing..." : "Apply for Refund"}
+                </button>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

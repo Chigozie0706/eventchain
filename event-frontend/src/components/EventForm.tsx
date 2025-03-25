@@ -68,17 +68,21 @@ const EventForm: React.FC = () => {
       return false;
     }
 
+    // Create combined datetime objects
+    const startDateTime = new Date(
+      `${eventData.startDate}T${eventData.startTime}`
+    );
+    const endDateTime = new Date(`${eventData.endDate}T${eventData.endTime}`);
+
     // Ensure start date is in the future
-    const startTimestamp = new Date(eventData.startDate).getTime();
-    if (startTimestamp < Date.now()) {
-      toast.error("The start date must be in the future.");
+    if (startDateTime.getTime() < Date.now()) {
+      toast.error("The event must start in the future.");
       return false;
     }
 
-    // Ensure end date is after start date
-    const endTimestamp = new Date(eventData.endDate).getTime();
-    if (endTimestamp <= startTimestamp) {
-      toast.error("End date must be after the start date.");
+    // Ensure end date/time is after start date/time
+    if (endDateTime.getTime() <= startDateTime.getTime()) {
+      toast.error("End date/time must be after the start date/time.");
       return false;
     }
 
@@ -123,22 +127,21 @@ const EventForm: React.FC = () => {
         return;
       }
 
-      // Convert timestamps to Unix format
-      const startDate = Math.floor(
-        new Date(eventData.startDate).getTime() / 1000
+      // Create combined datetime objects
+      const startDateTime = new Date(
+        `${eventData.startDate}T${eventData.startTime}`
       );
+      const endDateTime = new Date(`${eventData.endDate}T${eventData.endTime}`);
 
-      const endDate = Math.floor(
-        new Date(eventData.startDate).getTime() / 1000
-      );
+      // Convert to Unix timestamps (seconds since epoch)
+      const startDate = Math.floor(startDateTime.getTime() / 1000);
+      const endDate = Math.floor(endDateTime.getTime() / 1000);
 
-      const startTime = Math.floor(
-        new Date(`${eventData.startDate}T${eventData.startTime}`).getTime() /
-          1000
-      );
-      const endTime = Math.floor(
-        new Date(`${eventData.startDate}T${eventData.endTime}`).getTime() / 1000
-      );
+      // For startTime and endTime, we'll use the time portion only (seconds since midnight)
+      const startTime =
+        startDateTime.getHours() * 3600 + startDateTime.getMinutes() * 60;
+      const endTime =
+        endDateTime.getHours() * 3600 + endDateTime.getMinutes() * 60;
 
       // Convert ticket price to wei
       const priceInWei = (parseFloat(eventData.eventPrice) * 1e18).toString();
