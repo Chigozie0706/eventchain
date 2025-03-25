@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useContract } from "../context/ContractContext";
@@ -24,6 +24,37 @@ export default function Navbar() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null); // Add ref for menu
+  const dropdownRef = useRef<HTMLDivElement>(null); // Add ref for dropdown
+
+  // Close menus when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      // Close mobile menu if clicked outside
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+
+      // Close wallet dropdown if clicked outside
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // Close dropdown when route changes
+  useEffect(() => {
+    setDropdownOpen(false);
+    setMenuOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     const fetchBalances = async () => {
@@ -71,6 +102,7 @@ export default function Navbar() {
 
         {/* Navigation Menu (Mobile & Desktop) */}
         <div
+          ref={menuRef}
           className={`absolute md:static top-16 left-0 w-full md:w-auto bg-white shadow-md md:shadow-none px-6 py-4 md:p-0 transition-all duration-300 ${
             menuOpen
               ? "flex flex-col space-y-4 md:space-y-0 text-center md:flex md:flex-row md:space-x-6"
