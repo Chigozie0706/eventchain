@@ -4,6 +4,7 @@ A **decentralized event ticketing platform** built on the **Celo blockchain**, a
 
 **[Live Demo](https://eventchain-git-main-chigozie0706s-projects.vercel.app/)**  
 **[GitHub Repository](https://github.com/Chigozie0706/eventchain)**
+**[Link to presentattion](https://www.canva.com/design/DAGf-vn5bL4/GpTakYkJ6L9RTarjzrD4vg/view?utm_content=DAGf-vn5bL4&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h596c558439)**
 
 ---
 
@@ -125,6 +126,18 @@ Your **EventChain** smart contract is deployed on the **Celo Alfajores** testnet
 - **Backend:** Solidity smart contract (Hardhat, Hardhat Ignition)
 - **Blockchain:** Celo (Alfajores Testnet)
 - **Wallet Integration:** MetaMask, Celo Extension Wallet
+
+## Deployed Contract Addresses on Celo Alfajores Testnet
+
+Alfajores testnet : 0xBa26366767eA843A656853d348c763c41f9D67Ca
+
+Alfajores testnet : 0xC152EF3B6Ac036F312bfFC1881CF23e496884e16
+
+Alfajores testnet : 0x8e8Cd6dc1e9486C018AC14b216c3808575Edcba6
+
+Alfajores testnet : 0x556875cd1681947F2dd71f6BAC20b09c0deD5186
+
+Alfajores testnet : 0x89B92c64bCB1d8Da79fAda1a84653D208E51Cea7
 
 #### **Challenges & Implementation Notes**
 
