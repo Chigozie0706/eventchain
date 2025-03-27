@@ -2,8 +2,10 @@
 
 A **decentralized event ticketing platform** built on the **Celo blockchain**, allowing users to create events, buy tickets, and request refunds in multiple tokens.
 
-**[Live Demo](https://eventchain-git-main-chigozie0706s-projects.vercel.app/)**  
+**[Live Demo](https://eventchain-git-main-chigozie0706s-projects.vercel.app/)**
+
 **[GitHub Repository](https://github.com/Chigozie0706/eventchain)**
+
 **[Link to presentattion](https://www.canva.com/design/DAGf-vn5bL4/GpTakYkJ6L9RTarjzrD4vg/view?utm_content=DAGf-vn5bL4&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h596c558439)**
 
 ---
@@ -96,7 +98,7 @@ Your **EventChain** smart contract is deployed on the **Celo Alfajores** testnet
 
 | Contract   | Address                                      |
 | ---------- | -------------------------------------------- |
-| EventChain | `0x556875cd1681947F2dd71f6BAC20b09c0deD5186` |
+| EventChain | `0x89B92c64bCB1d8Da79fAda1a84653D208E51Cea7` |
 
 <!-- **[View on Celo Explorer](https://alfajores.celoscan.io/address/0xBa26366767eA843A656853d348c763c41f9D67Ca)** -->
 
