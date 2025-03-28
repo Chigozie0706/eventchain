@@ -200,7 +200,7 @@ contract EventChain {
 
         if (!events[_index].isCanceled) {
             require(
-                block.timestamp < events[_index].startTime - (5 * 1 hours),
+                block.timestamp < events[_index].startDate - (5 * 1 hours),
                 "Refund period has ended"
             );
         }
