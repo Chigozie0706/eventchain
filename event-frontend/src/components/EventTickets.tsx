@@ -95,7 +95,7 @@ export default function EventTickets() {
     if (!contract) return;
 
     setRefunding(true);
-    setLoading(true);
+    // setLoading(true);
     const toastId = toast.loading("Processing refund request...");
 
     try {
@@ -116,7 +116,7 @@ export default function EventTickets() {
       );
     } finally {
       setRefunding(false);
-      setLoading(false);
+      // setLoading(false);
     }
   };
 
@@ -218,15 +218,13 @@ export default function EventTickets() {
                 {mentoTokens[event.paymentToken]}
               </p>
 
-              {!event.isCanceled && !event.fundsReleased && (
-                <button
-                  onClick={() => requestRefund(event.id)}
-                  className="mt-4 px-4 py-2 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition text-sm"
-                  disabled={refunding}
-                >
-                  {refunding ? "Processing..." : "Apply for Refund"}
-                </button>
-              )}
+              <button
+                onClick={() => requestRefund(event.id)}
+                className="mt-4 px-4 py-2 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition text-sm"
+                disabled={refunding}
+              >
+                {refunding ? "Processing..." : "Apply for Refund"}
+              </button>
             </li>
           );
         })}
