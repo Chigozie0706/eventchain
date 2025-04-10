@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useContract } from "../context/ContractContext";
 import { ethers } from "ethers";
 import { Menu, X, ChevronDown } from "lucide-react";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 const mentoTokens: Record<string, string> = {
   "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1": "cUSD",
@@ -186,12 +187,16 @@ export default function Navbar() {
               )}
             </div>
           ) : (
-            <button
-              onClick={connectWallet}
-              className="md:hidden bg-orange-500 text-white px-4 py-2 rounded-lg text-xs hover:bg-orange-600 transition"
-            >
-              Connect Wallet
-            </button>
+            <>
+              <button
+                onClick={connectWallet}
+                className="md:hidden bg-orange-500 text-white px-4 py-2 rounded-lg text-xs hover:bg-orange-600 transition"
+              >
+                Connect Wallet
+              </button>
+
+              <ConnectButton />
+            </>
           )}
         </div>
 

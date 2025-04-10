@@ -4,6 +4,7 @@ import "./globals.css";
 import { ContractProvider } from "@/context/ContractContext";
 import Navbar from "@/components/Navbar";
 import { Toaster } from "react-hot-toast";
+import { Providers } from "@/providers/AppProviders";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,11 +32,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning={true}
       >
-        <ContractProvider>
+        <Providers>
           <Navbar />
           {children}
           <Toaster position="top-right" />
-        </ContractProvider>
+        </Providers>
       </body>
     </html>
   );
