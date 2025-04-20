@@ -6,6 +6,9 @@ import { parseUnits } from "ethers";
 import { useParams } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { ethers } from "ethers";
+import { useReadContract, useSendTransaction } from "thirdweb/react";
+import { contract } from "@/app/client";
+import { prepareContractCall, sendTransaction } from "thirdweb";
 
 export interface Event {
   owner: string;
@@ -18,7 +21,7 @@ export interface Event {
   endTime: number;
   eventLocation: string;
   isActive: boolean;
-  ticketPrice: number;
+  ticketPrice: bigint;
   fundsHeld: number;
   isCanceled: boolean;
   fundsReleased: boolean;
@@ -26,47 +29,97 @@ export interface Event {
 }
 
 export default function Home() {
-  const [attendees, setAttendees] = useState([]);
+  const [attendees1, setAttendees1] = useState([]);
   const [createdEvents, setCreatedEvents] = useState([]);
   const [loading, setLoading] = useState(false);
   const {
-    contract,
     readOnlyContract,
     address,
     mentoTokenContracts,
     balances,
     setBalances,
   } = useContract();
-  const { id } = useParams();
+  // const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
 
   console.log("id", id);
 
   const [registering, setRegistering] = useState(false);
   const [refunding, setRefunding] = useState(false);
+  const eventId = id ? BigInt(id) : BigInt(0);
+  // const { mutate: sendTransaction } = useSendTransaction();
 
-  const [event, setEvent] = useState<Event>({
-    owner: "",
-    eventName: "",
-    eventCardImgUrl: "",
-    eventDetails: "",
-    startDate: 0,
-    endDate: 0,
-    startTime: 0,
-    endTime: 0,
-    eventLocation: "",
-    isActive: false,
-    ticketPrice: 0,
-    fundsHeld: 0,
-    isCanceled: false,
-    fundsReleased: false,
-    paymentToken: "",
-  });
+  // const [event1, setEvent1] = useState<Event>({
+  //   owner: "",
+  //   eventName: "",
+  //   eventCardImgUrl: "",
+  //   eventDetails: "",
+  //   startDate: 0,
+  //   endDate: 0,
+  //   startTime: 0,
+  //   endTime: 0,
+  //   eventLocation: "",
+  //   isActive: false,
+  //   ticketPrice: 0,
+  //   fundsHeld: 0,
+  //   isCanceled: false,
+  //   fundsReleased: false,
+  //   paymentToken: "",
+  // });
 
   const mentoTokens: Record<string, string> = {
     "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1": "cUSD",
     "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F": "cEUR",
     "0xE4D517785D091D3c54818832dB6094bcc2744545": "cREAL",
   };
+
+  const {
+    data: rawData,
+    isLoading: isEventLoading,
+    isError: isEventError,
+    error: eventError,
+    refetch: refetchEvent,
+  } = useReadContract({
+    contract,
+    method:
+      "function getEventById(uint256 _index) view returns ((address owner, string eventName, string eventCardImgUrl, string eventDetails, uint64 startDate, uint64 endDate, uint64 startTime, uint64 endTime, string eventLocation, bool isActive, uint256 ticketPrice, uint256 fundsHeld, bool isCanceled, bool fundsReleased, address paymentToken), address[], (address owner, string eventName, string eventCardImgUrl, string eventDetails, uint64 startDate, uint64 endDate, uint64 startTime, uint64 endTime, string eventLocation, bool isActive, uint256 ticketPrice, uint256 fundsHeld, bool isCanceled, bool fundsReleased, address paymentToken)[])",
+    params: [eventId],
+    //enabled: !!eventId
+  });
+
+  // Process event data
+  const { event, attendees, relatedEvents } = rawData
+    ? (() => {
+        const [eventDetails, rawAttendees, rawRelatedEvents] = rawData;
+
+        const formatEvent = (e: any): Event => ({
+          owner: e.owner,
+          eventName: e.eventName,
+          eventCardImgUrl: e.eventCardImgUrl,
+          eventDetails: e.eventDetails,
+          startDate: Number(e.startDate),
+          endDate: Number(e.endDate),
+          startTime: Number(e.startTime),
+          endTime: Number(e.endTime),
+          eventLocation: e.eventLocation,
+          isActive: e.isActive,
+          ticketPrice: BigInt(e.ticketPrice.toString()), // Convert to bigint
+
+          fundsHeld: Number(e.fundsHeld),
+          isCanceled: e.isCanceled,
+          fundsReleased: e.fundsReleased,
+          paymentToken: ethers.getAddress(e.paymentToken),
+        });
+
+        return {
+          event: formatEvent(eventDetails),
+          attendees: rawAttendees.map(ethers.getAddress),
+          relatedEvents: rawRelatedEvents.map(formatEvent),
+        };
+      })()
+    : { event: null, attendees: [], relatedEvents: [] };
+
+  console.log("event", event);
 
   // Move fetchEventById outside useEffect so it can be called manually
   const fetchEventById = useCallback(async () => {
@@ -124,8 +177,8 @@ export default function Home() {
         paymentToken: ethers.getAddress(eventDetails.paymentToken),
       }));
 
-      setEvent(formattedEvent);
-      setAttendees(formattedAttendees);
+      // setEvent1(formattedEvent);
+      setAttendees1(formattedAttendees);
       setCreatedEvents(formattedCreatedEvents);
 
       console.log(" Formatted Event:", formattedEvent);
@@ -136,142 +189,36 @@ export default function Home() {
     }
   }, [readOnlyContract, id]);
 
-  useEffect(() => {
-    fetchEventById();
-  }, [readOnlyContract, fetchEventById]);
+  // const buyTicket = async () => {
+  //   if (!eventId) {
+  //     toast.error("Invalid event ID");
+  //     return;
+  //   }
 
-  const fetchBalances = async () => {
-    if (!mentoTokenContracts || !address) return;
+  //   const transaction = prepareContractCall({
+  //     contract,
+  //     method: "function buyTicket(uint256 _index)",
+  //     params: [eventId],
+  //   });
 
-    const newBalances: Record<string, string> = {};
-    for (const [tokenAddress, contract] of Object.entries(
-      mentoTokenContracts
-    )) {
-      try {
-        const bal = await contract.balanceOf(address);
-        const formattedBalance = parseFloat(
-          ethers.formatUnits(bal, 18)
-        ).toFixed(2);
-        const tokenName = mentoTokens[tokenAddress] || tokenAddress;
-        newBalances[tokenName] = formattedBalance;
-      } catch (error) {
-        console.error(`Error fetching balance for ${tokenAddress}:`, error);
-        const tokenName = mentoTokens[tokenAddress] || tokenAddress;
-        newBalances[tokenName] = "0";
-      }
-    }
-    setBalances(newBalances);
-  };
+  //   sendTransaction(transaction);
+  // };
 
-  const buyTicket = async () => {
-    console.log("Attempting to buy ticket with:", event.paymentToken);
+  if (isEventLoading) {
+    return <div className="pt-16">Loading event details...</div>;
+  }
 
-    if (!address) {
-      toast.error("Please connect your wallet first.");
-      return;
-    }
+  if (isEventError) {
+    return (
+      <div className="pt-16 text-red-500">
+        Error: {eventError?.message || "Failed to load event"}
+      </div>
+    );
+  }
 
-    if (!contract) {
-      toast.error("Contract not initialized.");
-      return;
-    }
-
-    // Log mentoTokenContracts for debugging
-    console.log("Mento Token Contracts:", mentoTokenContracts);
-
-    // Log event.paymentToken for debugging
-    console.log("Event Payment Token:", event.paymentToken);
-
-    // Check if the payment token is supported
-    const paymentTokenContract = mentoTokenContracts[event.paymentToken];
-    if (!paymentTokenContract) {
-      console.error("Unsupported payment token:", event.paymentToken);
-      toast.error(`Unsupported payment token: ${event.paymentToken}`);
-      return;
-    }
-
-    setRegistering(true);
-    setLoading(true);
-    const toastId = toast.loading("Processing your ticket purchase...");
-
-    try {
-      const ticketPriceWei = parseUnits(event.ticketPrice.toString(), "ether");
-
-      console.log(`Approving ${event.paymentToken} spending...`);
-
-      // Step 1: Approve the contract to spend the token
-      const approveAmount = (ticketPriceWei * BigInt(110)) / BigInt(100); // Approve 10% more than the ticket price
-      const approveTx = await paymentTokenContract.approve(
-        contract.target,
-        approveAmount
-      );
-      await approveTx.wait();
-      console.log("Approval successful:", approveTx);
-
-      console.log("Purchasing ticket...");
-
-      // Step 2: Buy the ticket
-      const buyTx = await contract.buyTicket(id);
-      await buyTx.wait();
-      console.log("Ticket purchased successfully:", buyTx);
-
-      toast.dismiss(toastId);
-      toast.success("Ticket purchased successfully!");
-
-      fetchEventById();
-      fetchBalances();
-    } catch (error: any) {
-      console.error("Error buying ticket:", error);
-
-      toast.dismiss(toastId);
-
-      if (error.reason) {
-        toast.error(`Transaction Reverted: ${error.reason}`);
-      } else if (error.data?.message) {
-        toast.error(`Smart Contract Error: ${error.data.message}`);
-      } else {
-        toast.error("Transaction failed. Please check console for details.");
-      }
-    } finally {
-      setRegistering(false);
-      setLoading(false);
-    }
-  };
-
-  const requestRefund = async () => {
-    if (!contract) return;
-
-    setRefunding(true);
-    setLoading(true);
-    const toastId = toast.loading("Processing refund request...");
-
-    try {
-      const refundTx = await contract.requestRefund(id);
-      await refundTx.wait();
-
-      toast.dismiss(toastId);
-      toast.success("Refund processed successfully!");
-
-      console.log("Refund successful!");
-      fetchEventById();
-      fetchBalances();
-    } catch (error: any) {
-      console.error("Error requesting refund:", error);
-
-      toast.dismiss(toastId);
-
-      if (error.reason) {
-        toast.error(`Transaction Reverted: ${error.reason}`);
-      } else if (error.data?.message) {
-        toast.error(`Smart Contract Error: ${error.data.message}`);
-      } else {
-        toast.error("Transaction failed. Please check console for details.");
-      }
-    } finally {
-      setRefunding(false);
-      setLoading(false);
-    }
-  };
+  if (!event) {
+    return <div className="pt-16">Event not found</div>;
+  }
 
   return (
     <>
@@ -280,8 +227,9 @@ export default function Home() {
           event={event}
           attendees={attendees}
           createdEvents={createdEvents}
-          buyTicket={buyTicket}
-          requestRefund={requestRefund}
+          // buyTicket={buyTicket}
+          id={id}
+          // requestRefund={requestRefund () => void}
           loading={loading}
           registering={registering}
           refunding={refunding}

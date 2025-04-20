@@ -4,55 +4,87 @@ import Home from "@/app/view_events/page";
 import { useEffect, useState } from "react";
 import EventCard from "@/components/EventCard";
 import { useContract } from "@/context/ContractContext";
+import { celoAlfajoresTestnet } from "thirdweb/chains";
+import { getContract, readContract } from "thirdweb";
+import { contract } from "@/app/client";
+
+interface Event {
+  index: number;
+  owner: string;
+  eventName: string;
+  eventCardImgUrl: string;
+  eventDetails: string;
+  startDate: number;
+  endDate: number;
+  startTime: number;
+  endTime: number;
+  eventLocation: string;
+  isActive: boolean;
+  ticketPrice: number;
+  fundsHeld: number;
+  isCanceled: boolean;
+  fundsReleased: boolean;
+  paymentToken: string;
+}
 
 export default function HeroSection() {
-  const [events, setEvents] = useState([]);
-  const [, setIndexes] = useState([]);
-  const { contract, readOnlyContract } = useContract();
+  const [events, setEvents] = useState<Event[]>([]);
+  const { readOnlyContract } = useContract();
 
   useEffect(() => {
     const fetchEvents = async () => {
       try {
         if (!readOnlyContract) {
-          console.error(" readOnlyContract instance not found");
+          console.error("readOnlyContract instance not found");
           return;
         }
 
-        // Fetch all active events along with their indexes
-        const rawData = await readOnlyContract.getAllEvents();
-        console.log(" Raw Events Data:", rawData); // Debugging
+        // Fetch data from contract
+        const rawData = await readContract({
+          contract,
+          method:
+            "function getAllEvents() view returns (uint256[], (address owner, string eventName, string eventCardImgUrl, string eventDetails, uint64 startDate, uint64 endDate, uint64 startTime, uint64 endTime, string eventLocation, bool isActive, uint256 ticketPrice, uint256 fundsHeld, bool isCanceled, bool fundsReleased, address paymentToken)[])",
+          params: [],
+        });
 
-        if (!rawData || rawData.length !== 2) {
-          console.error(" Unexpected data format from readOnlyContract");
-          return;
-        }
+        const [indexes, events] = rawData;
 
-        const [rawIndexes, rawEvents] = rawData; // Extract indexes and events
+        // Process events data
+        const formattedEvents = events.map((event: any, idx: number) => {
+          // Convert BigInt to Number where needed
+          const index = Number(indexes[idx]);
+          const startDate = Number(event.startDate);
+          const endDate = Number(event.endDate);
+          const startTime = Number(event.startTime);
+          const endTime = Number(event.endTime);
+          const ticketPrice = Number(event.ticketPrice);
 
-        // Convert to a structured format
-        const formattedEvents = rawEvents.map(
-          (event: any[], idx: string | number) => ({
-            index: Number(rawIndexes[idx]), // Ensure index is stored
-            owner: event[0],
-            eventName: event[1],
-            eventCardImgUrl: event[2],
-            eventDetails: event[3],
-            eventDate: Number(event[4]), // Convert BigInt to Number
-            startTime: Number(event[5]), // Convert BigInt to Number
-            endTime: Number(event[6]), // Convert BigInt to Number
-            eventLocation: event[7],
-            isActive: event[8],
-          })
-        );
+          return {
+            index,
+            owner: event.owner,
+            eventName: event.eventName,
+            eventCardImgUrl: event.eventCardImgUrl,
+            eventDetails: event.eventDetails,
+            startDate,
+            endDate,
+            startTime,
+            endTime,
+            eventLocation: event.eventLocation,
+            isActive: event.isActive,
+            ticketPrice,
+            fundsHeld: Number(event.fundsHeld),
+            isCanceled: event.isCanceled,
+            fundsReleased: event.fundsReleased,
+            paymentToken: event.paymentToken,
+          };
+        });
 
-        setIndexes(rawIndexes.map(Number)); // Store indexes separately
         setEvents(formattedEvents);
-        console.log("✅ Formatted Events:", formattedEvents); // Debugging
+        console.log("Formatted events:", formattedEvents);
       } catch (error) {
         console.error("Error fetching events:", error);
       }
     };
-
     fetchEvents();
   }, [readOnlyContract]);
 

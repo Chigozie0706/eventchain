@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useContract } from "../context/ContractContext";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation"; // For App Router
+import { prepareContractCall } from "thirdweb";
+import { TransactionButton } from "thirdweb/react";
+import { contract } from "@/app/client";
 
 interface EventData {
   eventName: string;
@@ -30,7 +33,7 @@ const EventForm: React.FC = () => {
     paymentToken: "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1",
   });
 
-  const { contract, connectWallet } = useContract();
+  const { connectWallet } = useContract();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +44,24 @@ const EventForm: React.FC = () => {
     { symbol: "cEUR", address: "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F" },
     { symbol: "cREAL", address: "0xE4D517785D091D3c54818832dB6094bcc2744545" },
   ];
+
+  // Create combined datetime objects
+  const startDateTime = new Date(
+    `${eventData.startDate}T${eventData.startTime}`
+  );
+  const endDateTime = new Date(`${eventData.endDate}T${eventData.endTime}`);
+
+  // Convert to Unix timestamps (seconds since epoch)
+  const startDate = Math.floor(startDateTime.getTime() / 1000);
+  const endDate = Math.floor(endDateTime.getTime() / 1000);
+
+  // For startTime and endTime, we'll use the time portion only (seconds since midnight)
+  const startTime =
+    startDateTime.getHours() * 3600 + startDateTime.getMinutes() * 60;
+  const endTime = endDateTime.getHours() * 3600 + endDateTime.getMinutes() * 60;
+
+  // Convert ticket price to wei
+  const priceInWei = (parseFloat(eventData.eventPrice) * 1e18).toString();
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -96,96 +117,96 @@ const EventForm: React.FC = () => {
     return true;
   };
 
-  const handleSubmit = async () => {
-    // Check if all required fields are filled
-    if (!validateForm()) return;
+  // const handleSubmit = async () => {
+  //   // Check if all required fields are filled
+  //   if (!validateForm()) return;
 
-    // Ensure the selected payment token is supported
-    const isTokenSupported = tokenOptions.some(
-      (token) => token.address === eventData.paymentToken
-    );
+  //   // Ensure the selected payment token is supported
+  //   const isTokenSupported = tokenOptions.some(
+  //     (token) => token.address === eventData.paymentToken
+  //   );
 
-    if (!isTokenSupported) {
-      toast.error("Selected payment token is not supported.");
-      return;
-    }
+  //   if (!isTokenSupported) {
+  //     toast.error("Selected payment token is not supported.");
+  //     return;
+  //   }
 
-    // Proceed with event creation
-    setLoading(true);
+  //   // Proceed with event creation
+  //   setLoading(true);
 
-    try {
-      let activeContract = contract;
+  //   try {
+  //     let activeContract = contract;
 
-      // Connect wallet if not already connected
-      if (!activeContract) {
-        activeContract = await connectWallet();
-      }
+  //     // Connect wallet if not already connected
+  //     if (!activeContract) {
+  //       activeContract = await connectWallet();
+  //     }
 
-      if (!activeContract) {
-        toast.error("Failed to connect to the contract. Please try again.");
-        setLoading(false);
-        return;
-      }
+  //     if (!activeContract) {
+  //       toast.error("Failed to connect to the contract. Please try again.");
+  //       setLoading(false);
+  //       return;
+  //     }
 
-      // Create combined datetime objects
-      const startDateTime = new Date(
-        `${eventData.startDate}T${eventData.startTime}`
-      );
-      const endDateTime = new Date(`${eventData.endDate}T${eventData.endTime}`);
+  //     // Create combined datetime objects
+  //     const startDateTime = new Date(
+  //       `${eventData.startDate}T${eventData.startTime}`
+  //     );
+  //     const endDateTime = new Date(`${eventData.endDate}T${eventData.endTime}`);
 
-      // Convert to Unix timestamps (seconds since epoch)
-      const startDate = Math.floor(startDateTime.getTime() / 1000);
-      const endDate = Math.floor(endDateTime.getTime() / 1000);
+  //     // Convert to Unix timestamps (seconds since epoch)
+  //     const startDate = Math.floor(startDateTime.getTime() / 1000);
+  //     const endDate = Math.floor(endDateTime.getTime() / 1000);
 
-      // For startTime and endTime, we'll use the time portion only (seconds since midnight)
-      const startTime =
-        startDateTime.getHours() * 3600 + startDateTime.getMinutes() * 60;
-      const endTime =
-        endDateTime.getHours() * 3600 + endDateTime.getMinutes() * 60;
+  //     // For startTime and endTime, we'll use the time portion only (seconds since midnight)
+  //     const startTime =
+  //       startDateTime.getHours() * 3600 + startDateTime.getMinutes() * 60;
+  //     const endTime =
+  //       endDateTime.getHours() * 3600 + endDateTime.getMinutes() * 60;
 
-      // Convert ticket price to wei
-      const priceInWei = (parseFloat(eventData.eventPrice) * 1e18).toString();
+  //     // Convert ticket price to wei
+  //     const priceInWei = (parseFloat(eventData.eventPrice) * 1e18).toString();
 
-      // Send transaction to create event
-      const tx = await activeContract.createEvent(
-        eventData.eventName,
-        eventData.eventCardImgUrl,
-        eventData.eventDetails,
-        startDate,
-        endDate,
-        startTime,
-        endTime,
-        eventData.eventLocation,
-        priceInWei,
-        eventData.paymentToken,
-        { gasLimit: 5000000 } // Increase gas limit
-      );
+  //     // Send transaction to create event
+  //     const tx = await activeContract.createEvent(
+  //       eventData.eventName,
+  //       eventData.eventCardImgUrl,
+  //       eventData.eventDetails,
+  //       startDate,
+  //       endDate,
+  //       startTime,
+  //       endTime,
+  //       eventData.eventLocation,
+  //       priceInWei,
+  //       eventData.paymentToken,
+  //       { gasLimit: 5000000 } // Increase gas limit
+  //     );
 
-      await tx.wait();
-      toast.success("Event successfully created!");
+  //     await tx.wait();
+  //     toast.success("Event successfully created!");
 
-      // Reset form
-      setEventData({
-        eventName: "",
-        eventCardImgUrl: "",
-        eventDetails: "",
-        startDate: "",
-        endDate: "",
-        startTime: "",
-        endTime: "",
-        eventLocation: "",
-        eventPrice: "",
-        paymentToken: "",
-      });
+  //     // Reset form
+  //     setEventData({
+  //       eventName: "",
+  //       eventCardImgUrl: "",
+  //       eventDetails: "",
+  //       startDate: "",
+  //       endDate: "",
+  //       startTime: "",
+  //       endTime: "",
+  //       eventLocation: "",
+  //       eventPrice: "",
+  //       paymentToken: "",
+  //     });
 
-      // Redirect to view events page
-      router.push("/view_events");
-    } catch (err: any) {
-      toast.error(err.message || "An error occurred.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  //     // Redirect to view events page
+  //     router.push("/view_events");
+  //   } catch (err: any) {
+  //     toast.error(err.message || "An error occurred.");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   return (
     <div className="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-lg my-20">
@@ -350,10 +371,66 @@ const EventForm: React.FC = () => {
       <button
         className="w-full bg-orange-700 text-white p-3 rounded-lg font-semibold hover:bg-orange-800 transition"
         disabled={loading}
-        onClick={handleSubmit}
+        // onClick={handleSubmit}
       >
         {loading ? "Creating Event..." : "Create Event"}
       </button>
+
+      <TransactionButton
+        transaction={() => {
+          if (!validateForm()) {
+            throw new Error("Please fill in all required fields correctly");
+          }
+
+          const startDate = BigInt(Math.floor(startDateTime.getTime() / 1000));
+          const endDate = BigInt(Math.floor(endDateTime.getTime() / 1000));
+          const startTime = BigInt(
+            startDateTime.getHours() * 3600 + startDateTime.getMinutes() * 60
+          );
+          const endTime = BigInt(
+            endDateTime.getHours() * 3600 + endDateTime.getMinutes() * 60
+          );
+          const priceInWei = BigInt(
+            (parseFloat(eventData.eventPrice) * 1e18).toString()
+          );
+
+          return prepareContractCall({
+            contract,
+            method:
+              "function createEvent(string _eventName, string _eventCardImgUrl, string _eventDetails, uint64 _startDate, uint64 _endDate, uint64 _startTime, uint64 _endTime, string _eventLocation, uint256 _ticketPrice, address _paymentToken)",
+            params: [
+              eventData.eventName,
+              eventData.eventCardImgUrl,
+              eventData.eventDetails,
+              startDate,
+              endDate,
+              startTime,
+              endTime,
+              eventData.eventLocation,
+              priceInWei,
+              eventData.paymentToken,
+            ],
+            gas: undefined,
+
+            // gas: BigInt(1000000000),
+          });
+        }}
+        onError={(error: { message: any }) => {
+          alert(`Error: ${error.message}`);
+          console.log(error);
+        }}
+        onTransactionConfirmed={async () => alert("Funded successfully!")}
+        style={{
+          marginTop: "1rem",
+          backgroundColor: "#2563EB",
+          color: "white",
+          padding: "0.5rem 1rem",
+          borderRadius: "0.375rem",
+          cursor: "pointer",
+        }}
+      >
+        Select
+      </TransactionButton>
     </div>
   );
 };

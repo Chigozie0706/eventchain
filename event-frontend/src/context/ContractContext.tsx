@@ -3,6 +3,9 @@ import { createContext, useContext, useState, useEffect } from "react";
 import { BrowserProvider, Contract, ethers } from "ethers";
 import contractABI from "../contract/abi.json";
 import toast from "react-hot-toast";
+import { celoAlfajoresTestnet } from "thirdweb/chains";
+import { getContract } from "thirdweb";
+import { client } from "@/app/client";
 
 const ERC20_ABI = [
   "function approve(address spender, uint256 amount) public returns (bool)",
@@ -20,6 +23,7 @@ const mentoTokens = {
 
 interface ContractContextType {
   contract: Contract | null;
+  contract1: Contract | null;
   readOnlyContract: Contract | null;
   cUSDToken: Contract | null;
   address: string | null;
@@ -42,6 +46,8 @@ export const ContractProvider = ({
   const [readOnlyContract, setReadOnlyContract] = useState<Contract | null>(
     null
   );
+  const [contract1, setContract1] = useState<any>(null);
+
   const [cUSDToken, setCUSDToken] = useState<Contract | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [mentoTokenContracts, setMentoTokenContracts] = useState<{
@@ -61,7 +67,28 @@ export const ContractProvider = ({
       provider
     );
     setReadOnlyContract(readContract);
+    console.log("setReadOnlyContract", setReadOnlyContract);
   }, []);
+
+  useEffect(() => {
+    const init = async () => {
+      const ctr = getContract({
+        client,
+        chain: celoAlfajoresTestnet,
+        address: contractAddress,
+      });
+      console.log("ctr....", ctr);
+      setContract1(ctr);
+    };
+
+    init();
+  }, []);
+
+  //  const contract1 = getContract({
+  //     client: client,
+  //     chain: celoAlfajoresTestnet,
+  //     address: contractAddress
+  // });
 
   useEffect(() => {
     const restoreWallet = async () => {
@@ -167,6 +194,7 @@ export const ContractProvider = ({
     <ContractContext.Provider
       value={{
         contract,
+        contract1,
         readOnlyContract,
         cUSDToken,
         address,

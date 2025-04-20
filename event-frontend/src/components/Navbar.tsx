@@ -5,7 +5,10 @@ import { usePathname } from "next/navigation";
 import { useContract } from "../context/ContractContext";
 import { ethers } from "ethers";
 import { Menu, X, ChevronDown } from "lucide-react";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+// import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { ConnectButton, useActiveAccount } from "thirdweb/react";
+import { client } from "@/app/client";
+import { celoAlfajoresTestnet, ethereum, celo } from "thirdweb/chains";
 
 const mentoTokens: Record<string, string> = {
   "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1": "cUSD",
@@ -13,7 +16,10 @@ const mentoTokens: Record<string, string> = {
   "0xE4D517785D091D3c54818832dB6094bcc2744545": "cREAL",
 };
 
+const CUSD_CONTRACT_ADDRESS = "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1";
+
 export default function Navbar() {
+  const account = useActiveAccount();
   const {
     mentoTokenContracts,
     address,
@@ -195,7 +201,84 @@ export default function Navbar() {
                 Connect Wallet
               </button>
 
-              <ConnectButton />
+              {/* <ConnectButton
+                client={client}
+                chain={celoAlfajoresTestnet}
+                connectModal={{
+                  size: "compact",
+                  showThirdwebBranding: false,
+                }}
+
+                // detailsButton={{
+                //   displayBalanceToken: {
+                //     [celoAlfajoresTestnet.id]:
+                //       "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1", // cUSD
+                //   },
+                // }}
+
+                detailsButton={{
+                  displayBalanceToken: {
+                    [celoAlfajoresTestnet.id]: CUSD_CONTRACT_ADDRESS, // Using your constant
+                  },
+                }}
+                detailsModal={{
+                  displayedTokens: Object.keys(mentoTokens),
+                }}
+                // detailsModal={{
+                //   extraTokens: [
+                //     "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1", // cUSD
+                //     "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F", // cEUR
+                //   ],
+                // }}
+              /> */}
+
+              <ConnectButton
+                client={client}
+                chain={celoAlfajoresTestnet}
+                connectModal={{
+                  size: "compact",
+                  showThirdwebBranding: false,
+                  title: "Connect to EventChain",
+                  // titleIcon: "/path/to/your/logo.png", // Uncomment if you have a logo
+                }}
+                detailsButton={{
+                  displayBalanceToken: {
+                    [celoAlfajoresTestnet.id]:
+                      "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1", // cUSD as primary balance
+                  },
+                }}
+                supportedTokens={{
+                  [celoAlfajoresTestnet.id]: [
+                    {
+                      address: "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1",
+                      name: "Celo Dollar",
+                      symbol: "cUSD",
+                      // icon: "/path/to/cUSD-icon.png", // Optional
+                    },
+                    {
+                      address: "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F",
+                      name: "Celo Euro",
+                      symbol: "cEUR",
+                      // icon: "/path/to/cEUR-icon.png", // Optional
+                    },
+                    {
+                      address: "0xE4D517785D091D3c54818832dB6094bcc2744545",
+                      name: "Celo Real",
+                      symbol: "cREAL",
+                      // icon: "/path/to/cREAL-icon.png", // Optional
+                    },
+                  ],
+                }}
+                detailsModal={{
+                  assetTabs: ["token"], // Only show tokens tab (hides NFTs if you don't need them)
+                  // displayedTokens: Object.keys(mentoTokens), // Alternative if you prefer this approach
+                }}
+                theme="light" // or use dark theme or custom theme object
+                connectButton={{
+                  label: "Connect Wallet",
+                  // style: { backgroundColor: "#F97316" }, // Orange color matching your design
+                }}
+              />
             </>
           )}
         </div>

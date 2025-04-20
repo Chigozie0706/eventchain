@@ -7,7 +7,7 @@ interface Event {
   eventName: string;
   eventCardImgUrl: string;
   eventDetails: string;
-  eventDate: number; // uint64 maps to `number` in TypeScript
+  startDate: number; // uint64 maps to `number` in TypeScript
   startTime: number;
   endTime: number;
   eventLocation: string;
@@ -15,7 +15,7 @@ interface Event {
 }
 
 export default function EventCard({ event }: { event: Event }) {
-  const formattedDate = new Date(event.eventDate * 1000).toLocaleDateString(
+  const formattedDate = new Date(event.startDate * 1000).toLocaleDateString(
     "en-US",
     {
       day: "numeric",
