@@ -1,195 +1,228 @@
-// "use client";
-// import { useEffect, useState, useCallback } from "react";
-// import CreatorEventCard from "@/components/CreatorEventCard";
-// // import { useContract } from "@/context/ContractContext";
-// import { toast } from "react-hot-toast";
-// import { ethers } from "ethers";
+"use client";
+import { useEffect, useState } from "react";
+import CreatorEventCard from "@/components/CreatorEventCard";
+import { useReadContract, useWriteContract } from "wagmi";
+import contractABI from "../../contract/abi.json";
+import { toast } from "react-hot-toast";
+import { ethers } from "ethers";
 
-// export default function MyEvents() {
-//   const [events, setEvents] = useState([]);
-//   // const { contract } = useContract();
-//   const [loading, setLoading] = useState(false);
-//   const [cancelLoading, setCancelLoading] = useState(false);
+interface Event {
+  index: number;
+  owner: string;
+  eventName: string;
+  eventCardImgUrl: string;
+  eventDetails: string;
+  startDate: number;
+  endDate: number;
+  startTime: number;
+  endTime: number;
+  eventLocation: string;
+  isActive: boolean;
+  ticketPrice: number;
+  fundsHeld: number;
+  isCanceled: boolean;
+  fundsReleased: boolean;
+  paymentToken: string;
+}
 
-//   // Function to fetch events created by the user
-//   // const fetchCreatorEvents = useCallback(async () => {
-//   //   try {
-//   //     if (!contract) {
-//   //       return;
-//   //     }
+const CONTRACT_ADDRESS = "0x3C163Eee0Bc89cCf4b32A83278a3c7A1E6e7E9e4";
 
-//   //     // Fetch active events created by the user from the smart contract
-//   //     const rawData = await contract.getActiveEventsByCreator();
+export default function MyEvents() {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { writeContractAsync } = useWriteContract();
 
-//   //     // Validate the expected data structure
-//   //     if (!rawData || rawData.length !== 2) {
-//   //       console.error("Unexpected data format from contract");
-//   //       return;
-//   //     }
+  const {
+    data,
+    error: contractError,
+    isLoading,
+    isError,
+    isSuccess,
+    refetch,
+  } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi: contractABI.abi,
+    functionName: "getActiveEventsByCreator",
+  });
 
-//   //     const [rawIndexes, rawEvents] = rawData;
+  useEffect(() => {
+    if (isLoading) {
+      setLoading(true);
+    } else {
+      setLoading(false);
+    }
+  }, [isLoading]);
 
-//   //     // Format the raw event data into a structured format for rendering
-//   //     const formattedEvents = rawEvents.map((event: any[], idx: number) => ({
-//   //       index: Number(rawIndexes[idx]),
-//   //       owner: event[0],
-//   //       eventName: event[1],
-//   //       eventCardImgUrl: event[2],
-//   //       eventDetails: event[3],
-//   //       eventDate: Number(event[4]),
-//   //       startTime: Number(event[5]),
-//   //       endTime: Number(event[6]),
-//   //       eventLocation: event[7],
-//   //       isActive: event[8],
-//   //       ticketPrice: Number(event[9]),
-//   //       fundsHeld: Number(event[10]),
-//   //       isCanceled: event[11],
-//   //       fundsReleased: event[12],
-//   //       paymentToken: ethers.getAddress(event[13]), // Ensure checksummed
-//   //     }));
+  useEffect(() => {
+    if (isError) {
+      console.error("🚨 Contract read error:", {
+        error: contractError,
+        contractAddress: CONTRACT_ADDRESS,
+        functionName: "getActiveEventsByCreator",
+        timestamp: new Date().toISOString(),
+      });
+      setError("Failed to load your events");
+    }
+  }, [isError, contractError]);
 
-//   //     setEvents(formattedEvents);
-//   //     console.log(" Updated Creator Events:", formattedEvents);
-//   //   } catch (error) {
-//   //     console.error("Error fetching creator events:", error);
-//   //     toast.error("Failed to fetch events.");
-//   //   }
-//   // }, [contract]);
+  useEffect(() => {
+    if (isSuccess && data) {
+      try {
+        console.log("ℹ️ Raw creator events data received:", {
+          data,
+          timestamp: new Date().toISOString(),
+        });
 
-//   const cancelEvent = async (eventId: number) => {
-//     if (!contract) return;
+        if (!Array.isArray(data) || data.length !== 2) {
+          throw new Error("Unexpected data format from contract");
+        }
 
-//     const toastId = toast.loading("Canceling event...");
-//     setCancelLoading(true);
+        const [indexes, eventData] = data as [bigint[], any[]];
 
-//     try {
-//       const tx = await contract.cancelEvent(eventId);
-//       await tx.wait();
+        console.log("ℹ️ Processing creator events data...", {
+          indexesCount: indexes.length,
+          eventsCount: eventData.length,
+          timestamp: new Date().toISOString(),
+        });
 
-//       toast.dismiss(toastId);
-//       toast.success("Event canceled successfully!");
-//       fetchCreatorEvents(); // Refresh the events list
-//     } catch (error: any) {
-//       console.error("Error canceling event:", error);
-//       toast.dismiss(toastId);
+        const formattedEvents = eventData.map((event, idx) => ({
+          index: Number(indexes[idx]),
+          owner: event.owner,
+          eventName: event.eventName,
+          eventCardImgUrl: event.eventCardImgUrl,
+          eventDetails: event.eventDetails,
+          startDate: Number(event.startDate),
+          endDate: Number(event.endDate),
+          startTime: Number(event.startTime),
+          endTime: Number(event.endTime),
+          eventLocation: event.eventLocation,
+          isActive: event.isActive,
+          ticketPrice: Number(ethers.formatUnits(event.ticketPrice, 18)),
+          fundsHeld: Number(ethers.formatUnits(event.fundsHeld, 18)),
+          isCanceled: event.isCanceled,
+          fundsReleased: event.fundsReleased,
+          paymentToken: event.paymentToken,
+        }));
 
-//       const errorMessage =
-//         error.reason ||
-//         error.data?.message ||
-//         "Failed to cancel event. Check console for details.";
-//       toast.error(errorMessage);
-//     } finally {
-//       setCancelLoading(false);
-//     }
-//   };
+        console.log("✅ Successfully formatted creator events:", {
+          eventCount: formattedEvents.length,
+          sampleEvent: formattedEvents[0],
+          timestamp: new Date().toISOString(),
+        });
 
-//   const fetchCreatorEvents = useCallback(async () => {
-//     try {
-//       if (!contract) return;
+        setEvents(formattedEvents);
+      } catch (error) {
+        console.error("🚨 Error processing creator events data:", {
+          error: error instanceof Error ? error.message : "Unknown error",
+          stack: error instanceof Error ? error.stack : undefined,
+          data,
+          timestamp: new Date().toISOString(),
+        });
+        setError("Error processing your event data");
+      }
+    }
+  }, [isSuccess, data]);
 
-//       setLoading(true);
-//       const rawData = await contract.getActiveEventsByCreator();
+  const cancelEvent = async (eventId: number) => {
+    const toastId = toast.loading("Canceling event...");
+    try {
+      await writeContractAsync({
+        address: CONTRACT_ADDRESS,
+        abi: contractABI.abi,
+        functionName: "cancelEvent",
+        args: [eventId],
+      });
 
-//       if (!rawData || rawData.length !== 2) {
-//         console.error("Unexpected data format from contract");
-//         return;
-//       }
+      toast.dismiss(toastId);
+      toast.success("Event canceled successfully!");
 
-//       const [rawIndexes, rawEvents] = rawData;
+      console.log("🔄 Refreshing events after cancellation...");
+      await refetch();
+    } catch (error) {
+      console.error("🚨 Error canceling event:", {
+        error,
+        eventId,
+        timestamp: new Date().toISOString(),
+      });
 
-//       const formattedEvents = rawEvents.map((event: any, idx: number) => ({
-//         index: Number(rawIndexes[idx]),
-//         owner: event.owner,
-//         eventName: event.eventName,
-//         eventCardImgUrl: event.eventCardImgUrl,
-//         eventDetails: event.eventDetails,
-//         startDate: Number(event.startDate),
-//         endDate: Number(event.endDate),
-//         startTime: Number(event.startTime),
-//         endTime: Number(event.endTime),
-//         eventLocation: event.eventLocation,
-//         isActive: event.isActive,
-//         ticketPrice: Number(ethers.formatUnits(event.ticketPrice, 18)), // Convert from wei
-//         fundsHeld: Number(ethers.formatUnits(event.fundsHeld, 18)), // Convert from wei
-//         isCanceled: event.isCanceled,
-//         fundsReleased: event.fundsReleased,
-//         paymentToken: ethers.getAddress(event.paymentToken), // Ensure checksum address
-//       }));
+      toast.dismiss(toastId);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to cancel event"
+      );
+    }
+  };
 
-//       setEvents(formattedEvents);
-//     } catch (error) {
-//       console.error("Error fetching creator events:", error);
-//       toast.error("Failed to fetch events.");
-//     } finally {
-//       setLoading(false);
-//     }
-//   }, [contract]);
+  const deleteEvent = async (eventId: number) => {
+    const toastId = toast.loading("Deleting event...");
+    try {
+      await writeContractAsync({
+        address: CONTRACT_ADDRESS,
+        abi: contractABI.abi,
+        functionName: "deleteEventById",
+        args: [eventId],
+      });
 
-//   // Fetch events whenever the contract instance changes
-//   useEffect(() => {
-//     fetchCreatorEvents();
-//   }, [contract, fetchCreatorEvents]);
+      toast.dismiss(toastId);
+      toast.success("Event deleted successfully!");
 
-//   // Function to delete an event
-//   const deleteEvent = async (eventId: number) => {
-//     if (!contract) return;
+      console.log(`🗑️ Event ${eventId} deleted. Refreshing events...`);
+      await refetch();
+    } catch (error) {
+      console.error("🚨 Error deleting event:", {
+        error,
+        eventId,
+        timestamp: new Date().toISOString(),
+      });
 
-//     const toastId = toast.loading("Deleting event...");
-//     setLoading(true);
+      toast.dismiss(toastId);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete event"
+      );
+    }
+  };
 
-//     try {
-//       const tx = await contract.deleteEventById(eventId);
-//       await tx.wait();
+  if (loading) {
+    return (
+      <div className="pt-16 text-center">
+        <p>Loading your events...</p>
+      </div>
+    );
+  }
 
-//       toast.dismiss(toastId);
-//       toast.success("Event deleted successfully!");
+  if (isError || error) {
+    return (
+      <div className="pt-16 text-center text-red-500">
+        <p>
+          Error:{" "}
+          {contractError?.message || error || "Failed to load your events"}
+        </p>
+      </div>
+    );
+  }
 
-//       console.log(`Event ${eventId} deleted!`);
+  return (
+    <div className="pt-16 px-4">
+      <h3 className="text-2xl font-bold mt-10 mb-6">Created Events</h3>
 
-//       // Refetch events after deletion
-//       fetchCreatorEvents();
-//     } catch (error: any) {
-//       console.error("Error deleting event:", error);
-
-//       toast.dismiss(toastId);
-
-//       if (error.reason) {
-//         toast.error(`Transaction Reverted: ${error.reason}`);
-//       } else if (error.data?.message) {
-//         toast.error(`Smart Contract Error: ${error.data.message}`);
-//       } else {
-//         toast.error("Transaction failed. Please check console for details.");
-//       }
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   return (
-//     <>
-//       <div className="pt-16 px-4">
-//         <h3 className="text-2xl font-bold mt-10 mb-6">Created Events</h3>
-
-//         {/* Grid layout for displaying created events */}
-//         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 ">
-//           {events.length > 0 ? (
-//             events.map((event, index) => (
-//               <CreatorEventCard
-//                 key={index}
-//                 event={event}
-//                 onDelete={deleteEvent}
-//                 loading={loading}
-//                 cancelLoading={cancelLoading}
-//                 onCancel={cancelEvent}
-//               />
-//             ))
-//           ) : (
-//             <p className="text-center text-gray-500 col-span-full">
-//               No events found.
-//             </p>
-//           )}
-//         </div>
-//       </div>
-//     </>
-//   );
-// }
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {events.length > 0 ? (
+          events.map((event) => (
+            <CreatorEventCard
+              key={`${event.index}-${event.owner}`}
+              event={event}
+              onDelete={deleteEvent}
+              onCancel={cancelEvent}
+              loading={false}
+              cancelLoading={false}
+            />
+          ))
+        ) : (
+          <p className="text-center text-gray-500 col-span-full">
+            You haven't created any events yet.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
