@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { formatEventDate } from "@/utils/format";
 
 interface Event {
   index: number;
@@ -7,7 +8,7 @@ interface Event {
   eventName: string;
   eventCardImgUrl: string;
   eventDetails: string;
-  startDate: number; // uint64 maps to `number` in TypeScript
+  startDate: number;
   startTime: number;
   endTime: number;
   eventLocation: string;
@@ -15,16 +16,8 @@ interface Event {
 }
 
 export default function EventCard({ event }: { event: Event }) {
-  const formattedDate = new Date(event.startDate * 1000).toLocaleDateString(
-    "en-US",
-    {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    }
-  );
-
   const shortAddress = `${event.owner.slice(0, 6)}...${event.owner.slice(-4)}`;
+  const formattedDate = formatEventDate(event.startDate);
 
   return (
     <div className="w-full max-w-xs md:max-w-sm rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-200 mx-auto">
@@ -47,7 +40,7 @@ export default function EventCard({ event }: { event: Event }) {
         <p className="text-gray-600 text-xs mt-1">
           <span className="font-semibold">Date:</span> {formattedDate}
         </p>
-        {/* <p className="text-gray-500 text-xs mt-1">*Online Only*</p> */}
+
         <p className=" text-orange-600 text-sm font-semibold mt-5 ">
           <Link href={`/view_event_details/${event.index}`}>View Details</Link>
         </p>

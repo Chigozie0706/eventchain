@@ -1,12 +1,9 @@
 "use client";
 import Link from "next/link";
-import Home from "@/app/view_events/page";
 import { useEffect, useState } from "react";
 import EventCard from "@/components/EventCard";
-import { useContract } from "@/context/ContractContext";
-import { celoAlfajoresTestnet } from "thirdweb/chains";
-import { getContract, readContract } from "thirdweb";
-import { contract } from "@/app/client";
+import contractABI from "../contract/abi.json";
+import { useAccount, useReadContract } from "wagmi";
 
 interface Event {
   index: number;
@@ -28,65 +25,65 @@ interface Event {
 }
 
 export default function HeroSection() {
+  const { chain } = useAccount();
   const [events, setEvents] = useState<Event[]>([]);
-  const { readOnlyContract } = useContract();
+
+  const { data, error, isLoading, isError, isSuccess } = useReadContract({
+    abi: contractABI.abi,
+    address: "0x3C163Eee0Bc89cCf4b32A83278a3c7A1E6e7E9e4",
+    functionName: "getAllEvents",
+  });
 
   useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        if (!readOnlyContract) {
-          console.error("readOnlyContract instance not found");
-          return;
-        }
+    if (isSuccess && data) {
+      // The data comes as [indexes[], events[]]
+      const [indexes, eventData] = data as [bigint[], any[]];
 
-        // Fetch data from contract
-        const rawData = await readContract({
-          contract,
-          method:
-            "function getAllEvents() view returns (uint256[], (address owner, string eventName, string eventCardImgUrl, string eventDetails, uint64 startDate, uint64 endDate, uint64 startTime, uint64 endTime, string eventLocation, bool isActive, uint256 ticketPrice, uint256 fundsHeld, bool isCanceled, bool fundsReleased, address paymentToken)[])",
-          params: [],
-        });
+      const formattedEvents = eventData.map((event, idx) => ({
+        index: Number(indexes[idx]),
+        owner: event.owner,
+        eventName: event.eventName,
+        eventCardImgUrl: event.eventCardImgUrl,
+        eventDetails: event.eventDetails,
+        startDate: event.startDate,
+        endDate: event.endDate,
+        startTime: event.startTime,
+        endTime: event.endTime,
+        eventLocation: event.eventLocation,
+        isActive: event.isActive,
+        ticketPrice: event.ticketPrice,
+        fundsHeld: event.fundsHeld,
+        isCanceled: event.isCanceled,
+        fundsReleased: event.fundsReleased,
+        paymentToken: event.paymentToken,
+      }));
 
-        const [indexes, events] = rawData;
+      setEvents(formattedEvents);
+      console.log("Formatted events:", formattedEvents);
+    }
+  }, [isSuccess, data]);
 
-        // Process events data
-        const formattedEvents = events.map((event: any, idx: number) => {
-          // Convert BigInt to Number where needed
-          const index = Number(indexes[idx]);
-          const startDate = Number(event.startDate);
-          const endDate = Number(event.endDate);
-          const startTime = Number(event.startTime);
-          const endTime = Number(event.endTime);
-          const ticketPrice = Number(event.ticketPrice);
+  // useEffect(() => {
+  //   console.log("Current chain:", chain?.id);
+  //   if (isError) {
+  //     console.error("Contract read error:", error);
+  //   }
+  //   if (isSuccess) {
+  //     console.log("Pet data:", data);
+  //   }
+  // }, [chain, isError, isSuccess, error, data]);
 
-          return {
-            index,
-            owner: event.owner,
-            eventName: event.eventName,
-            eventCardImgUrl: event.eventCardImgUrl,
-            eventDetails: event.eventDetails,
-            startDate,
-            endDate,
-            startTime,
-            endTime,
-            eventLocation: event.eventLocation,
-            isActive: event.isActive,
-            ticketPrice,
-            fundsHeld: Number(event.fundsHeld),
-            isCanceled: event.isCanceled,
-            fundsReleased: event.fundsReleased,
-            paymentToken: event.paymentToken,
-          };
-        });
+  // if (isLoading) {
+  //   return <div>Loading pet data...</div>;
+  // }
 
-        setEvents(formattedEvents);
-        console.log("Formatted events:", formattedEvents);
-      } catch (error) {
-        console.error("Error fetching events:", error);
-      }
-    };
-    fetchEvents();
-  }, [readOnlyContract]);
+  // if (isError) {
+  //   return (
+  //     <div className="text-red-500">
+  //       Error: {error?.message || "Failed to load pet data"}
+  //     </div>
+  //   );
+  // }
 
   return (
     <>

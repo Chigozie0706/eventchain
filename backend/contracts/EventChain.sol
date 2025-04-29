@@ -1,16 +1,31 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.3;
 
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title EventChain
  * @dev A decentralized event ticketing smart contract that supports multiple tokens.
  */
 
-contract EventChain {
+contract EventChain is ReentrancyGuard {
     /// @notice Mapping to track supported payment tokens (Mento stablecoins: cUSD, cEUR, cREAL)
     mapping(address => bool) public supportedTokens;
+
+    /// @notice Maximum values for event parameters
+    uint256 public constant MAX_NAME_LENGTH = 100;
+    uint256 public constant MAX_URL_LENGTH = 200;
+    uint256 public constant MAX_DETAILS_LENGTH = 1000;
+    uint256 public constant MAX_LOCATION_LENGTH = 150;
+    uint256 public constant MAX_TICKET_PRICE = 1e24; // 1M tokens
+    uint256 public constant MAX_ATTENDEES = 5000;
+    uint256 public constant MIN_EVENT_DURATION = 1 hours;
+    uint256 public constant REFUND_BUFFER = 5 hours;
+
+    /// @notice Contract pause status
+    bool public paused;
 
     /**
      * @dev Constructor to initialize supported tokens.
@@ -94,6 +109,37 @@ contract EventChain {
         _;
     }
 
+    modifier validEvent(uint256 _index) {
+        require(_index < events.length, "Invalid event");
+        require(events[_index].owner != address(0), "Event doesn't exist");
+        _;
+    }
+
+    modifier whenNotPaused() {
+        require(!paused, "Contract paused");
+        _;
+    }
+
+    function _addSupportedToken(address _token) internal {
+        require(_token != address(0), "Invalid token");
+        supportedTokens[_token] = true;
+    }
+
+    function _safeTransferFrom(
+        IERC20 token,
+        address from,
+        address to,
+        uint256 amount
+    ) internal {
+        bool success = token.transferFrom(from, to, amount);
+        require(success, "Transfer failed");
+    }
+
+    function _safeTransfer(IERC20 token, address to, uint256 amount) internal {
+        bool success = token.transfer(to, amount);
+        require(success, "Transfer failed");
+    }
+
     /**
      * @notice Create a new event.
      * @param _eventName The name of the event.
@@ -108,19 +154,49 @@ contract EventChain {
      * @param _paymentToken Address of the token used for payment.
      */
     function createEvent(
-        string memory _eventName,
-        string memory _eventCardImgUrl,
-        string memory _eventDetails,
+        string calldata _eventName,
+        string calldata _eventCardImgUrl,
+        string calldata _eventDetails,
         uint64 _startDate,
         uint64 _endDate,
         uint64 _startTime,
         uint64 _endTime,
-        string memory _eventLocation,
+        string calldata _eventLocation,
         uint256 _ticketPrice,
         address _paymentToken
-    ) public {
-        require(supportedTokens[_paymentToken], "Unsupported payment token");
-        require(_endDate >= _startDate, "End date must be after start date");
+    ) public whenNotPaused {
+        // Input validation
+        require(
+            bytes(_eventName).length > 0 &&
+                bytes(_eventName).length <= MAX_NAME_LENGTH,
+            "Invalid name"
+        );
+        require(
+            bytes(_eventCardImgUrl).length > 0 &&
+                bytes(_eventCardImgUrl).length <= MAX_URL_LENGTH,
+            "Invalid URL"
+        );
+        require(
+            bytes(_eventDetails).length > 0 &&
+                bytes(_eventDetails).length <= MAX_DETAILS_LENGTH,
+            "Invalid details"
+        );
+        require(
+            bytes(_eventLocation).length > 0 &&
+                bytes(_eventLocation).length <= MAX_LOCATION_LENGTH,
+            "Invalid location"
+        );
+        require(
+            _ticketPrice > 0 && _ticketPrice <= MAX_TICKET_PRICE,
+            "Invalid price"
+        );
+        require(_paymentToken != address(0), "Invalid token");
+        require(_startDate >= block.timestamp, "Start date must be future");
+        require(
+            _endDate >= _startDate + MIN_EVENT_DURATION,
+            "Duration too short"
+        );
+        require(supportedTokens[_paymentToken], "Unsupported token");
 
         Event memory newEvent = Event({
             owner: msg.sender,
@@ -150,38 +226,72 @@ contract EventChain {
      * @notice Purchase a ticket for an event.
      * @param _index The event ID to purchase a ticket for.
      */
-    function buyTicket(uint256 _index) public {
-        require(_index < events.length, "Invalid event ID");
-        require(events[_index].startDate > block.timestamp, "Event expired");
-        require(events[_index].isActive, "Event is inactive");
+
+    function buyTicket(
+        uint256 _index
+    ) public nonReentrant validEvent(_index) whenNotPaused {
+        Event storage event_ = events[_index];
+
+        require(event_.startDate > block.timestamp, "Event expired");
+        require(event_.isActive, "Event inactive");
         require(!hasPurchasedTicket[_index][msg.sender], "Already purchased");
-
-        uint256 price = events[_index].ticketPrice;
-        address eventToken = events[_index].paymentToken;
-
         require(
-            IERC20(eventToken).allowance(msg.sender, address(this)) >= price,
-            "Insufficient token allowance"
+            eventAttendees[_index].length < MAX_ATTENDEES,
+            "Event at capacity"
         );
 
+        uint256 price = event_.ticketPrice;
+
         require(
-            IERC20(eventToken).transferFrom(msg.sender, address(this), price),
-            "Payment failed"
+            IERC20(event_.paymentToken).allowance(msg.sender, address(this)) >=
+                price,
+            "Insufficient allowance"
+        );
+
+        _safeTransferFrom(
+            IERC20(event_.paymentToken),
+            msg.sender,
+            address(this),
+            price
         );
 
         hasPurchasedTicket[_index][msg.sender] = true;
         eventAttendees[_index].push(msg.sender);
-        events[_index].fundsHeld += price;
+        event_.fundsHeld += price;
 
-        emit TicketPurchased(_index, msg.sender, price, eventToken);
+        emit TicketPurchased(_index, msg.sender, price, event_.paymentToken);
+    }
+
+    function _processRefund(uint256 _index, uint256 refundAmount) internal {
+        hasPurchasedTicket[_index][msg.sender] = false;
+        events[_index].fundsHeld -= refundAmount;
+
+        // Remove from attendees list
+        address[] storage attendees = eventAttendees[_index];
+        for (uint256 i = 0; i < attendees.length; i++) {
+            if (attendees[i] == msg.sender) {
+                attendees[i] = attendees[attendees.length - 1];
+                attendees.pop();
+                break;
+            }
+        }
+
+        _safeTransfer(
+            IERC20(events[_index].paymentToken),
+            msg.sender,
+            refundAmount
+        );
+
+        emit RefundIssued(_index, msg.sender, refundAmount);
     }
 
     /**
      * @notice Cancel an event (only the owner can cancel it).
      * @param _index The event ID to cancel.
      */
-    function cancelEvent(uint256 _index) public onlyOwner(_index) {
-        require(_index < events.length, "Invalid event ID");
+    function cancelEvent(
+        uint256 _index
+    ) public onlyOwner(_index) validEvent(_index) whenNotPaused {
         require(events[_index].isActive, "Already canceled");
 
         events[_index].isActive = false;
@@ -194,51 +304,34 @@ contract EventChain {
      * @notice Request a refund for a canceled event or before the refund period ends.
      * @dev Transfers funds back to the ticket buyer.
      */
-    function requestRefund(uint256 _index) public {
-        require(_index < events.length, "Invalid event ID");
+
+    function requestRefund(
+        uint256 _index
+    ) public nonReentrant validEvent(_index) whenNotPaused {
         require(hasPurchasedTicket[_index][msg.sender], "No ticket purchased");
+        require(
+            events[_index].fundsHeld >= events[_index].ticketPrice,
+            "Insufficient funds"
+        );
 
         if (!events[_index].isCanceled) {
             require(
-                block.timestamp < events[_index].startDate - (5 * 1 hours),
-                "Refund period has ended"
+                block.timestamp < events[_index].startDate - REFUND_BUFFER,
+                "Refund period ended"
             );
         }
 
         uint256 refundAmount = events[_index].ticketPrice;
-        require(
-            events[_index].fundsHeld >= refundAmount,
-            "Insufficient funds in escrow"
-        );
-
-        hasPurchasedTicket[_index][msg.sender] = false;
-        events[_index].fundsHeld -= refundAmount;
-
-        address[] storage attendees = eventAttendees[_index];
-        for (uint256 i = 0; i < attendees.length; i++) {
-            if (attendees[i] == msg.sender) {
-                attendees[i] = attendees[attendees.length - 1];
-                attendees.pop();
-                break;
-            }
-        }
-
-        require(
-            IERC20(events[_index].paymentToken).transfer(
-                msg.sender,
-                refundAmount
-            ),
-            "Refund failed"
-        );
-
-        emit RefundIssued(_index, msg.sender, refundAmount);
+        _processRefund(_index, refundAmount);
     }
 
     /**
      * @notice Release event funds to the event owner after the event has ended.
      * @dev Transfers collected funds to the owner and emits FundsReleased event.
      */
-    function releaseFunds(uint256 _index) public onlyOwner(_index) {
+    function releaseFunds(
+        uint256 _index
+    ) public onlyOwner(_index) nonReentrant {
         require(_index < events.length, "Invalid event ID");
         require(
             block.timestamp > events[_index].endDate,

@@ -1,82 +1,170 @@
 "use client";
 import { useEffect, useState } from "react";
 import EventCard from "@/components/EventCard";
-import { useContract } from "@/context/ContractContext";
+import { useReadContract } from "wagmi";
+import contractABI from "../../contract/abi.json";
+
+interface Event {
+  index: number;
+  owner: string;
+  eventName: string;
+  eventCardImgUrl: string;
+  eventDetails: string;
+  startDate: number;
+  endDate: number;
+  startTime: number;
+  endTime: number;
+  eventLocation: string;
+  isActive: boolean;
+  ticketPrice: number;
+  fundsHeld: number;
+  isCanceled: boolean;
+  fundsReleased: boolean;
+  paymentToken: string;
+}
+
+const CONTRACT_ADDRESS = "0x3C163Eee0Bc89cCf4b32A83278a3c7A1E6e7E9e4";
 
 export default function Home() {
-  const [events, setEvents] = useState([]);
-  const [, setIndexes] = useState([]);
-  const { contract, readOnlyContract } = useContract();
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const {
+    data,
+    error: contractError,
+    isLoading,
+    isError,
+    isSuccess,
+  } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi: contractABI.abi,
+    functionName: "getAllEvents",
+  });
 
   useEffect(() => {
-    const fetchEvents = async () => {
+    if (isLoading) {
+      setLoading(true);
+    } else {
+      setLoading(false);
+    }
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (isError) {
+      console.error("🚨 Contract read error:", {
+        error: contractError,
+        contractAddress: CONTRACT_ADDRESS,
+        functionName: "getAllEvents",
+        timestamp: new Date().toISOString(),
+      });
+      setError("Failed to load events");
+    }
+  }, [isError, contractError]);
+
+  useEffect(() => {
+    if (isSuccess && data) {
       try {
-        if (!readOnlyContract) {
-          console.error(" readOnlyContract instance not found");
-          return;
+        console.log("ℹ️ Raw events data received:", {
+          data,
+          timestamp: new Date().toISOString(),
+        });
+
+        if (!Array.isArray(data) || data.length !== 2) {
+          throw new Error("Unexpected data format from contract");
         }
 
-        // Fetch all active events along with their indexes
-        const rawData = await readOnlyContract.getAllEvents();
-        console.log(" Raw Events Data:", rawData); // Debugging
+        const [indexes, eventData] = data as [bigint[], any[]];
 
-        if (!rawData || rawData.length !== 2) {
-          console.error(" Unexpected data format from readOnlyContract");
-          return;
-        }
+        console.log("ℹ️ Processing events data...", {
+          indexesCount: indexes.length,
+          eventsCount: eventData.length,
+          timestamp: new Date().toISOString(),
+        });
 
-        const [rawIndexes, rawEvents] = rawData; // Extract indexes and events
+        const formattedEvents = eventData.map((event, idx) => {
+          // Now handling the event as an object with properties
+          return {
+            index: Number(indexes[idx]),
+            owner: event.owner,
+            eventName: event.eventName,
+            eventCardImgUrl: event.eventCardImgUrl,
+            eventDetails: event.eventDetails,
+            startDate: Number(event.startDate), // Using startDate as eventDate
+            startTime: Number(event.startTime),
+            endDate: Number(event.startTime),
+            endTime: Number(event.endTime),
+            eventLocation: event.eventLocation,
+            isActive: event.isActive,
+            ticketPrice: Number(event.ticketPrice),
+            fundsHeld: Number(event.fundsHeld),
+            isCanceled: event.isCanceled,
+            fundsReleased: event.fundsReleased,
+            paymentToken: event.paymentToken,
+          };
+        });
 
-        // Convert to a structured format
-        const formattedEvents = rawEvents.map(
-          (event: any[], idx: string | number) => ({
-            index: Number(rawIndexes[idx]), // Ensure index is stored
-            owner: event[0],
-            eventName: event[1],
-            eventCardImgUrl: event[2],
-            eventDetails: event[3],
-            eventDate: Number(event[4]), // Convert BigInt to Number
-            startTime: Number(event[5]), // Convert BigInt to Number
-            endTime: Number(event[6]), // Convert BigInt to Number
-            eventLocation: event[7],
-            isActive: event[8],
-          })
-        );
+        console.log("✅ Successfully formatted events:", {
+          eventCount: formattedEvents.length,
+          sampleEvent: formattedEvents[0],
+          timestamp: new Date().toISOString(),
+        });
 
-        setIndexes(rawIndexes.map(Number)); // Store indexes separately
         setEvents(formattedEvents);
-        console.log("✅ Formatted Events:", formattedEvents); // Debugging
       } catch (error) {
-        console.error("Error fetching events:", error);
+        console.error("🚨 Error processing events data:", {
+          error: error instanceof Error ? error.message : "Unknown error",
+          stack: error instanceof Error ? error.stack : undefined,
+          data,
+          timestamp: new Date().toISOString(),
+        });
+        setError("Error processing event data");
       }
-    };
+    }
+  }, [isSuccess, data]);
 
-    fetchEvents();
-  }, [readOnlyContract]);
+  if (loading) {
+    return (
+      <div className="pt-16 text-center">
+        <p>Loading events...</p>
+      </div>
+    );
+  }
+
+  if (isError || error) {
+    return (
+      <div className="pt-16 text-center text-red-500">
+        <p>
+          Error: {contractError?.message || error || "Failed to load events"}
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <>
-      <div className="">
-        <div className="pt-16">
-          <h3 className="text-1xl md:text-2xl font-bold mt-20 m-5">
-            Featured & Upcoming Events
-          </h3>
+    <div className="">
+      <div className="pt-16">
+        <h3 className="text-xl md:text-2xl font-bold mt-20 mx-5">
+          Featured & Upcoming Events
+        </h3>
 
-          <div className="w-full px-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 justify-center">
-              {events.length > 0 ? (
-                events.map((event, index) => (
-                  <EventCard key={index} event={event} />
-                ))
-              ) : (
-                <p className="text-center text-gray-500 col-span-full">
-                  No events found.
-                </p>
-              )}
-            </div>
+        <div className="w-full px-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 justify-center">
+            {events.length > 0 ? (
+              events.map((event) => (
+                <EventCard
+                  key={`${event.index}-${event.owner}`}
+                  event={event}
+                />
+              ))
+            ) : (
+              <p className="text-center text-gray-500 col-span-full">
+                No events found.
+              </p>
+            )}
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
