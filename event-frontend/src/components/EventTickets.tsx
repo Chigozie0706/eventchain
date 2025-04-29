@@ -1,234 +1,266 @@
-// "use client";
+"use client";
 
-// import { useEffect, useState, useCallback } from "react";
-// import { ethers } from "ethers";
-// import { useContract } from "@/context/ContractContext";
-// import { MapPin, Calendar, Flag, DollarSign } from "lucide-react";
-// import { toast } from "react-hot-toast";
+import { useEffect, useState } from "react";
+import { ethers } from "ethers";
+import { useReadContract, useWriteContract } from "wagmi";
+import { MapPin, Calendar, Flag, DollarSign } from "lucide-react";
+import { toast } from "react-hot-toast";
+import contractABI from "../contract/abi.json";
 
-// // Event Interface
-// type Event = {
-//   id: string;
-//   owner: string;
-//   eventName: string;
-//   eventCardImgUrl: string;
-//   eventDetails: string;
-//   startDate: number;
-//   endDate: number;
-//   startTime: number;
-//   endTime: number;
-//   eventLocation: string;
-//   isActive: boolean;
-//   ticketPrice: number;
-//   fundsHeld: number;
-//   isCanceled: boolean;
-//   fundsReleased: boolean;
-//   paymentToken: string;
-// };
+const CONTRACT_ADDRESS = "0x3C163Eee0Bc89cCf4b32A83278a3c7A1E6e7E9e4";
 
-// export default function EventTickets() {
-//   const [events, setEvents] = useState<Event[]>([]);
-//   const [loading, setLoading] = useState(false);
-//   const [refunding, setRefunding] = useState(false);
+interface Event {
+  id: string;
+  owner: string;
+  eventName: string;
+  eventCardImgUrl: string;
+  eventDetails: string;
+  startDate: number;
+  endDate: number;
+  startTime: number;
+  endTime: number;
+  eventLocation: string;
+  isActive: boolean;
+  ticketPrice: number;
+  fundsHeld: number;
+  isCanceled: boolean;
+  fundsReleased: boolean;
+  paymentToken: string;
+}
 
-//   const {
-//     contract,
-//     readOnlyContract,
-//     address,
-//     mentoTokenContracts,
-//     balances,
-//     setBalances,
-//   } = useContract();
+const mentoTokens: Record<string, string> = {
+  "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1": "cUSD",
+  "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F": "cEUR",
+  "0xE4D517785D091D3c54818832dB6094bcc2744545": "cREAL",
+};
 
-//   const mentoTokens: Record<string, string> = {
-//     "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1": "cUSD",
-//     "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F": "cEUR",
-//     "0xE4D517785D091D3c54818832dB6094bcc2744545": "cREAL",
-//   };
+export default function EventTickets() {
+  const [events, setEvents] = useState<Event[]>([]);
+  const { writeContractAsync } = useWriteContract();
 
-//   const fetchUserEvents = useCallback(async () => {
-//     if (!contract) {
-//       console.error(" Contract instance not found");
-//       return;
-//     }
-//     try {
-//       setLoading(true);
-//       const rawData = await contract.getUserEvents();
-//       if (!rawData || rawData.length !== 2) {
-//         console.error(" Unexpected data format from getUserEvents()");
-//         return;
-//       }
+  const {
+    data,
+    error: contractError,
+    isLoading,
+    isError,
+    isSuccess,
+    refetch,
+  } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi: contractABI.abi,
+    functionName: "getUserEvents",
+  });
 
-//       const [eventIds, rawEvents] = rawData;
-//       const formattedEvents = rawEvents.map((event: any, index: number) => ({
-//         id: eventIds[index],
-//         owner: event.owner,
-//         eventName: event.eventName,
-//         eventCardImgUrl: event.eventCardImgUrl,
-//         eventDetails: event.eventDetails,
-//         startDate: Number(event.startDate),
-//         endDate: Number(event.endDate),
-//         startTime: Number(event.startTime),
-//         endTime: Number(event.endTime),
-//         eventLocation: event.eventLocation,
-//         isActive: event.isActive,
-//         ticketPrice: Number(event.ticketPrice),
-//         fundsHeld: Number(event.fundsHeld),
-//         isCanceled: event.isCanceled,
-//         fundsReleased: event.fundsReleased,
-//         paymentToken: ethers.getAddress(event.paymentToken),
-//       }));
+  useEffect(() => {
+    if (isError) {
+      console.error("🚨 Contract read error:", {
+        error: contractError,
+        contractAddress: CONTRACT_ADDRESS,
+        functionName: "getUserEvents",
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }, [isError, contractError]);
 
-//       setEvents(formattedEvents);
-//     } catch (error) {
-//       console.error(" Error fetching user events:", error);
-//     } finally {
-//       setLoading(false);
-//     }
-//   }, [contract]);
+  useEffect(() => {
+    if (isSuccess && data) {
+      try {
+        console.log("ℹ️ Raw user events data received:", {
+          data,
+          timestamp: new Date().toISOString(),
+        });
 
-//   useEffect(() => {
-//     fetchUserEvents();
-//   }, [fetchUserEvents]);
+        if (!Array.isArray(data) || data.length !== 2) {
+          throw new Error("Unexpected data format from contract");
+        }
 
-//   const requestRefund = async (id: string) => {
-//     if (!contract) return;
+        const [eventIds, eventData] = data as [string[], any[]];
 
-//     setRefunding(true);
-//     // setLoading(true);
-//     const toastId = toast.loading("Processing refund request...");
+        console.log("ℹ️ Processing user events data...", {
+          eventCount: eventIds.length,
+          timestamp: new Date().toISOString(),
+        });
 
-//     try {
-//       const refundTx = await contract.requestRefund(id);
-//       await refundTx.wait();
+        const formattedEvents = eventData.map((event, index) => ({
+          id: eventIds[index],
+          owner: event.owner,
+          eventName: event.eventName,
+          eventCardImgUrl: event.eventCardImgUrl,
+          eventDetails: event.eventDetails,
+          startDate: Number(event.startDate),
+          endDate: Number(event.endDate),
+          startTime: Number(event.startTime),
+          endTime: Number(event.endTime),
+          eventLocation: event.eventLocation,
+          isActive: event.isActive,
+          ticketPrice: Number(ethers.formatUnits(event.ticketPrice, 18)),
+          fundsHeld: Number(ethers.formatUnits(event.fundsHeld, 18)),
+          isCanceled: event.isCanceled,
+          fundsReleased: event.fundsReleased,
+          paymentToken: ethers.getAddress(event.paymentToken),
+        }));
 
-//       toast.dismiss(toastId);
-//       toast.success("Refund processed successfully!");
+        console.log("✅ Successfully formatted user events:", {
+          eventCount: formattedEvents.length,
+          sampleEvent: formattedEvents[0],
+          timestamp: new Date().toISOString(),
+        });
 
-//       fetchUserEvents();
-//       fetchBalances();
-//     } catch (error: any) {
-//       console.error("Error requesting refund:", error);
+        setEvents(formattedEvents);
+      } catch (error) {
+        console.error("🚨 Error processing user events data:", {
+          error: error instanceof Error ? error.message : "Unknown error",
+          stack: error instanceof Error ? error.stack : undefined,
+          data,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
+  }, [isSuccess, data]);
 
-//       toast.dismiss(toastId);
-//       toast.error(
-//         error.reason || "Transaction failed. Check console for details."
-//       );
-//     } finally {
-//       setRefunding(false);
-//       // setLoading(false);
-//     }
-//   };
+  const requestRefund = async (id: string) => {
+    const toastId = toast.loading("Processing refund request...");
+    try {
+      await writeContractAsync({
+        address: CONTRACT_ADDRESS,
+        abi: contractABI.abi,
+        functionName: "requestRefund",
+        args: [id],
+      });
 
-//   const fetchBalances = async () => {
-//     if (!mentoTokenContracts || !address) return;
+      toast.dismiss(toastId);
+      toast.success("Refund processed successfully!");
 
-//     const newBalances: Record<string, string> = {};
-//     for (const [tokenAddress, contract] of Object.entries(
-//       mentoTokenContracts
-//     )) {
-//       try {
-//         const bal = await contract.balanceOf(address);
-//         const formattedBalance = parseFloat(
-//           ethers.formatUnits(bal, 18)
-//         ).toFixed(2);
-//         const tokenName = mentoTokens[tokenAddress] || tokenAddress;
-//         newBalances[tokenName] = formattedBalance;
-//       } catch (error) {
-//         console.error(`Error fetching balance for ${tokenAddress}:`, error);
-//         const tokenName = mentoTokens[tokenAddress] || tokenAddress;
-//         newBalances[tokenName] = "0";
-//       }
-//     }
-//     setBalances(newBalances);
-//   };
+      console.log("🔄 Refreshing events after refund...");
+      await refetch();
+    } catch (error) {
+      console.error("🚨 Error requesting refund:", {
+        error,
+        eventId: id,
+        timestamp: new Date().toISOString(),
+      });
 
-//   return (
-//     <div className="max-w-4xl mx-auto p-6">
-//       <h1 className="text-2xl font-bold mb-4">My Events</h1>
-//       {loading && <p>Loading...</p>}
-//       {!loading && events.length === 0 && <p>No events found.</p>}
-//       <ul className="space-y-4">
-//         {events.map((event) => {
-//           const formattedStartTime = new Date(
-//             event.startTime * 1000
-//           ).toLocaleTimeString(undefined, {
-//             hour: "numeric",
-//             minute: "numeric",
-//             hour12: true,
-//           });
+      toast.dismiss(toastId);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to process refund"
+      );
+    }
+  };
 
-//           const formattedEndTime = new Date(
-//             event.endTime * 1000
-//           ).toLocaleTimeString(undefined, {
-//             hour: "numeric",
-//             minute: "numeric",
-//             hour12: true,
-//           });
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <h1 className="text-2xl font-bold mb-4">My Events</h1>
+        <p>Loading your tickets...</p>
+      </div>
+    );
+  }
 
-//           const formattedStartDate = new Date(
-//             event.startDate * 1000
-//           ).toLocaleDateString(undefined, {
-//             weekday: "long",
-//             month: "long",
-//             day: "numeric",
-//             year: "numeric",
-//           });
+  if (isError) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <h1 className="text-2xl font-bold mb-4">My Events</h1>
+        <p className="text-red-500">
+          Error: {contractError?.message || "Failed to load your tickets"}
+        </p>
+      </div>
+    );
+  }
 
-//           const formattedEndDate = new Date(
-//             event.endDate * 1000
-//           ).toLocaleDateString(undefined, {
-//             weekday: "long",
-//             month: "long",
-//             day: "numeric",
-//             year: "numeric",
-//           });
+  return (
+    <div className="max-w-4xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-4">My Tickets</h1>
 
-//           return (
-//             <li key={event.id} className="border p-4 rounded-lg">
-//               <h2 className="text-xl font-semibold mb-2">{event.eventName}</h2>
-//               <p className="text-gray-600">{event.eventDetails}</p>
+      {events.length === 0 ? (
+        <p className="text-gray-500">You don't have any tickets yet.</p>
+      ) : (
+        <ul className="space-y-4">
+          {events.map((event) => {
+            const formattedStartTime = new Date(
+              event.startTime * 1000
+            ).toLocaleTimeString(undefined, {
+              hour: "numeric",
+              minute: "numeric",
+              hour12: true,
+            });
 
-//               <p className="text-gray-600 text-sm">
-//                 <MapPin className="inline-block w-5 h-5 mr-1 text-gray-600" />
-//                 <span className="font-medium">{event.eventLocation}</span>
-//               </p>
+            const formattedEndTime = new Date(
+              event.endTime * 1000
+            ).toLocaleTimeString(undefined, {
+              hour: "numeric",
+              minute: "numeric",
+              hour12: true,
+            });
 
-//               <p className="text-gray-600 text-sm">
-//                 <Calendar className="inline-block w-5 h-5 mr-1 text-gray-600" />
-//                 Start: <span className="font-medium">{formattedStartDate}</span>
-//               </p>
+            const formattedStartDate = new Date(
+              event.startDate * 1000
+            ).toLocaleDateString(undefined, {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            });
 
-//               <p className="text-gray-600 text-sm">
-//                 <Flag className="inline-block w-5 h-5 mr-1 text-gray-600" />
-//                 End: <span className="font-medium">{formattedEndDate}</span>
-//               </p>
+            const formattedEndDate = new Date(
+              event.endDate * 1000
+            ).toLocaleDateString(undefined, {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            });
 
-//               <p className="text-gray-600 text-sm">
-//                 <Calendar className="inline-block w-5 h-5 mr-1 text-gray-600" />
-//                 Time:{" "}
-//                 <span className="font-medium">
-//                   {formattedStartTime} - {formattedEndTime}
-//                 </span>
-//               </p>
+            return (
+              <li
+                key={event.id}
+                className="border p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow"
+              >
+                <div className="flex flex-col space-y-2">
+                  <h2 className="text-xl font-semibold">{event.eventName}</h2>
+                  <p className="text-gray-600">{event.eventDetails}</p>
 
-//               <p className="text-gray-600 text-sm">
-//                 <DollarSign className="inline-block w-5 h-5 mr-1 text-gray-600 text-sm" />
-//                 Ticket Price: {(event.ticketPrice / 1e18).toFixed(2)}{" "}
-//                 {mentoTokens[event.paymentToken]}
-//               </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                    <div className="flex items-center text-sm text-gray-600">
+                      <MapPin className="w-4 h-4 mr-2" />
+                      <span>{event.eventLocation}</span>
+                    </div>
 
-//               <button
-//                 onClick={() => requestRefund(event.id)}
-//                 className="mt-4 px-4 py-2 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition text-sm"
-//                 disabled={refunding}
-//               >
-//                 {refunding ? "Processing..." : "Apply for Refund"}
-//               </button>
-//             </li>
-//           );
-//         })}
-//       </ul>
-//     </div>
-//   );
-// }
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      <span>
+                        {formattedStartDate} - {formattedEndDate}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Flag className="w-4 h-4 mr-2" />
+                      <span>
+                        {formattedStartTime} - {formattedEndTime}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center text-sm text-gray-600">
+                      <DollarSign className="w-4 h-4 mr-2" />
+                      <span>
+                        {event.ticketPrice.toFixed(2)}{" "}
+                        {mentoTokens[event.paymentToken]}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => requestRefund(event.id)}
+                    className="mt-4 px-4 py-2 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition text-sm self-start"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Processing..." : "Request Refund"}
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
