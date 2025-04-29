@@ -32,11 +32,6 @@ export interface Event {
 }
 
 const CONTRACT_ADDRESS = "0x3C163Eee0Bc89cCf4b32A83278a3c7A1E6e7E9e4";
-const mentoTokens: Record<string, string> = {
-  "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1": "cUSD",
-  "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F": "cEUR",
-  "0xE4D517785D091D3c54818832dB6094bcc2744545": "cREAL",
-};
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
@@ -47,7 +42,7 @@ export default function Home() {
   } | null>(null);
   const { id } = useParams<{ id: string }>();
   const eventId = id ? BigInt(id) : BigInt(0);
-  const { address } = useAccount();
+  const { address, isConnected } = useAccount();
 
   // Contract data fetching with refetch capability
   const {
@@ -119,23 +114,23 @@ export default function Home() {
   ]);
 
   // Refund status handling
-  useEffect(() => {
-    if (isRefundWriting) toast.loading("Confirming refund...");
-    if (isRefundConfirming) toast.loading("Processing refund...");
-    if (isRefundConfirmed) {
-      toast.success("Refund processed successfully!");
-    }
-    if (refundWriteError) {
-      toast.error(refundWriteError.message || "Refund failed");
-    }
+  // useEffect(() => {
+  //   if (isRefundWriting) toast.loading("Confirming refund...");
+  //   if (isRefundConfirming) toast.loading("Processing refund...");
+  //   if (isRefundConfirmed) {
+  //     toast.success("Refund processed successfully!");
+  //   }
+  //   if (refundWriteError) {
+  //     toast.error(refundWriteError.message || "Refund failed");
+  //   }
 
-    return () => toast.dismiss();
-  }, [
-    isRefundWriting,
-    isRefundConfirming,
-    isRefundConfirmed,
-    refundWriteError,
-  ]);
+  //   return () => toast.dismiss();
+  // }, [
+  //   isRefundWriting,
+  //   isRefundConfirming,
+  //   isRefundConfirmed,
+  //   refundWriteError,
+  // ]);
 
   // Process event data when fetched
   useEffect(() => {
@@ -166,39 +161,90 @@ export default function Home() {
   }, [rawData]);
 
   // Purchase status handling
+  // useEffect(() => {
+  //   if (isWriting) toast.loading("Confirming transaction...");
+  //   if (isConfirming) toast.loading("Processing transaction...");
+  //   if (isConfirmed) {
+  //     toast.success("Ticket purchased successfully!");
+  //   }
+  //   if (writeError) {
+  //     toast.error(writeError.message || "Transaction failed");
+  //   }
+
+  //   return () => toast.dismiss();
+  // }, [isWriting, isConfirming, isConfirmed, writeError]);
+
+  // Purchase status handling
   useEffect(() => {
-    if (isWriting) toast.loading("Confirming transaction...");
-    if (isConfirming) toast.loading("Processing transaction...");
-    if (isConfirmed) {
+    let toastId: string | undefined;
+
+    if (isWriting) {
+      toastId = toast.loading("Confirming transaction...");
+    } else if (isConfirming) {
+      toastId = toast.loading("Processing transaction...");
+    } else if (isConfirmed) {
       toast.success("Ticket purchased successfully!");
-    }
-    if (writeError) {
+    } else if (writeError) {
       toast.error(writeError.message || "Transaction failed");
     }
 
-    return () => toast.dismiss();
+    return () => {
+      if (toastId) toast.dismiss(toastId);
+      else toast.dismiss();
+    };
   }, [isWriting, isConfirming, isConfirmed, writeError]);
 
-  const approveTokens = useCallback(async () => {
-    if (!eventDetails || !address) return;
+  // Refund status handling
+  useEffect(() => {
+    let toastId: string | undefined;
 
-    try {
-      const approveAmount =
-        (eventDetails.event.ticketPrice * BigInt(110)) / BigInt(100);
-      write({
-        address: eventDetails.event.paymentToken as `0x${string}`,
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [CONTRACT_ADDRESS, approveAmount],
-      });
-    } catch (error: any) {
-      console.error("Approval failed:", error);
-      toast.error(error?.message || "Token approval failed");
+    if (isRefundWriting) {
+      toastId = toast.loading("Confirming refund...");
+    } else if (isRefundConfirming) {
+      toastId = toast.loading("Processing refund...");
+    } else if (isRefundConfirmed) {
+      toast.success("Refund processed successfully!");
+    } else if (refundWriteError) {
+      toast.error(refundWriteError.message || "Refund failed");
     }
-  }, [eventDetails, address, write]);
+
+    return () => {
+      if (toastId) toast.dismiss(toastId);
+      else toast.dismiss();
+    };
+  }, [
+    isRefundWriting,
+    isRefundConfirming,
+    isRefundConfirmed,
+    refundWriteError,
+  ]);
 
   const buyTicket = useCallback(async () => {
-    if (!eventDetails || !address) return;
+    // Check if wallet is connected
+    if (!isConnected) {
+      toast.error("Please connect your wallet first");
+      return;
+    }
+
+    if (!eventDetails || !address) {
+      toast.error("Wallet not properly connected");
+      return;
+    }
+
+    // Check if user already has a ticket
+    if (eventDetails.attendees.includes(address)) {
+      toast.error("You already have a ticket for this event");
+      return;
+    }
+
+    // Check token balance
+    if (
+      tokenBalance !== undefined &&
+      tokenBalance < eventDetails.event.ticketPrice
+    ) {
+      toast.error("Insufficient token balance");
+      return;
+    }
 
     try {
       const requiredAllowance = eventDetails.event.ticketPrice;
@@ -223,11 +269,16 @@ export default function Home() {
       console.error("Full error:", error);
       toast.error("Transaction failed");
     }
-  }, [eventDetails, address, eventId, write, tokenAllowance]);
+  }, [isConnected, eventDetails, address, eventId, write, tokenAllowance]);
 
   const requestRefund = useCallback(async () => {
+    if (!isConnected) {
+      toast.error("Please connect your wallet first");
+      return;
+    }
+
     if (!eventDetails || !address) {
-      toast.error("Please connect your wallet");
+      toast.error("Wallet not properly connected");
       return;
     }
 
@@ -247,7 +298,7 @@ export default function Home() {
       console.error("Refund request failed:", error);
       toast.error(error?.message || "Failed to process refund");
     }
-  }, [eventDetails, address, eventId, writeRefund]);
+  }, [isConnected, eventDetails, address, eventId, writeRefund]);
 
   if (isEventError) {
     return (

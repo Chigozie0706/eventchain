@@ -98,7 +98,7 @@ Your **EventChain** smart contract is deployed on the **Celo Alfajores** testnet
 
 | Contract   | Address                                      |
 | ---------- | -------------------------------------------- |
-| EventChain | `0xA108d65A028039a96d5Cda9f6663EFC5c601e911` |
+| EventChain | `0x3C163Eee0Bc89cCf4b32A83278a3c7A1E6e7E9e4` |
 
 <!-- **[View on Celo Explorer](https://alfajores.celoscan.io/address/0xBa26366767eA843A656853d348c763c41f9D67Ca)** -->
 
@@ -130,18 +130,6 @@ Your **EventChain** smart contract is deployed on the **Celo Alfajores** testnet
 - **Wallet Integration:** MetaMask, Celo Extension Wallet
 
 ## Deployed Contract Addresses on Celo Alfajores Testnet
-
-Alfajores testnet : 0xBa26366767eA843A656853d348c763c41f9D67Ca
-
-Alfajores testnet : 0xC152EF3B6Ac036F312bfFC1881CF23e496884e16
-
-Alfajores testnet : 0x8e8Cd6dc1e9486C018AC14b216c3808575Edcba6
-
-Alfajores testnet : 0x556875cd1681947F2dd71f6BAC20b09c0deD5186
-
-Alfajores testnet : 0x89B92c64bCB1d8Da79fAda1a84653D208E51Cea7
-
-Alfajores testnet : 0xA108d65A028039a96d5Cda9f6663EFC5c601e911
 
 #### **Challenges & Implementation Notes**
 

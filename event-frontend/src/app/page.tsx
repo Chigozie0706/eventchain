@@ -1,13 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import HeroSection from "@/components/HeroSection";
-// import { useContract } from "../context/ContractContext";
 
 export default function Home() {
   const [, setEvents] = useState([]);
-  // const { contract } = useContract();
-
-  // useEffect(() => {
   //   const fetchEvents = async () => {
   //     try {
   //       if (!contract) {

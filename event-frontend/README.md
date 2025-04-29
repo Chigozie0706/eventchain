@@ -22,7 +22,7 @@
 
 ---
 
-## **Project Structure**
+<!-- ## **Project Structure** -->
 
 ```plaintext
 event-frontend/

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.3;
 
+// Import OpenZeppelin contracts for security and functionality
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -8,13 +9,18 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /**
  * @title EventChain
  * @dev A decentralized event ticketing smart contract that supports multiple tokens.
+ * Features include:
+ * - Event creation and management
+ * - Ticket purchasing with supported ERC20 tokens
+ * - Refund functionality
+ * - Secure fund handling
+ * - Event capacity limits
  */
-
 contract EventChain is ReentrancyGuard {
     /// @notice Mapping to track supported payment tokens (Mento stablecoins: cUSD, cEUR, cREAL)
     mapping(address => bool) public supportedTokens;
 
-    /// @notice Maximum values for event parameters
+    /// @notice Maximum values for event parameters to prevent abuse
     uint256 public constant MAX_NAME_LENGTH = 100;
     uint256 public constant MAX_URL_LENGTH = 200;
     uint256 public constant MAX_DETAILS_LENGTH = 1000;
@@ -24,12 +30,12 @@ contract EventChain is ReentrancyGuard {
     uint256 public constant MIN_EVENT_DURATION = 1 hours;
     uint256 public constant REFUND_BUFFER = 5 hours;
 
-    /// @notice Contract pause status
+    /// @notice Contract pause status - emergency stop mechanism
     bool public paused;
 
     /**
      * @dev Constructor to initialize supported tokens.
-     * @param _supportedTokens List of token addresses to be supported.
+     * @param _supportedTokens List of token addresses to be supported for payments.
      */
     constructor(address[] memory _supportedTokens) {
         for (uint256 i = 0; i < _supportedTokens.length; i++) {
@@ -37,7 +43,7 @@ contract EventChain is ReentrancyGuard {
         }
     }
 
-    /// @notice Structure to store event details
+    /// @notice Structure to store comprehensive event details
     struct Event {
         address owner;
         string eventName;
@@ -109,22 +115,35 @@ contract EventChain is ReentrancyGuard {
         _;
     }
 
+    /// @dev Modifier to validate event exists and is active
     modifier validEvent(uint256 _index) {
         require(_index < events.length, "Invalid event");
         require(events[_index].owner != address(0), "Event doesn't exist");
         _;
     }
 
+    /// @dev Modifier to check if contract is not paused
     modifier whenNotPaused() {
         require(!paused, "Contract paused");
         _;
     }
 
+    /**
+     * @dev Internal function to add a new supported payment token
+     * @param _token Address of the token to support
+     */
     function _addSupportedToken(address _token) internal {
         require(_token != address(0), "Invalid token");
         supportedTokens[_token] = true;
     }
 
+    /**
+     * @dev Safe ERC20 transferFrom with success check
+     * @param token ERC20 token interface
+     * @param from Sender address
+     * @param to Recipient address
+     * @param amount Amount to transfer
+     */
     function _safeTransferFrom(
         IERC20 token,
         address from,
@@ -135,23 +154,30 @@ contract EventChain is ReentrancyGuard {
         require(success, "Transfer failed");
     }
 
+    /**
+     * @dev Safe ERC20 transfer with success check
+     * @param token ERC20 token interface
+     * @param to Recipient address
+     * @param amount Amount to transfer
+     */
     function _safeTransfer(IERC20 token, address to, uint256 amount) internal {
         bool success = token.transfer(to, amount);
         require(success, "Transfer failed");
     }
 
     /**
-     * @notice Create a new event.
-     * @param _eventName The name of the event.
-     * @param _eventCardImgUrl Image URL for event display.
-     * @param _eventDetails Description of the event.
-     * @param _startDate Start date of the event.
-     * @param _endDate End date of the event.
-     * @param _startTime Start time of the event.
-     * @param _endTime End time of the event.
-     * @param _eventLocation Physical or virtual location of the event.
-     * @param _ticketPrice Price of one ticket in the specified payment token.
-     * @param _paymentToken Address of the token used for payment.
+     * @notice Create a new event with comprehensive details
+     * @dev Creates a new event with all necessary parameters and performs validation
+     * @param _eventName The name of the event (1-100 chars)
+     * @param _eventCardImgUrl Image URL for event display (1-200 chars)
+     * @param _eventDetails Description of the event (1-1000 chars)
+     * @param _startDate Start date of the event (timestamp)
+     * @param _endDate End date of the event (timestamp)
+     * @param _startTime Daily start time of the event
+     * @param _endTime Daily end time of the event
+     * @param _eventLocation Physical or virtual location (1-150 chars)
+     * @param _ticketPrice Price of one ticket (0 < price <= MAX_TICKET_PRICE)
+     * @param _paymentToken Address of the supported payment token
      */
     function createEvent(
         string calldata _eventName,
@@ -197,7 +223,7 @@ contract EventChain is ReentrancyGuard {
             "Duration too short"
         );
         require(supportedTokens[_paymentToken], "Unsupported token");
-
+        // Create new event struct
         Event memory newEvent = Event({
             owner: msg.sender,
             eventName: _eventName,
@@ -223,10 +249,10 @@ contract EventChain is ReentrancyGuard {
     }
 
     /**
-     * @notice Purchase a ticket for an event.
-     * @param _index The event ID to purchase a ticket for.
+     * @notice Purchase a ticket for a specific event
+     * @dev Handles ticket purchase with ERC20 tokens and prevents double purchases
+     * @param _index The ID of the event to purchase a ticket for
      */
-
     function buyTicket(
         uint256 _index
     ) public nonReentrant validEvent(_index) whenNotPaused {
@@ -262,6 +288,11 @@ contract EventChain is ReentrancyGuard {
         emit TicketPurchased(_index, msg.sender, price, event_.paymentToken);
     }
 
+    /**
+     * @dev Internal function to process refunds
+     * @param _index Event ID
+     * @param refundAmount Amount to refund
+     */
     function _processRefund(uint256 _index, uint256 refundAmount) internal {
         hasPurchasedTicket[_index][msg.sender] = false;
         events[_index].fundsHeld -= refundAmount;
@@ -286,8 +317,9 @@ contract EventChain is ReentrancyGuard {
     }
 
     /**
-     * @notice Cancel an event (only the owner can cancel it).
-     * @param _index The event ID to cancel.
+     * @notice Cancel an event (only callable by event owner)
+     * @dev Marks event as canceled and inactive
+     * @param _index The ID of the event to cancel
      */
     function cancelEvent(
         uint256 _index
@@ -301,10 +333,10 @@ contract EventChain is ReentrancyGuard {
     }
 
     /**
-     * @notice Request a refund for a canceled event or before the refund period ends.
-     * @dev Transfers funds back to the ticket buyer.
+     * @notice Request a refund for a ticket
+     * @dev Allows refunds for canceled events or before refund buffer period
+     * @param _index The ID of the event to request refund for
      */
-
     function requestRefund(
         uint256 _index
     ) public nonReentrant validEvent(_index) whenNotPaused {
@@ -326,8 +358,9 @@ contract EventChain is ReentrancyGuard {
     }
 
     /**
-     * @notice Release event funds to the event owner after the event has ended.
-     * @dev Transfers collected funds to the owner and emits FundsReleased event.
+     * @notice Release collected funds to event owner after event ends
+     * @dev Transfers held funds to event owner and marks funds as released
+     * @param _index The ID of the event to release funds for
      */
     function releaseFunds(
         uint256 _index
@@ -358,10 +391,12 @@ contract EventChain is ReentrancyGuard {
         emit FundsReleased(_index, amountToRelease);
     }
 
+    // View functions for accessing event data
+
     /**
-     * @notice Get details of an event by its ID.
-     * @param _index The event ID.
-     * @return The event details, list of attendees, and events created by the event owner.
+     * @notice Get comprehensive event details by ID
+     * @param _index The event ID to query
+     * @return Event details, attendees list, and creator's other events
      */
     function getEventById(
         uint256 _index
@@ -375,9 +410,9 @@ contract EventChain is ReentrancyGuard {
     }
 
     /**
-     * @notice Get the list of attendees for a specific event.
-     * @param _index The event ID.
-     * @return An array of addresses of attendees.
+     * @notice Get attendees list for an event
+     * @param _index The event ID to query
+     * @return Array of attendee addresses
      */
     function getAttendees(
         uint256 _index
@@ -387,8 +422,8 @@ contract EventChain is ReentrancyGuard {
     }
 
     /**
-     * @notice Get the total number of events created.
-     * @return The total number of events.
+     * @notice Get total number of created events
+     * @return Count of all events
      */
     function getEventLength() public view returns (uint256) {
         return events.length;
