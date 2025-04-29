@@ -202,17 +202,20 @@ const EventForm = () => {
 
   // Handle transaction states
   useEffect(() => {
+    let toastId: string | undefined;
+
     if (isWriting) {
       console.log("Transaction signing initiated...");
-      toast.loading("Confirming transaction...");
+      toastId = toast.loading("Confirming transaction...");
     }
     if (isConfirming) {
       console.log("Transaction pending confirmation...", { hash });
-      toast.loading("Processing transaction...");
+      toastId = toast.loading("Processing transaction...");
     }
     if (isConfirmed) {
       console.log("Transaction confirmed:", { hash });
-      toast.success("Event created successfully!");
+      toast.dismiss(toastId);
+      toast.success("Event created successfully!", { duration: 3000 });
       setLoading(false);
       // Reset form and redirect
       setEventData({
@@ -238,6 +241,10 @@ const EventForm = () => {
       toast.error(writeError.message || "Transaction failed");
       setLoading(false);
     }
+
+    return () => {
+      if (toastId) toast.dismiss(toastId);
+    };
   }, [isWriting, isConfirming, isConfirmed, writeError, hash, router]);
 
   return (

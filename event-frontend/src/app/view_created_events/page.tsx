@@ -1,7 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import CreatorEventCard from "@/components/CreatorEventCard";
-import { useReadContract, useWriteContract } from "wagmi";
+import {
+  useReadContract,
+  useWriteContract,
+  useAccount,
+  useWaitForTransactionReceipt,
+  useBlockNumber,
+} from "wagmi";
 import contractABI from "../../contract/abi.json";
 import { toast } from "react-hot-toast";
 import { ethers } from "ethers";
@@ -32,6 +38,16 @@ export default function MyEvents() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { writeContractAsync } = useWriteContract();
+  const { address: connectedAddress } = useAccount();
+  const [cancelingId, setCancelingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  // Add this hook for transaction tracking
+  const { data: hash, isPending: isWriting } = useWriteContract();
+  const { data: blockNumber } = useBlockNumber({ watch: true });
+
+  const { isLoading: isConfirming, isSuccess: isConfirmed } =
+    useWaitForTransactionReceipt({ hash });
 
   const {
     data,
@@ -44,6 +60,7 @@ export default function MyEvents() {
     address: CONTRACT_ADDRESS,
     abi: contractABI.abi,
     functionName: "getActiveEventsByCreator",
+    account: connectedAddress,
   });
 
   useEffect(() => {
@@ -124,10 +141,45 @@ export default function MyEvents() {
     }
   }, [isSuccess, data]);
 
+  // Auto-refresh when block number changes (new blocks mean state might have changed)
+  useEffect(() => {
+    refetch();
+  }, [blockNumber, refetch]);
+
+  // const cancelEvent = async (eventId: number) => {
+  //   const toastId = toast.loading("Canceling event...");
+  //   try {
+  //     await writeContractAsync({
+  //       address: CONTRACT_ADDRESS,
+  //       abi: contractABI.abi,
+  //       functionName: "cancelEvent",
+  //       args: [eventId],
+  //     });
+
+  //     toast.dismiss(toastId);
+  //     toast.success("Event canceled successfully!");
+
+  //     console.log("🔄 Refreshing events after cancellation...");
+  //     await refetch();
+  //   } catch (error) {
+  //     console.error("🚨 Error canceling event:", {
+  //       error,
+  //       eventId,
+  //       timestamp: new Date().toISOString(),
+  //     });
+
+  //     toast.dismiss(toastId);
+  //     toast.error(
+  //       error instanceof Error ? error.message : "Failed to cancel event"
+  //     );
+  //   }
+  // };
+
   const cancelEvent = async (eventId: number) => {
+    setCancelingId(eventId);
     const toastId = toast.loading("Canceling event...");
     try {
-      await writeContractAsync({
+      const hash = await writeContractAsync({
         address: CONTRACT_ADDRESS,
         abi: contractABI.abi,
         functionName: "cancelEvent",
@@ -135,21 +187,22 @@ export default function MyEvents() {
       });
 
       toast.dismiss(toastId);
-      toast.success("Event canceled successfully!");
+      toast.success("Transaction submitted! Waiting for confirmation...");
 
-      console.log("🔄 Refreshing events after cancellation...");
-      await refetch();
+      // Force a refresh after a short delay to account for block confirmation
+      setTimeout(() => {
+        refetch();
+      }, 5000);
+
+      // The useEffect above will handle the refetch after confirmation
     } catch (error) {
-      console.error("🚨 Error canceling event:", {
-        error,
-        eventId,
-        timestamp: new Date().toISOString(),
-      });
-
       toast.dismiss(toastId);
       toast.error(
         error instanceof Error ? error.message : "Failed to cancel event"
       );
+      console.error("Cancel error:", error);
+    } finally {
+      setCancelingId(null);
     }
   };
 
@@ -213,8 +266,8 @@ export default function MyEvents() {
               event={event}
               onDelete={deleteEvent}
               onCancel={cancelEvent}
-              loading={false}
-              cancelLoading={false}
+              cancelLoading={cancelingId === event.index}
+              loading={isLoading}
             />
           ))
         ) : (
