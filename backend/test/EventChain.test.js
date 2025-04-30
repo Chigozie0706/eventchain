@@ -10,34 +10,32 @@ describe("EventChain", function () {
   before(async function () {
     [owner, attendee1, attendee2, attendee3] = await ethers.getSigners();
 
-    // Deploy mock ERC20 tokens for testing
+    // Deploy mock ERC20 tokens
     const ERC20Mock = await ethers.getContractFactory("ERC20Mock");
     token1 = await ERC20Mock.deploy(
       "Test Token 1",
       "TT1",
-      owner.address,
       ethers.parseEther("1000000")
     );
     token2 = await ERC20Mock.deploy(
       "Test Token 2",
       "TT2",
-      owner.address,
       ethers.parseEther("1000000")
     );
 
-    // Wait for deployments to complete
     await token1.waitForDeployment();
     await token2.waitForDeployment();
 
-    // Deploy EventChain contract
+    // Get the contract addresses
+    const token1Address = await token1.getAddress();
+    const token2Address = await token2.getAddress();
+
+    // Deploy EventChain contract with the token addresses
     EventChain = await ethers.getContractFactory("EventChain");
-    eventChain = await EventChain.deploy([
-      await token1.getAddress(),
-      await token2.getAddress(),
-    ]);
+    eventChain = await EventChain.deploy([token1Address, token2Address]);
     await eventChain.waitForDeployment();
 
-    // Distribute tokens to attendees for testing
+    // Distribute tokens to test accounts
     await token1.transfer(attendee1.address, ethers.parseEther("1000"));
     await token1.transfer(attendee2.address, ethers.parseEther("1000"));
     await token1.transfer(attendee3.address, ethers.parseEther("1000"));
@@ -46,15 +44,17 @@ describe("EventChain", function () {
 
   describe("Initialization", function () {
     it("Should initialize with supported tokens", async function () {
-      expect(await eventChain.supportedTokens(token1.address)).to.be.true;
-      expect(await eventChain.supportedTokens(token2.address)).to.be.true;
+      expect(await eventChain.supportedTokens(await token1.getAddress())).to.be
+        .true;
+      expect(await eventChain.supportedTokens(await token2.getAddress())).to.be
+        .true;
     });
 
     it("Should have correct constants", async function () {
       expect(await eventChain.MAX_NAME_LENGTH()).to.equal(100);
       expect(await eventChain.MAX_URL_LENGTH()).to.equal(200);
       expect(await eventChain.MAX_TICKET_PRICE()).to.equal(
-        ethers.utils.parseEther("1000000")
+        ethers.parseEther("1000000")
       );
       expect(await eventChain.MAX_ATTENDEES()).to.equal(5000);
     });
@@ -75,8 +75,8 @@ describe("EventChain", function () {
           3600, // 1 hour
           7200, // 2 hours
           "Virtual Event",
-          ethers.utils.parseEther("10"),
-          token1.address
+          ethers.parseEther("10"),
+          await token1.getAddress()
         )
       ).to.emit(eventChain, "EventCreated");
 
@@ -86,7 +86,7 @@ describe("EventChain", function () {
       const [event] = await eventChain.getEventById(0);
       expect(event.eventName).to.equal("Test Event");
       expect(event.owner).to.equal(owner.address);
-      expect(event.paymentToken).to.equal(token1.address);
+      expect(event.paymentToken).to.equal(await token1.getAddress());
     });
 
     it("Should fail with invalid parameters", async function () {
@@ -102,8 +102,8 @@ describe("EventChain", function () {
           3600,
           7200,
           "Location",
-          ethers.utils.parseEther("10"),
-          token1.address
+          ethers.parseEther("10"),
+          await token1.getAddress()
         )
       ).to.be.revertedWith("Invalid name");
 
@@ -117,8 +117,8 @@ describe("EventChain", function () {
           3600,
           7200,
           "Location",
-          ethers.utils.parseEther("10"),
-          token1.address
+          ethers.parseEther("10"),
+          await token1.getAddress()
         )
       ).to.be.revertedWith("Duration too short");
 
@@ -132,8 +132,8 @@ describe("EventChain", function () {
           3600,
           7200,
           "Location",
-          ethers.utils.parseEther("10"),
-          token1.address
+          ethers.parseEther("10"),
+          await token1.getAddress()
         )
       ).to.be.revertedWith("Start date must be future");
 
@@ -147,8 +147,8 @@ describe("EventChain", function () {
           3600,
           7200,
           "Location",
-          ethers.utils.parseEther("1000001"), // Exceeds MAX_TICKET_PRICE
-          token1.address
+          ethers.parseEther("1000001"), // Exceeds MAX_TICKET_PRICE
+          await token1.getAddress()
         )
       ).to.be.revertedWith("Invalid price");
 
@@ -162,8 +162,8 @@ describe("EventChain", function () {
           3600,
           7200,
           "Location",
-          ethers.utils.parseEther("10"),
-          ethers.constants.AddressZero // Invalid token
+          ethers.parseEther("10"),
+          ethers.ZeroAddress // Invalid token
         )
       ).to.be.revertedWith("Invalid token");
     });
@@ -174,21 +174,21 @@ describe("EventChain", function () {
       // Approve token transfer first
       await token1
         .connect(attendee1)
-        .approve(eventChain.address, ethers.utils.parseEther("10"));
+        .approve(await eventChain.getAddress(), ethers.parseEther("10"));
 
       await expect(eventChain.connect(attendee1).buyTicket(0))
         .to.emit(eventChain, "TicketPurchased")
         .withArgs(
           0,
           attendee1.address,
-          ethers.utils.parseEther("10"),
-          token1.address
+          ethers.parseEther("10"),
+          await token1.getAddress()
         );
 
       const [event, attendees] = await eventChain.getEventById(0);
       expect(attendees.length).to.equal(1);
       expect(attendees[0]).to.equal(attendee1.address);
-      expect(event.fundsHeld).to.equal(ethers.utils.parseEther("10"));
+      expect(event.fundsHeld).to.equal(ethers.parseEther("10"));
       expect(await eventChain.hasPurchasedTicket(0, attendee1.address)).to.be
         .true;
     });
@@ -196,7 +196,7 @@ describe("EventChain", function () {
     it("Should fail when purchasing multiple tickets for same event", async function () {
       await token1
         .connect(attendee1)
-        .approve(eventChain.address, ethers.utils.parseEther("10"));
+        .approve(await eventChain.getAddress(), ethers.parseEther("10"));
       await expect(
         eventChain.connect(attendee1).buyTicket(0)
       ).to.be.revertedWith("Already purchased");
@@ -223,8 +223,8 @@ describe("EventChain", function () {
           3600,
           7200,
           "Virtual",
-          ethers.utils.parseEther("1"),
-          token1.address
+          ethers.parseEther("1"),
+          await token1.getAddress()
         );
 
       // Buy tickets until capacity is reached
@@ -232,7 +232,7 @@ describe("EventChain", function () {
         const attendee = await ethers.getSigner(i + 2); // Skip owner and attendee1
         await token1
           .connect(attendee)
-          .approve(eventChain.address, ethers.utils.parseEther("1"));
+          .approve(await eventChain.getAddress(), ethers.parseEther("1"));
         await eventChain.connect(attendee).buyTicket(1);
       }
 
@@ -240,7 +240,7 @@ describe("EventChain", function () {
       const newAttendee = await ethers.getSigner(7);
       await token1
         .connect(newAttendee)
-        .approve(eventChain.address, ethers.utils.parseEther("1"));
+        .approve(await eventChain.getAddress(), ethers.parseEther("1"));
       await expect(
         eventChain.connect(newAttendee).buyTicket(1)
       ).to.be.revertedWith("Event at capacity");
@@ -251,19 +251,17 @@ describe("EventChain", function () {
     it("Should allow refund before event starts", async function () {
       await token1
         .connect(attendee1)
-        .approve(eventChain.address, ethers.utils.parseEther("10"));
+        .approve(await eventChain.getAddress(), ethers.parseEther("10"));
       await eventChain.connect(attendee1).buyTicket(0);
 
       const initialBalance = await token1.balanceOf(attendee1.address);
 
       await expect(eventChain.connect(attendee1).requestRefund(0))
         .to.emit(eventChain, "RefundIssued")
-        .withArgs(0, attendee1.address, ethers.utils.parseEther("10"));
+        .withArgs(0, attendee1.address, ethers.parseEther("10"));
 
       const finalBalance = await token1.balanceOf(attendee1.address);
-      expect(finalBalance.sub(initialBalance)).to.equal(
-        ethers.utils.parseEther("10")
-      );
+      expect(finalBalance - initialBalance).to.equal(ethers.parseEther("10"));
 
       const [event, attendees] = await eventChain.getEventById(0);
       expect(attendees.length).to.equal(0);
@@ -287,14 +285,14 @@ describe("EventChain", function () {
           3600,
           7200,
           "Virtual",
-          ethers.utils.parseEther("5"),
-          token1.address
+          ethers.parseEther("5"),
+          await token1.getAddress()
         );
 
       // Purchase ticket
       await token1
         .connect(attendee2)
-        .approve(eventChain.address, ethers.utils.parseEther("5"));
+        .approve(await eventChain.getAddress(), ethers.parseEther("5"));
       await eventChain.connect(attendee2).buyTicket(2);
 
       // Cancel event
@@ -308,9 +306,7 @@ describe("EventChain", function () {
       );
 
       const finalBalance = await token1.balanceOf(attendee2.address);
-      expect(finalBalance.sub(initialBalance)).to.equal(
-        ethers.utils.parseEther("5")
-      );
+      expect(finalBalance - initialBalance).to.equal(ethers.parseEther("5"));
     });
 
     it("Should fail refund after refund period", async function () {
@@ -328,14 +324,14 @@ describe("EventChain", function () {
           3600,
           7200,
           "Virtual",
-          ethers.utils.parseEther("3"),
-          token1.address
+          ethers.parseEther("3"),
+          await token1.getAddress()
         );
 
       // Purchase ticket
       await token1
         .connect(attendee3)
-        .approve(eventChain.address, ethers.utils.parseEther("3"));
+        .approve(await eventChain.getAddress(), ethers.parseEther("3"));
       await eventChain.connect(attendee3).buyTicket(3);
 
       // Try to refund - should fail because we're within refund buffer
@@ -362,26 +358,24 @@ describe("EventChain", function () {
           3600,
           7200,
           "Virtual",
-          ethers.utils.parseEther("7"),
-          token1.address
+          ethers.parseEther("7"),
+          await token1.getAddress()
         );
 
       // Purchase ticket
       await token1
         .connect(attendee1)
-        .approve(eventChain.address, ethers.utils.parseEther("7"));
+        .approve(await eventChain.getAddress(), ethers.parseEther("7"));
       await eventChain.connect(attendee1).buyTicket(4);
 
       const initialBalance = await token1.balanceOf(owner.address);
 
       await expect(eventChain.connect(owner).releaseFunds(4))
         .to.emit(eventChain, "FundsReleased")
-        .withArgs(4, ethers.utils.parseEther("7"));
+        .withArgs(4, ethers.parseEther("7"));
 
       const finalBalance = await token1.balanceOf(owner.address);
-      expect(finalBalance.sub(initialBalance)).to.equal(
-        ethers.utils.parseEther("7")
-      );
+      expect(finalBalance - initialBalance).to.equal(ethers.parseEther("7"));
 
       const [event] = await eventChain.getEventById(4);
       expect(event.fundsHeld).to.equal(0);
@@ -425,13 +419,13 @@ describe("EventChain", function () {
           3600,
           7200,
           "Virtual",
-          ethers.utils.parseEther("2"),
-          token1.address
+          ethers.parseEther("2"),
+          await token1.getAddress()
         );
 
       await token1
         .connect(attendee1)
-        .approve(eventChain.address, ethers.utils.parseEther("2"));
+        .approve(await eventChain.getAddress(), ethers.parseEther("2"));
       await eventChain.connect(attendee1).buyTicket(5);
 
       const [ids, events] = await eventChain.connect(attendee1).getUserEvents();
