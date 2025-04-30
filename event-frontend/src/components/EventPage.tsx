@@ -6,8 +6,10 @@ import {
   Ticket,
   Handshake,
   UsersRound,
+  Check,
 } from "lucide-react";
 import { formatEventDate, formatEventTime, formatPrice } from "@/utils/format";
+import { useAccount } from "wagmi";
 
 export interface Event {
   owner: string;
@@ -47,6 +49,7 @@ export default function EventPage({
   refunding,
   id,
 }: EventPageProps) {
+  const { address } = useAccount();
   const formattedStartDate = formatEventDate(event.startDate);
   const formattedEndDate = formatEventDate(event.endDate);
   const formattedStartTime = formatEventTime(Number(event.startTime));
@@ -60,6 +63,9 @@ export default function EventPage({
 
   const tokenName = mentoTokens[event.paymentToken] || event.paymentToken;
   const formattedPrice = formatPrice(event.ticketPrice);
+
+  // Check if current user is registered
+  const isRegistered = address && attendees.includes(address);
 
   return (
     <div className="container mx-auto px-6 md:px-12 lg:px-20 py-8">
@@ -163,21 +169,34 @@ export default function EventPage({
             </p>
           </div>
 
-          <button
-            className="w-full bg-orange-600 text-white mt-4 py-2 rounded-lg text-lg font-semibold hover:bg-orange-700 transition"
-            onClick={buyTicket}
-            disabled={loading || registering}
-          >
-            {registering ? "Processing..." : "Register"}
-          </button>
+          {isRegistered ? (
+            <div className="w-full bg-green-600 text-white mt-4 py-2 rounded-lg text-lg font-semibold flex items-center justify-center gap-2">
+              <Check className="w-5 h-5" />
+              Registered
+            </div>
+          ) : (
+            <button
+              className="w-full bg-orange-600 text-white mt-4 py-2 rounded-lg text-lg font-semibold hover:bg-orange-700 transition"
+              onClick={buyTicket}
+              disabled={loading || registering || !address}
+            >
+              {!address
+                ? "Connect Wallet"
+                : registering
+                ? "Processing..."
+                : "Register"}
+            </button>
+          )}
 
-          <button
-            onClick={requestRefund}
-            className="w-full bg-red-500 text-white mt-4 py-2 rounded-lg text-lg font-semibold hover:bg-red-600 transition"
-            disabled={loading || refunding}
-          >
-            {refunding ? "Processing..." : "Request Refund"}
-          </button>
+          {isRegistered && (
+            <button
+              onClick={requestRefund}
+              className="w-full bg-red-500 text-white mt-4 py-2 rounded-lg text-lg font-semibold hover:bg-red-600 transition"
+              disabled={loading || refunding}
+            >
+              {refunding ? "Processing..." : "Request Refund"}
+            </button>
+          )}
         </div>
       </div>
     </div>
