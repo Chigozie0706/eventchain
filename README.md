@@ -98,7 +98,7 @@ Your **EventChain** smart contract is deployed on the **Celo Alfajores** testnet
 
 | Contract   | Address                                      |
 | ---------- | -------------------------------------------- |
-| EventChain | `0x3C163Eee0Bc89cCf4b32A83278a3c7A1E6e7E9e4` |
+| EventChain | `0xC2fcD06C85E50afc8175A52b58699F31a3A1ED77` |
 
 <!-- **[View on Celo Explorer](https://alfajores.celoscan.io/address/0xBa26366767eA843A656853d348c763c41f9D67Ca)** -->
 
@@ -112,7 +112,7 @@ Your **EventChain** smart contract is deployed on the **Celo Alfajores** testnet
 
 ## **How It Works**
 
-1 **Connect your wallet** (MetaMask / Celo Extension Wallet).  
+1 **Connect your wallet** (RainbowKit).  
 2 **Create an event** with event name, date, location, and ticket price.  
 3 **Buy tickets** using **cUSD, cEUR, cREAL**, or other supported tokens.  
 4 **Request refunds** if the event is canceled.  
