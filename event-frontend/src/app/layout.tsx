@@ -4,6 +4,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import { Toaster } from "react-hot-toast";
 import { Providers } from "@/providers/providers";
+import MiniPayScripts from "@/providers/MiniPayScripts";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,6 +33,7 @@ export default function RootLayout({
         suppressHydrationWarning={true}
       >
         <Providers>
+          <MiniPayScripts />
           <Navbar />
           {children}
           <Toaster position="top-right" />

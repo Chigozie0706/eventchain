@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { parseUnits } from "ethers";
+import { celoAlfajores } from "wagmi/chains";
 import {
   useAccount,
   useReadContract,
@@ -11,7 +12,7 @@ import {
 } from "wagmi";
 import contractABI from "../../../contract/abi.json";
 import EventPage from "@/components/EventPage";
-import { erc20Abi } from "viem";
+import { encodeFunctionData, erc20Abi } from "viem";
 
 export interface Event {
   owner: string;
@@ -35,6 +36,7 @@ const CONTRACT_ADDRESS = "0xC2fcD06C85E50afc8175A52b58699F31a3A1ED77";
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
+  const [isMiniPay, setIsMiniPay] = useState(false);
   const [eventDetails, setEventDetails] = useState<{
     event: Event;
     attendees: string[];
@@ -42,7 +44,32 @@ export default function Home() {
   } | null>(null);
   const { id } = useParams<{ id: string }>();
   const eventId = id ? BigInt(id) : BigInt(0);
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain } = useAccount();
+
+  // Detect MiniPay on mount
+
+  useEffect(() => {
+    const checkMiniPay = async () => {
+      if (typeof window !== "undefined" && window.ethereum?.isMiniPay) {
+        setIsMiniPay(true);
+        try {
+          // Request accounts to ensure we have access
+          await window.ethereum.request({ method: "eth_requestAccounts" });
+          // Switch to Alfajores
+          if (chain?.id !== celoAlfajores.id) {
+            await window.ethereum.request({
+              method: "wallet_switchEthereumChain",
+              params: [{ chainId: `0x${celoAlfajores.id.toString(16)}` }],
+            });
+          }
+        } catch (error) {
+          console.error("MiniPay setup error:", error);
+          toast.error("Failed to setup MiniPay");
+        }
+      }
+    };
+    checkMiniPay();
+  }, [chain]);
 
   // Contract data fetching with refetch capability
   const {
@@ -113,25 +140,6 @@ export default function Home() {
     refetchAllowance,
   ]);
 
-  // Refund status handling
-  // useEffect(() => {
-  //   if (isRefundWriting) toast.loading("Confirming refund...");
-  //   if (isRefundConfirming) toast.loading("Processing refund...");
-  //   if (isRefundConfirmed) {
-  //     toast.success("Refund processed successfully!");
-  //   }
-  //   if (refundWriteError) {
-  //     toast.error(refundWriteError.message || "Refund failed");
-  //   }
-
-  //   return () => toast.dismiss();
-  // }, [
-  //   isRefundWriting,
-  //   isRefundConfirming,
-  //   isRefundConfirmed,
-  //   refundWriteError,
-  // ]);
-
   // Process event data when fetched
   useEffect(() => {
     if (rawData) {
@@ -160,21 +168,6 @@ export default function Home() {
     }
   }, [rawData]);
 
-  // Purchase status handling
-  // useEffect(() => {
-  //   if (isWriting) toast.loading("Confirming transaction...");
-  //   if (isConfirming) toast.loading("Processing transaction...");
-  //   if (isConfirmed) {
-  //     toast.success("Ticket purchased successfully!");
-  //   }
-  //   if (writeError) {
-  //     toast.error(writeError.message || "Transaction failed");
-  //   }
-
-  //   return () => toast.dismiss();
-  // }, [isWriting, isConfirming, isConfirmed, writeError]);
-
-  // Purchase status handling
   useEffect(() => {
     let toastId: string | undefined;
 
@@ -219,57 +212,217 @@ export default function Home() {
     refundWriteError,
   ]);
 
-  const buyTicket = useCallback(async () => {
-    // Check if wallet is connected
-    if (!isConnected) {
-      toast.error("Please connect your wallet first");
-      return;
-    }
+  // const buyTicket = useCallback(async () => {
+  //   // Check if wallet is connected
+  //   if (!isConnected && !isMiniPay) {
+  //     toast.error("Please connect your wallet first");
+  //     return;
+  //   }
 
+  //   if (!eventDetails || !address) {
+  //     toast.error("Wallet not properly connected");
+  //     return;
+  //   }
+
+  //   // Check if user already has a ticket
+  //   if (eventDetails.attendees.includes(address)) {
+  //     toast.error("You already have a ticket for this event");
+  //     return;
+  //   }
+
+  //   // Check token balance
+  //   if (
+  //     tokenBalance !== undefined &&
+  //     tokenBalance < eventDetails.event.ticketPrice
+  //   ) {
+  //     toast.error("Insufficient token balance");
+  //     return;
+  //   }
+  //   const gasParams = isMiniPay ? { gas: BigInt(300000) } : {};
+
+  //   try {
+  //     if (isMiniPay) {
+  //       // 1. Verify MiniPay is available
+  //       if (!window.ethereum?.isMiniPay) {
+  //         toast.error("MiniPay not detected");
+  //         return;
+  //       }
+
+  //       // 2. Request accounts if needed
+  //       const accounts = await window.ethereum.request({
+  //         method: "eth_requestAccounts",
+  //       });
+
+  //       if (!accounts || accounts.length === 0) {
+  //         toast.error("No accounts found in MiniPay");
+  //         return;
+  //       }
+
+  //       // 3. Prepare transaction data
+  //       const data = encodeFunctionData({
+  //         abi: contractABI.abi,
+  //         functionName: "buyTicket",
+  //         args: [eventId],
+  //       });
+
+  //       // 4. Send transaction
+  //       const txHash = await window.ethereum.request({
+  //         method: "eth_sendTransaction",
+  //         params: [
+  //           {
+  //             from: accounts[0],
+  //             to: CONTRACT_ADDRESS,
+  //             value: "0x0", // Must be 0 for token transfers
+  //             data: data,
+  //             feeCurrency: eventDetails.event.paymentToken,
+  //             gas: "0x7A120", // 500,000 gas limit
+  //           },
+  //         ],
+  //       });
+
+  //       toast.success(`Transaction sent! Hash: ${txHash.slice(0, 10)}...`);
+  //       console.log("Transaction hash:", txHash);
+  //     } else {
+  //       const requiredAllowance = eventDetails.event.ticketPrice;
+  //       if (!tokenAllowance || tokenAllowance < requiredAllowance) {
+  //         await write({
+  //           address: eventDetails.event.paymentToken as `0x${string}`,
+  //           abi: erc20Abi,
+  //           functionName: "approve",
+  //           args: [CONTRACT_ADDRESS, requiredAllowance],
+  //           ...gasParams,
+  //           // gas: BigInt(300000),
+  //         });
+  //       }
+
+  //       await write({
+  //         address: CONTRACT_ADDRESS,
+  //         abi: contractABI.abi,
+  //         functionName: "buyTicket",
+  //         args: [eventId],
+  //         ...gasParams,
+  //         // gas: BigInt(500000),
+  //       });
+  //     }
+  //   } catch (error) {
+  //     console.error("Full error:", error);
+  //     toast.error("Transaction failed");
+  //   }
+  // }, [
+  //   isConnected,
+  //   eventDetails,
+  //   address,
+  //   eventId,
+  //   write,
+  //   tokenAllowance,
+  //   isMiniPay,
+  // ]);
+
+  const buyTicket = useCallback(async () => {
     if (!eventDetails || !address) {
       toast.error("Wallet not properly connected");
       return;
     }
 
-    // Check if user already has a ticket
     if (eventDetails.attendees.includes(address)) {
       toast.error("You already have a ticket for this event");
       return;
     }
 
-    // Check token balance
-    if (
-      tokenBalance !== undefined &&
-      tokenBalance < eventDetails.event.ticketPrice
-    ) {
-      toast.error("Insufficient token balance");
-      return;
-    }
-
     try {
-      const requiredAllowance = eventDetails.event.ticketPrice;
-      if (!tokenAllowance || tokenAllowance < requiredAllowance) {
-        await write({
-          address: eventDetails.event.paymentToken as `0x${string}`,
+      if (isMiniPay) {
+        // MiniPay specific flow
+        const accounts = await window.ethereum.request({
+          method: "eth_requestAccounts",
+        });
+
+        if (!accounts?.[0]) {
+          throw new Error("No MiniPay account available");
+        }
+
+        // For ERC20 payments, we need to:
+        // 1. Approve the contract to spend tokens
+        // 2. Call buyTicket
+        // This might require two transactions in MiniPay
+
+        const approveData = encodeFunctionData({
           abi: erc20Abi,
           functionName: "approve",
-          args: [CONTRACT_ADDRESS, requiredAllowance],
-          gas: BigInt(300000),
+          args: [CONTRACT_ADDRESS, eventDetails.event.ticketPrice],
+        });
+
+        // First send approval
+        await window.ethereum.request({
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: accounts[0],
+              to: eventDetails.event.paymentToken,
+              data: approveData,
+              feeCurrency: eventDetails.event.paymentToken,
+              gas: "0x7A120",
+            },
+          ],
+        });
+
+        // Then buy ticket
+        const buyTicketData = encodeFunctionData({
+          abi: contractABI.abi,
+          functionName: "buyTicket",
+          args: [eventId],
+        });
+
+        const txHash = await window.ethereum.request({
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: accounts[0],
+              to: CONTRACT_ADDRESS,
+              data: buyTicketData,
+              feeCurrency: eventDetails.event.paymentToken,
+              gas: "0x7A120",
+            },
+          ],
+        });
+
+        toast.success(`Transaction sent: ${txHash.slice(0, 10)}...`);
+      } else {
+        // Standard wallet flow
+        const requiredAllowance = eventDetails.event.ticketPrice;
+
+        if (!tokenAllowance || tokenAllowance < requiredAllowance) {
+          await write({
+            address: eventDetails.event.paymentToken as `0x${string}`,
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [CONTRACT_ADDRESS, requiredAllowance],
+            gas: BigInt(300000),
+          });
+        }
+
+        await write({
+          address: CONTRACT_ADDRESS,
+          abi: contractABI.abi,
+          functionName: "buyTicket",
+          args: [eventId],
+          gas: BigInt(500000),
         });
       }
-
-      await write({
-        address: CONTRACT_ADDRESS,
-        abi: contractABI.abi,
-        functionName: "buyTicket",
-        args: [eventId],
-        gas: BigInt(500000),
-      });
     } catch (error) {
-      console.error("Full error:", error);
-      toast.error("Transaction failed");
+      console.error("Transaction error:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Transaction failed"
+      );
     }
-  }, [isConnected, eventDetails, address, eventId, write, tokenAllowance]);
+  }, [
+    isConnected,
+    eventDetails,
+    address,
+    eventId,
+    write,
+    tokenAllowance,
+    isMiniPay,
+  ]);
 
   const requestRefund = useCallback(async () => {
     if (!isConnected) {
@@ -298,7 +451,14 @@ export default function Home() {
       console.error("Refund request failed:", error);
       toast.error(error?.message || "Failed to process refund");
     }
-  }, [isConnected, eventDetails, address, eventId, writeRefund]);
+  }, [isConnected, eventDetails, address, eventId, writeRefund, isMiniPay]);
+
+  // Helper function to encode transaction data
+  const encodeBuyTicketData = (eventId: bigint) => {
+    // This should match your contract's buyTicket function ABI
+    // You might need to use viem's encodeFunctionData
+    return "0x..." + eventId.toString(16).padStart(64, "0");
+  };
 
   if (isEventError) {
     return (
@@ -319,11 +479,11 @@ export default function Home() {
         attendees={eventDetails.attendees}
         createdEvents={eventDetails.relatedEvents}
         buyTicket={buyTicket}
-        id={id}
         loading={loading}
         registering={isWriting || isConfirming}
         requestRefund={requestRefund}
         refunding={isRefundWriting || isRefundConfirming}
+        isMiniPay={isMiniPay}
       />
     </div>
   );

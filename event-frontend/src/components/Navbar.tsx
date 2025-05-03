@@ -4,15 +4,26 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useAccount } from "wagmi";
+import { useAccount, useConnect } from "wagmi";
+import { injected } from "wagmi/connectors";
 
 export default function Navbar() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isMiniPay, setIsMiniPay] = useState(false);
   const [eventsDropdownOpen, setEventsDropdownOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { isConnected } = useAccount();
+  const { connect } = useConnect();
+
+  // Detect MiniPay and auto-connect
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.ethereum?.isMiniPay) {
+      setIsMiniPay(true);
+      connect({ connector: injected({ target: "metaMask" }) });
+    }
+  }, [connect]);
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -146,13 +157,15 @@ export default function Navbar() {
         )}
 
         {/* RainbowKit Connect Button - Always Visible */}
-        <div className="ml-2">
-          <ConnectButton
-            showBalance={false}
-            chainStatus="none"
-            accountStatus="address"
-          />
-        </div>
+        {!isMiniPay && (
+          <div className="ml-2">
+            <ConnectButton
+              showBalance={false}
+              chainStatus="none"
+              accountStatus="address"
+            />
+          </div>
+        )}
       </div>
     </nav>
   );
