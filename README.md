@@ -80,7 +80,7 @@ yarn hardhat compile
 ### **2 Deploy the Smart Contract**
 
 ```sh
-npx hardhat ignition deploy ./ignition/modules/EventChain.js --network celo_alfajores
+npx hardhat ignition deploy ./ignition/modules/EventChain.js --network celo_mainnet
 ```
 
 ### **3 Start the Frontend**
@@ -94,11 +94,11 @@ pnpm run dev   # Runs the Next.js app on http://localhost:3000
 
 ## **Smart Contract Deployment**
 
-Your **EventChain** smart contract is deployed on the **Celo Alfajores** testnet.
+Your **EventChain** smart contract is deployed on the **Celo Mainnet**.
 
 | Contract   | Address                                      |
 | ---------- | -------------------------------------------- |
-| EventChain | `0xC2fcD06C85E50afc8175A52b58699F31a3A1ED77` |
+| EventChain | `0x2A668c6A60dAe7B9cBBFB1d580cEcd0eB47e4132` |
 
 <!-- **[View on Celo Explorer](https://alfajores.celoscan.io/address/0xBa26366767eA843A656853d348c763c41f9D67Ca)** -->
 
@@ -126,10 +126,10 @@ Your **EventChain** smart contract is deployed on the **Celo Alfajores** testnet
 
 - **Frontend:** Next.js (React + TypeScript)
 - **Backend:** Solidity smart contract (Hardhat, Hardhat Ignition)
-- **Blockchain:** Celo (Alfajores Testnet)
+- **Blockchain:** Celo (Mainnet)
 - **Wallet Integration:** MetaMask, Celo Extension Wallet
 
-## Deployed Contract Addresses on Celo Alfajores Testnet
+## Deployed Contract Addresses on Celo Mainnet
 
 #### **Challenges & Implementation Notes**
 

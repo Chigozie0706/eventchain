@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { ethers } from "ethers";
-import { useReadContract, useWriteContract } from "wagmi";
+import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { MapPin, Calendar, Flag, DollarSign } from "lucide-react";
 import { toast } from "react-hot-toast";
 import contractABI from "../contract/abi.json";
 
-const CONTRACT_ADDRESS = "0xC2fcD06C85E50afc8175A52b58699F31a3A1ED77";
+const CONTRACT_ADDRESS = "0x2A668c6A60dAe7B9cBBFB1d580cEcd0eB47e4132";
 
 interface Event {
   id: string;
@@ -29,14 +29,24 @@ interface Event {
 }
 
 const mentoTokens: Record<string, string> = {
-  "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1": "cUSD",
-  "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F": "cEUR",
-  "0xE4D517785D091D3c54818832dB6094bcc2744545": "cREAL",
+  [ethers.getAddress("0x765de816845861e75a25fca122bb6898b8b1282a")]: "cUSD",
+  [ethers.getAddress("0xd8763cba276a3738e6de85b4b3bf5fded6d6ca73")]: "cEUR",
+  [ethers.getAddress("0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787")]: "cREAL",
+};
+
+// 2. Add a fallback symbol
+const getTokenSymbol = (address: string) => {
+  const checksumAddress = ethers.getAddress(address);
+  return mentoTokens[checksumAddress] || checksumAddress.slice(0, 6) + "...";
 };
 
 export default function EventTickets() {
   const [events, setEvents] = useState<Event[]>([]);
   const { writeContractAsync } = useWriteContract();
+  const { address } = useAccount();
+  const [refundLoading, setRefundLoading] = useState<Record<string, boolean>>(
+    {}
+  );
 
   const {
     data,
@@ -49,6 +59,7 @@ export default function EventTickets() {
     address: CONTRACT_ADDRESS,
     abi: contractABI.abi,
     functionName: "getUserEvents",
+    account: address,
   });
 
   useEffect(() => {
@@ -65,7 +76,7 @@ export default function EventTickets() {
   useEffect(() => {
     if (isSuccess && data) {
       try {
-        console.log("ℹ️ Raw user events data received:", {
+        console.log("Raw user events data received:", {
           data,
           timestamp: new Date().toISOString(),
         });
@@ -76,7 +87,7 @@ export default function EventTickets() {
 
         const [eventIds, eventData] = data as [string[], any[]];
 
-        console.log("ℹ️ Processing user events data...", {
+        console.log("Processing user events data...", {
           eventCount: eventIds.length,
           timestamp: new Date().toISOString(),
         });
@@ -119,6 +130,7 @@ export default function EventTickets() {
   }, [isSuccess, data]);
 
   const requestRefund = async (id: string) => {
+    setRefundLoading((prev) => ({ ...prev, [id]: true }));
     const toastId = toast.loading("Processing refund request...");
     try {
       await writeContractAsync({
@@ -131,10 +143,10 @@ export default function EventTickets() {
       toast.dismiss(toastId);
       toast.success("Refund processed successfully!");
 
-      console.log("🔄 Refreshing events after refund...");
+      console.log("Refreshing events after refund...");
       await refetch();
     } catch (error) {
-      console.error("🚨 Error requesting refund:", {
+      console.error("Error requesting refund:", {
         error,
         eventId: id,
         timestamp: new Date().toISOString(),
@@ -144,6 +156,8 @@ export default function EventTickets() {
       toast.error(
         error instanceof Error ? error.message : "Failed to process refund"
       );
+    } finally {
+      setRefundLoading((prev) => ({ ...prev, [id]: false }));
     }
   };
 
@@ -240,7 +254,6 @@ export default function EventTickets() {
                     </div>
 
                     <div className="flex items-center text-sm text-gray-600">
-                      <DollarSign className="w-4 h-4 mr-2" />
                       <span>
                         {event.ticketPrice.toFixed(2)}{" "}
                         {mentoTokens[event.paymentToken]}
@@ -248,12 +261,22 @@ export default function EventTickets() {
                     </div>
                   </div>
 
-                  <button
+                  {/* <button
                     onClick={() => requestRefund(event.id)}
                     className="mt-4 px-4 py-2 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition text-sm self-start"
                     disabled={isLoading}
                   >
                     {isLoading ? "Processing..." : "Request Refund"}
+                  </button> */}
+
+                  <button
+                    onClick={() => requestRefund(event.id)}
+                    className="mt-4 px-4 py-2 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition text-sm self-start"
+                    disabled={refundLoading[event.id]}
+                  >
+                    {refundLoading[event.id]
+                      ? "Processing..."
+                      : "Request Refund"}
                   </button>
                 </div>
               </li>

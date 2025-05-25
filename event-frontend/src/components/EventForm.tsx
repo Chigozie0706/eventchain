@@ -7,8 +7,11 @@ import {
   useAccount,
   useWriteContract,
   useWaitForTransactionReceipt,
+  useWalletClient,
 } from "wagmi";
+import { getDataSuffix, submitReferral } from "@divvi/referral-sdk";
 import contractABI from "../contract/abi.json";
+import { encodeFunctionData } from "viem";
 
 interface EventData {
   eventName: string;
@@ -23,13 +26,29 @@ interface EventData {
   paymentToken: string;
 }
 
-const CONTRACT_ADDRESS = "0xC2fcD06C85E50afc8175A52b58699F31a3A1ED77";
+const CONTRACT_ADDRESS = "0x2A668c6A60dAe7B9cBBFB1d580cEcd0eB47e4132";
 
-const tokenOptions = [
+const tokenOptions1 = [
   { symbol: "cUSD", address: "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1" },
   { symbol: "cEUR", address: "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F" },
   { symbol: "cREAL", address: "0xE4D517785D091D3c54818832dB6094bcc2744545" },
 ];
+
+const tokenOptions = [
+  { symbol: "cUSD", address: "0x765de816845861e75a25fca122bb6898b8b1282a" },
+  { symbol: "cEUR", address: "0xd8763cba276a3738e6de85b4b3bf5fded6d6ca73" },
+  { symbol: "cREAL", address: "0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787" },
+];
+
+const DIVVI_CONFIG = {
+  consumer: "0x5e23d5Be257d9140d4C5b12654111a4D4E18D9B2" as `0x${string}`,
+  providers: [
+    "0x5f0a55fad9424ac99429f635dfb9bf20c3360ab8",
+    "0x0423189886d7966f0dd7e7d256898daeee625dca",
+    "0xc95876688026be9d6fa7a7c33328bd013effa2bb",
+    "0x6226dde08402642964f9a6de844ea3116f0dfc7e",
+  ] as `0x${string}`[],
+};
 
 const EventForm = () => {
   const router = useRouter();
@@ -46,17 +65,10 @@ const EventForm = () => {
     paymentToken: tokenOptions[0].address,
   });
   const [loading, setLoading] = useState(false);
-  const { address } = useAccount();
+  const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
 
-  // Wagmi hooks for contract interaction
-  const {
-    writeContract: write,
-    data: hash,
-    isPending: isWriting,
-    error: writeError,
-  } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess: isConfirmed } =
-    useWaitForTransactionReceipt({ hash });
+  const { data: walletClient } = useWalletClient();
+  const { address } = useAccount();
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -66,10 +78,8 @@ const EventForm = () => {
     setEventData({ ...eventData, [e.target.name]: e.target.value });
   };
 
-  // Validate form fields with comprehensive checks
   const validateForm = () => {
     try {
-      // Check all required fields
       if (
         !eventData.eventName ||
         !eventData.eventDetails ||
@@ -83,13 +93,11 @@ const EventForm = () => {
         throw new Error("Please fill in all required fields");
       }
 
-      // Create datetime objects
       const startDateTime = new Date(
         `${eventData.startDate}T${eventData.startTime}`
       );
       const endDateTime = new Date(`${eventData.endDate}T${eventData.endTime}`);
 
-      // Validate dates
       if (startDateTime.getTime() < Date.now()) {
         throw new Error("The event must start in the future");
       }
@@ -98,13 +106,11 @@ const EventForm = () => {
         throw new Error("End date/time must be after start date/time");
       }
 
-      // Validate price
       const price = parseFloat(eventData.eventPrice);
       if (isNaN(price))
         throw new Error("Please enter a valid number for price");
       if (price <= 0) throw new Error("Price must be greater than 0");
 
-      // Validate payment token
       if (
         !tokenOptions.some((token) => token.address === eventData.paymentToken)
       ) {
@@ -113,36 +119,50 @@ const EventForm = () => {
 
       return true;
     } catch (error: any) {
-      console.error("Form validation error:", {
-        error: error.message,
-        formData: eventData,
-        timestamp: new Date().toISOString(),
-      });
       toast.error(error.message);
       return false;
     }
   };
 
+  const handleTokenChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setEventData({ ...eventData, paymentToken: e.target.value });
+  };
+
   const createEvent = async () => {
-    if (!validateForm()) return;
-    if (!address) {
+    console.log("[DEBUG] Starting createEvent function");
+    if (!validateForm()) {
+      console.log("[DEBUG] Form validation failed");
+      return;
+    }
+
+    if (!address || !walletClient) {
+      console.log(
+        "[DEBUG] Wallet not connected - address:",
+        address,
+        "walletClient:",
+        walletClient
+      );
       toast.error("Please connect your wallet");
       return;
     }
 
     try {
       setLoading(true);
-      console.log("Starting event creation process...", {
-        eventData,
-        userAddress: address,
-        timestamp: new Date().toISOString(),
-      });
+      const toastId = toast.loading("Preparing transaction...");
+      console.log("[DEBUG] Loading state set to true");
 
-      // Prepare date/time values
+      // Prepare transaction data
+      console.log("[DEBUG] Preparing date/time values");
       const startDateTime = new Date(
         `${eventData.startDate}T${eventData.startTime}`
       );
       const endDateTime = new Date(`${eventData.endDate}T${eventData.endTime}`);
+      console.log(
+        "[DEBUG] Date objects created - start:",
+        startDateTime,
+        "end:",
+        endDateTime
+      );
 
       const startDate = BigInt(Math.floor(startDateTime.getTime() / 1000));
       const endDate = BigInt(Math.floor(endDateTime.getTime() / 1000));
@@ -152,22 +172,41 @@ const EventForm = () => {
       const endTime = BigInt(
         endDateTime.getHours() * 3600 + endDateTime.getMinutes() * 60
       );
-      const priceInWei = BigInt(
-        parseUnits(eventData.eventPrice, 18).toString()
+      console.log(
+        "[DEBUG] Converted to Unix timestamps - startDate:",
+        startDate,
+        "endDate:",
+        endDate,
+        "startTime:",
+        startTime,
+        "endTime:",
+        endTime
       );
 
-      console.log("Prepared contract call parameters:", {
-        startDate: startDate.toString(),
-        endDate: endDate.toString(),
-        startTime: startTime.toString(),
-        endTime: endTime.toString(),
-        priceInWei: priceInWei.toString(),
-        timestamp: new Date().toISOString(),
+      console.log("[DEBUG] Parsing price:", eventData.eventPrice);
+      const priceInWei = parseUnits(eventData.eventPrice, 18);
+      console.log("[DEBUG] Price in wei:", priceInWei.toString());
+
+      // Get Divvi data suffix
+      console.log("[DEBUG] Generating Divvi suffix with config:", DIVVI_CONFIG);
+      const divviSuffix = getDataSuffix(DIVVI_CONFIG);
+      console.log("[DEBUG] Divvi suffix generated:", divviSuffix);
+
+      // Encode contract function call
+      console.log("[DEBUG] Encoding function with ABI and args:", {
+        eventName: eventData.eventName,
+        eventCardImgUrl: eventData.eventCardImgUrl,
+        eventDetails: eventData.eventDetails,
+        startDate,
+        endDate,
+        startTime,
+        endTime,
+        eventLocation: eventData.eventLocation,
+        priceInWei,
+        paymentToken: eventData.paymentToken,
       });
 
-      // Execute contract call
-      write({
-        address: CONTRACT_ADDRESS,
+      const encodedFunction = encodeFunctionData({
         abi: contractABI.abi,
         functionName: "createEvent",
         args: [
@@ -183,41 +222,42 @@ const EventForm = () => {
           eventData.paymentToken,
         ],
       });
-    } catch (error: any) {
-      console.error("Event creation failed:", {
-        error: error.message,
-        stack: error.stack,
-        eventData,
-        userAddress: address,
-        timestamp: new Date().toISOString(),
+      console.log("[DEBUG] Encoded function data:", encodedFunction);
+
+      // Combine with Divvi suffix
+      const dataWithDivvi = (encodedFunction +
+        (divviSuffix.startsWith("0x")
+          ? divviSuffix.slice(2)
+          : divviSuffix)) as `0x${string}`;
+      console.log("[DEBUG] Combined data with Divvi suffix:", dataWithDivvi);
+
+      toast.loading("Waiting for wallet confirmation...", { id: toastId });
+      console.log("[DEBUG] Sending transaction...");
+
+      // Send transaction
+      const hash = await walletClient.sendTransaction({
+        account: address,
+        to: CONTRACT_ADDRESS,
+        data: dataWithDivvi,
       });
-      toast.error(error.message || "Failed to create event");
+      console.log("[DEBUG] Transaction sent, hash:", hash);
+
+      setTxHash(hash);
+      toast.loading("Processing transaction...", { id: toastId });
+      console.log("[DEBUG] Transaction hash set:", hash);
+
+      // Report to Divvi
+      console.log("[DEBUG] Reporting to Divvi with hash:", hash);
+      await reportToDivvi(hash);
+      console.log("[DEBUG] Successfully reported to Divvi");
+
+      // Success
+      toast.success("Event created successfully!", { id: toastId });
       setLoading(false);
-    }
-  };
+      console.log("[DEBUG] Loading state set to false after success");
 
-  const handleTokenChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setEventData({ ...eventData, paymentToken: e.target.value });
-  };
-
-  // Handle transaction states
-  useEffect(() => {
-    let toastId: string | undefined;
-
-    if (isWriting) {
-      console.log("Transaction signing initiated...");
-      toastId = toast.loading("Confirming transaction...");
-    }
-    if (isConfirming) {
-      console.log("Transaction pending confirmation...", { hash });
-      toastId = toast.loading("Processing transaction...");
-    }
-    if (isConfirmed) {
-      console.log("Transaction confirmed:", { hash });
-      toast.dismiss(toastId);
-      toast.success("Event created successfully!", { duration: 3000 });
-      setLoading(false);
       // Reset form and redirect
+      console.log("[DEBUG] Resetting form data");
       setEventData({
         eventName: "",
         eventCardImgUrl: "",
@@ -230,22 +270,38 @@ const EventForm = () => {
         eventPrice: "",
         paymentToken: tokenOptions[0].address,
       });
+
+      console.log("[DEBUG] Redirecting to /view_events");
       router.push("/view_events");
-    }
-    if (writeError) {
-      console.error("Transaction failed:", {
-        error: writeError,
-        hash,
+    } catch (error: any) {
+      console.error("[ERROR] Event creation failed:", {
+        error: error.message,
+        stack: error.stack,
+        eventData,
         timestamp: new Date().toISOString(),
       });
-      toast.error(writeError.message || "Transaction failed");
+      toast.dismiss();
+      toast.error(error.message || "Failed to create event");
       setLoading(false);
+      console.log("[DEBUG] Loading state set to false after error");
     }
+  };
 
-    return () => {
-      if (toastId) toast.dismiss(toastId);
-    };
-  }, [isWriting, isConfirming, isConfirmed, writeError, hash, router]);
+  const reportToDivvi = async (txHash: `0x${string}`) => {
+    console.log("[DEBUG] Starting reportToDivvi with hash:", txHash);
+    try {
+      const chainId = 42220; // Celo mainnet
+      console.log("[DEBUG] Submitting to Divvi with chainId:", chainId);
+      await submitReferral({ txHash, chainId });
+      console.log("[DEBUG] Successfully reported to Divvi");
+    } catch (divviError) {
+      console.error("[ERROR] Divvi reporting failed:", {
+        error: divviError,
+        txHash,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  };
 
   return (
     <div className="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-lg my-20">
@@ -405,15 +461,12 @@ const EventForm = () => {
           className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
         />
       </div>
-
       <button
         className="w-full bg-orange-700 text-white p-3 rounded-lg font-semibold hover:bg-orange-800 transition"
         onClick={createEvent}
-        disabled={loading || isWriting || isConfirming}
+        disabled={loading}
       >
-        {loading || isWriting || isConfirming
-          ? "Processing..."
-          : "Create Event"}
+        {loading ? "Processing..." : "Create Event"}
       </button>
     </div>
   );

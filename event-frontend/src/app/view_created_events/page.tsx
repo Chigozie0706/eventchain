@@ -31,7 +31,7 @@ interface Event {
   paymentToken: string;
 }
 
-const CONTRACT_ADDRESS = "0xC2fcD06C85E50afc8175A52b58699F31a3A1ED77";
+const CONTRACT_ADDRESS = "0x2A668c6A60dAe7B9cBBFB1d580cEcd0eB47e4132";
 
 export default function MyEvents() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -86,7 +86,7 @@ export default function MyEvents() {
   useEffect(() => {
     if (isSuccess && data) {
       try {
-        console.log("ℹ️ Raw creator events data received:", {
+        console.log(" Raw creator events data received:", {
           data,
           timestamp: new Date().toISOString(),
         });
@@ -97,7 +97,7 @@ export default function MyEvents() {
 
         const [indexes, eventData] = data as [bigint[], any[]];
 
-        console.log("ℹ️ Processing creator events data...", {
+        console.log(" Processing creator events data...", {
           indexesCount: indexes.length,
           eventsCount: eventData.length,
           timestamp: new Date().toISOString(),

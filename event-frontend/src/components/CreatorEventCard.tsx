@@ -24,9 +24,9 @@ interface CreatorEventCardProps {
 }
 
 const mentoTokens: Record<string, string> = {
-  "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1": "cUSD",
-  "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F": "cEUR",
-  "0xE4D517785D091D3c54818832dB6094bcc2744545": "cCOP",
+  "0x765de816845861e75a25fca122bb6898b8b1282a": "cUSD",
+  "0xd8763cba276a3738e6de85b4b3bf5fded6d6ca73": "cEUR",
+  "0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787": "cREAL",
 };
 
 const CreatorEventCard: React.FC<CreatorEventCardProps> = ({
@@ -44,7 +44,10 @@ const CreatorEventCard: React.FC<CreatorEventCardProps> = ({
   };
 
   const formattedTicketPrice = formatTicketPrice(event.ticketPrice);
-  const tokenSymbol = mentoTokens[event.paymentToken] || event.paymentToken;
+
+  // Normalize token address for comparison (lowercase and trim)
+  const normalizedToken = event.paymentToken?.trim().toLowerCase();
+  const tokenSymbol = mentoTokens[normalizedToken] || event.paymentToken;
 
   // Format date and time
   const formattedStartDate = new Date(
@@ -94,14 +97,14 @@ const CreatorEventCard: React.FC<CreatorEventCardProps> = ({
         )}
 
         {/* Delete Button */}
-        <button
+        {/* <button
           // onClick={() => onDelete(event.index)}
           disabled={loading}
           className="bg-red-500 text-white p-2 rounded-full shadow-md hover:bg-red-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label="Delete event"
         >
           <Trash2 size={16} />
-        </button>
+        </button> */}
       </div>
 
       {/* Canceled Badge */}
