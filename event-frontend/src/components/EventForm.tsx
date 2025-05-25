@@ -257,7 +257,7 @@ const EventForm = () => {
       console.log("[DEBUG] Loading state set to false after success");
 
       // Reset form and redirect
-      console.log("[DEBUG] Resetting form data");
+
       setEventData({
         eventName: "",
         eventCardImgUrl: "",
