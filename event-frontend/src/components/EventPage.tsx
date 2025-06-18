@@ -1,5 +1,6 @@
 "use client";
 import AttendeeList from "./AttendeeList";
+import VerificationPage from "./VerificationQR";
 import {
   MapPin,
   CalendarDays,
@@ -55,6 +56,7 @@ export default function EventPage({
   const formattedEndDate = formatEventDate(event.endDate);
   const formattedStartTime = formatEventTime(Number(event.startTime));
   const formattedEndTime = formatEventTime(Number(event.endTime));
+  const [imgError, setImgError] = useState(false);
 
   const mentoTokens: Record<string, string> = {
     "0x765de816845861e75a25fca122bb6898b8b1282a": "cUSD",
@@ -68,6 +70,13 @@ export default function EventPage({
   const normalizedToken = event.paymentToken?.trim().toLowerCase();
   const tokenName = mentoTokens[normalizedToken] || event.paymentToken;
 
+  const getImageUrl = () => {
+    if (!event.eventCardImgUrl) return "/default-event.jpg";
+    return event.eventCardImgUrl.startsWith("http")
+      ? event.eventCardImgUrl
+      : `https://ipfs.io/ipfs/${event.eventCardImgUrl}`;
+  };
+
   // Check if current user is registered
   const isRegistered = address && attendees.includes(address);
 
@@ -78,11 +87,12 @@ export default function EventPage({
         <div className="absolute inset-0 bg-gradient-to-r from-gray-900/40 via-gray-800/40 to-gray-900/40 backdrop-blur-md rounded-2xl"></div>
         <div className="relative w-full max-w-5xl rounded-2xl overflow-hidden">
           <img
-            src={event.eventCardImgUrl}
+            src={imgError ? "/default-event.jpg" : getImageUrl()}
             alt="Event Banner"
             width={1200}
             height={500}
-            className="rounded-2xl"
+            className="w-full h-full object-cover"
+            // className="rounded-2xl"
           />
         </div>
       </div>
@@ -201,6 +211,8 @@ export default function EventPage({
               {refunding ? "Processing..." : "Request Refund"}
             </button>
           )}
+
+          <VerificationPage />
         </div>
       </div>
     </div>

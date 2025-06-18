@@ -1,0 +1,75 @@
+import { NextResponse } from "next/server";
+import { SelfBackendVerifier, getUserIdentifier } from "@selfxyz/core";
+
+export async function POST(
+  req: Request,
+  { params }: { params: { eventId: string } }
+) {
+  const { eventId } = params;
+  const NGROK_URL = "https://9415-102-89-46-235.ngrok-free.app";
+  // Set to true for testing, false for production
+  const isTesting = process.env.NODE_ENV === "production";
+
+  try {
+    const { proof, publicSignals } = await req.json();
+
+    // Initialize verifier with your app scope and endpoint
+    const verifier = new SelfBackendVerifier(
+      `event-access-${eventId}`, // Must match frontend scope
+      `${NGROK_URL}/api/events/${eventId}/verify`,
+      undefined, // user_identifier_type (optional)
+      true // mockPassport flag
+    );
+
+    // Configure verification requirements
+    verifier
+      .setMinimumAge(18) // Require users to be 18+
+      .setNationality("United States") // Only allow US citizens
+      .excludeCountries("Russia", "North Korea") // Additional restrictions
+      .enableNameAndDobOfacCheck(); // OFAC compliance
+
+    // Execute verification
+    const result = await verifier.verify(proof, publicSignals);
+
+    if (result.isValid) {
+      // const userId = await verifier.getUserIdentifier(publicSignals);
+      const userId = await getUserIdentifier(publicSignals);
+
+      // Additional business logic (check tickets, etc.)
+      const hasTicket = await checkUserTicket(eventId, userId);
+
+      if (!hasTicket) {
+        return NextResponse.json(
+          { error: "No valid ticket found" },
+          { status: 403 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        eventId,
+        userId,
+        credential: result.credentialSubject,
+      });
+    }
+
+    return NextResponse.json(
+      {
+        error: "Verification failed",
+        details: result.isValidDetails,
+      },
+      { status: 400 }
+    );
+  } catch (error) {
+    console.error(`[EVENT ${eventId}] Verification error:`, error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+// Mock function - replace with your actual ticket check
+async function checkUserTicket(eventId: string, userId: string) {
+  return true;
+}

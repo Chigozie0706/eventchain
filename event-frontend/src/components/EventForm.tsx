@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { parseUnits } from "ethers";
+import ImageUploader from "./ImageUploader";
+import axios from "axios";
+
 import {
   useAccount,
   useWriteContract,
@@ -47,6 +50,7 @@ const DIVVI_CONFIG = {
     "0x0423189886d7966f0dd7e7d256898daeee625dca",
     "0xc95876688026be9d6fa7a7c33328bd013effa2bb",
     "0x6226dde08402642964f9a6de844ea3116f0dfc7e",
+    "0x7beb0e14f8d2e6f6678cc30d867787b384b19e20",
   ] as `0x${string}`[],
 };
 
@@ -66,6 +70,10 @@ const EventForm = () => {
   });
   const [loading, setLoading] = useState(false);
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const { data: walletClient } = useWalletClient();
   const { address } = useAccount();
@@ -128,6 +136,146 @@ const EventForm = () => {
     setEventData({ ...eventData, paymentToken: e.target.value });
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null);
+    if (e.target.files?.[0]) {
+      const selectedFile = e.target.files[0];
+
+      // Validate file
+      if (!selectedFile.type.startsWith("image/")) {
+        setError("Only image files are allowed");
+        return;
+      }
+
+      if (selectedFile.size > 10 * 1024 * 1024) {
+        // 10MB limit
+        setError("File size must be less than 10MB");
+        return;
+      }
+
+      setFile(selectedFile);
+
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = () => setPreview(reader.result as string);
+      reader.readAsDataURL(selectedFile);
+    }
+  };
+
+  // const uploadToIPFS = async () => {
+  //   if (!file) return;
+
+  //   try {
+  //     setUploading(true);
+  //     setError(null);
+
+  //     const formData = new FormData();
+  //     formData.append("file", file);
+
+  //     // Add optional metadata
+  //     formData.append(
+  //       "pinataMetadata",
+  //       JSON.stringify({
+  //         name: `event-image-${Date.now()}`,
+  //       })
+  //     );
+
+  //     const response = await axios.post(
+  //       "https://api.pinata.cloud/pinning/pinFileToIPFS",
+  //       formData,
+  //       {
+  //         headers: {
+  //           "Content-Type": "multipart/form-data",
+  //           Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`, // Alternative auth method
+  //         },
+  //         maxBodyLength: Infinity,
+  //         maxContentLength: Infinity,
+  //       }
+  //     );
+
+  //     if (response.status !== 200) {
+  //       throw new Error(`Upload failed with status ${response.status}`);
+  //     }
+
+  //     const ipfsHash = response.data.IpfsHash;
+  //     const imageUrl = `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
+
+  //     handleImageUploaded(imageUrl);
+  //     console.log("Image uploaded successfully!");
+  //   } catch (error: any) {
+  //     console.error("Upload Error:", {
+  //       error: error.response?.data || error.message,
+  //       status: error.response?.status,
+  //     });
+
+  //     setError(
+  //       error.response?.data?.error?.details ||
+  //         error.response?.data?.error ||
+  //         error.message ||
+  //         "Failed to upload image"
+  //     );
+  //   } finally {
+  //     setUploading(false);
+  //   }
+  // };
+
+  // Add this utility function near the top of your file
+
+  const uploadToIPFS = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append(
+      "pinataMetadata",
+      JSON.stringify({ name: `event-image-${Date.now()}` })
+    );
+
+    const response = await axios.post(
+      "https://api.pinata.cloud/pinning/pinFileToIPFS",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`,
+        },
+      }
+    );
+
+    if (response.status !== 200) {
+      throw new Error("Failed to upload image");
+    }
+
+    return `https://gateway.pinata.cloud/ipfs/${response.data.IpfsHash}`;
+  };
+
+  // const extractIpfsHash = (url: string): string => {
+  //   try {
+  //     const ipfsPattern = /(ipfs\/|ipfs:?\/\/)([a-zA-Z0-9]+)/;
+  //     const match = url.match(ipfsPattern);
+
+  //     if (match && match[2]) {
+  //       return match[2];
+  //     }
+
+  //     // Fallback: Just take everything after last slash
+  //     return url.split("/").pop() || "";
+  //   } catch (error) {
+  //     console.error("Error extracting IPFS hash:", error);
+  //     return "";
+  //   }
+  // };
+
+  /////////////////////////////////
+  // Add this function to handle the uploaded image URL
+  // const handleImageUploaded = (url: string) => {
+  //   const hash = extractIpfsHash(url);
+  //   setEventData({
+  //     ...eventData,
+  //     eventCardImgUrl: hash,
+  //   });
+  //   toast.success("Image uploaded successfully!");
+  //   console.log("Uploaded image hash:", hash);
+  // };
+
   const createEvent = async () => {
     console.log("[DEBUG] Starting createEvent function");
     if (!validateForm()) {
@@ -148,8 +296,19 @@ const EventForm = () => {
 
     try {
       setLoading(true);
-      const toastId = toast.loading("Preparing transaction...");
-      console.log("[DEBUG] Loading state set to true");
+      const toastId = toast.loading("Creating event...");
+
+      // Upload image to IPFS
+      toast.loading("Uploading image...", { id: toastId });
+      const imageUrl = await uploadToIPFS(file!);
+      const ipfsHash = imageUrl.split("/").pop() || "";
+
+      // Validate URL length (matches contract MAX_URL_LENGTH = 200)
+      if (ipfsHash.length > 200) {
+        throw new Error("Image URL too long");
+      }
+
+      console.log("ipfsHash", ipfsHash);
 
       // Prepare transaction data
       console.log("[DEBUG] Preparing date/time values");
@@ -195,7 +354,7 @@ const EventForm = () => {
       // Encode contract function call
       console.log("[DEBUG] Encoding function with ABI and args:", {
         eventName: eventData.eventName,
-        eventCardImgUrl: eventData.eventCardImgUrl,
+        eventImgUrl: ipfsHash,
         eventDetails: eventData.eventDetails,
         startDate,
         endDate,
@@ -211,7 +370,7 @@ const EventForm = () => {
         functionName: "createEvent",
         args: [
           eventData.eventName,
-          eventData.eventCardImgUrl,
+          ipfsHash,
           eventData.eventDetails,
           startDate,
           endDate,
@@ -338,6 +497,36 @@ const EventForm = () => {
           className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
         />
       </div>
+
+      {/* <ImageUploader onImageUploaded={handleImageUploaded} /> */}
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Event Image *
+        </label>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          className="block w-full text-sm text-gray-500
+            file:mr-4 file:py-2 file:px-4
+            file:rounded-md file:border-0
+            file:text-sm file:font-semibold
+            file:bg-blue-50 file:text-blue-700
+            hover:file:bg-blue-100"
+          disabled={loading}
+        />
+      </div>
+
+      {preview && (
+        <div className="mt-2">
+          <img
+            src={preview}
+            alt="Preview"
+            className="max-w-full h-auto max-h-60 rounded-lg border border-gray-200"
+          />
+        </div>
+      )}
 
       {/* Event Details */}
       <div className="mb-4">

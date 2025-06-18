@@ -1,4 +1,5 @@
 import { Trash2, XCircle } from "lucide-react";
+import { useState } from "react";
 
 interface CreatorEventCardProps {
   event: {
@@ -36,6 +37,8 @@ const CreatorEventCard: React.FC<CreatorEventCardProps> = ({
   loading,
   cancelLoading,
 }) => {
+  const [imgError, setImgError] = useState(false);
+
   const formatTicketPrice = (price: number) => {
     if (price < 1e18) {
       return price.toFixed(2);
@@ -76,6 +79,13 @@ const CreatorEventCard: React.FC<CreatorEventCardProps> = ({
     }
   );
 
+  const getImageUrl = () => {
+    if (!event.eventCardImgUrl) return "/default-event.jpg";
+    return event.eventCardImgUrl.startsWith("http")
+      ? event.eventCardImgUrl
+      : `https://ipfs.io/ipfs/${event.eventCardImgUrl}`;
+  };
+
   return (
     <div
       className={`relative flex flex-col w-full max-w-sm p-4 bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow ${
@@ -109,20 +119,17 @@ const CreatorEventCard: React.FC<CreatorEventCardProps> = ({
 
       {/* Canceled Badge */}
       {event.isCanceled && (
-        <div className="absolute top-3 left-3 bg-red-500 text-white px-2 py-1 rounded-md text-xs font-bold">
+        <div className="absolute top-3 left-3 bg-red-500 text-white px-2 py-1 rounded-md text-xs font-bold ">
           CANCELED
         </div>
       )}
 
-      {/* Event Image */}
-      <div className="w-full h-48 overflow-hidden rounded-lg">
+      <div className="w-full h-48 overflow-hidden rounded-lg ">
         <img
-          src={event.eventCardImgUrl || "/default-event.jpg"}
+          src={imgError ? "/default-event.jpg" : getImageUrl()}
           alt={event.eventName}
           className="w-full h-full object-cover"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = "/default-event.jpg";
-          }}
+          onError={() => setImgError(true)}
         />
       </div>
 

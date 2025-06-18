@@ -1,0 +1,197 @@
+import { SelfBackendVerifier, getUserIdentifier } from "@selfxyz/core";
+import { type NextRequest, NextResponse } from "next/server";
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { eventId: string } }
+) {
+  if (req.method === "POST") {
+    try {
+      const { proof, publicSignals } = await req.json();
+
+      if (!proof || !publicSignals) {
+        return NextResponse.json(
+          { message: "Proof and publicSignals are required" },
+          { status: 400 }
+        );
+      }
+      // const url = new URL(req.url);
+      // const baseUrl = ${url.protocol}//${url.host};
+      // console.log("baseUrl", baseUrl);
+
+      const userId = await getUserIdentifier(publicSignals);
+      console.log("Extracted userId:", userId);
+      const NGROK_URL = "https://e330-102-88-110-152.ngrok-free.app";
+
+      const selfBackendVerifier = new SelfBackendVerifier(
+        `event-access-${params.eventId}`,
+        `${NGROK_URL}/api/events/${params.eventId}/verify`,
+        undefined,
+        true
+      );
+
+      // Verify the proof
+      const result = await selfBackendVerifier.verify(proof, publicSignals);
+      console.log("result", result);
+      const userIdDecimal = parseInt(result.userId, 16);
+      console.log("decimalValue", userIdDecimal);
+
+      if (result.isValid) {
+        return NextResponse.json(
+          {
+            status: "success",
+            result: true,
+            credentialSubject: result.credentialSubject,
+          },
+          { status: 200 }
+        );
+      }
+      return NextResponse.json(
+        {
+          status: "error",
+          result: false,
+          message: "Verification failed",
+          details: result.isValidDetails,
+        },
+        { status: 500 }
+      );
+    } catch (error) {
+      return NextResponse.json(
+        {
+          status: "error",
+          result: false,
+          message: error instanceof Error ? error.message : "Unknown error",
+        },
+        { status: 500 }
+      );
+    }
+  } else {
+    return NextResponse.json(
+      { message: "Method not allowed" },
+      { status: 405 }
+    );
+  }
+}
+
+
+
+
+//////////////////////////////////////////////////////////////////////////////////
+
+"use client";
+import { useState, useEffect } from "react";
+import SelfQRcodeWrapper, { SelfAppBuilder } from "@selfxyz/qrcode";
+import { useParams } from "next/navigation";
+import { v4 as uuidv4 } from "uuid";
+
+type VerificationStatus = {
+  isValid: boolean;
+  userId?: string;
+  eventId?: string;
+  error?: string;
+  details?: Record<string, any>;
+};
+
+type VerificationResponse = {
+  status: "success" | "error";
+  result: boolean;
+  credentialSubject?: Record<string, any>;
+  message?: string;
+};
+
+export default function VerificationPage() {
+  const { id: eventId } = useParams<{ id: string }>();
+  const [userId, setUserId] = useState<string>("");
+  // const [verificationResult, setVerificationResult] =
+  //   useState<VerificationStatus | null>(null);
+  const [qrKey, setQrKey] = useState(0);
+  const [verificationResult, setVerificationResult] =
+    useState<VerificationResponse | null>(null);
+
+  // Configuration
+  const NGROK_URL = "https://e330-102-88-110-152.ngrok-free.app";
+  const endpoint = `${NGROK_URL}/api/events/${eventId}/verify`;
+
+  useEffect(() => {
+    // Generate a user ID when the component mounts
+    setUserId(uuidv4());
+  }, []);
+
+  if (!userId) return <div>Loading user session...</div>;
+
+  const selfApp = new SelfAppBuilder({
+    appName: "Event Access Control",
+    scope: `event-access-${eventId}`, // Must match backend exactly
+    endpoint,
+    userId,
+  }).build();
+
+  const handleSuccess = () => {
+    console.log("✅ QR code scanned successfully");
+    setVerificationResult(null); // Reset previous results
+
+    fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, eventId }),
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error("Network response was not ok");
+        return response.json();
+      })
+      .then((data: VerificationResponse) => {
+        console.log("Verification result:", data);
+        setVerificationResult(data);
+      })
+      .catch((error) => {
+        console.error("Verification check failed:", error);
+        setVerificationResult({
+          status: "error",
+          result: false,
+          message: error.message,
+        });
+        setQrKey((prev) => prev + 1); // Refresh QR code
+      });
+  };
+
+  return (
+    <div className="max-w-md mx-auto p-4 space-y-4">
+      <h1 className="text-2xl font-bold">Event #{eventId} Verification</h1>
+
+      <div className="p-4 border rounded-lg bg-white shadow-sm">
+        <SelfQRcodeWrapper
+          key={qrKey}
+          selfApp={selfApp}
+          onSuccess={handleSuccess}
+          // Removed onError prop since it's not supported
+          size={300}
+        />
+      </div>
+
+      <div className="text-sm space-y-1">
+        <p>
+          <span className="font-medium">User ID:</span> {userId.substring(0, 8)}
+          ...
+        </p>
+        <p>
+          <span className="font-medium">Endpoint:</span> {endpoint}
+        </p>
+      </div>
+
+      {verificationResult && (
+        <div
+          className={`p-4 rounded-lg mt-4 ${
+            verificationResult.result
+              ? "bg-green-50 text-green-800"
+              : "bg-red-50 text-red-800"
+          }`}
+        >
+          <h2 className="font-bold">Verification Status:</h2>
+          <pre className="text-xs overflow-auto mt-2">
+            {JSON.stringify(verificationResult, null, 2)}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}

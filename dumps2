@@ -1,0 +1,81 @@
+// app/api/events/[eventId]/verify/route.ts
+import { NextResponse } from "next/server";
+import { SelfBackendVerifier, getUserIdentifier } from "@selfxyz/core";
+
+export async function POST(
+  request: Request,
+  { params }: { params: { eventId: string } }
+) {
+  const NGROK_URL = "https://e330-102-88-110-152.ngrok-free.app";
+  const MOCK_MODE = process.env.NODE_ENV === "development";
+
+  try {
+    // 1. Parse request
+    const { proof, publicSignals } = await request.json();
+
+    if (!proof || !publicSignals) {
+      return NextResponse.json(
+        { isValid: false, error: "Proof and publicSignals are required" },
+        { status: 400 }
+      );
+    }
+
+    // 2. Get user ID
+    const userId = await getUserIdentifier(publicSignals);
+    console.log("Extracted userId:", userId);
+
+    // 3. Initialize verifier
+    const verifier = new SelfBackendVerifier(
+      `event-access-${params.eventId}`,
+      `${NGROK_URL}/api/events/${params.eventId}/verify`,
+      undefined,
+      MOCK_MODE
+    );
+
+    // 4. Verify proof
+    const result = await verifier.verify(proof, publicSignals);
+    console.log("Verification result:", result);
+
+    // 5. Return proper response format
+    if (result.isValid) {
+      return NextResponse.json(
+        {
+          isValid: false,
+          userId,
+          credentialSubject: result.credentialSubject,
+          details: result.isValidDetails,
+        },
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": NGROK_URL,
+          },
+        }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        isValid: false,
+        error: "Verification failed",
+        details: result.isValidDetails,
+      },
+      { status: 400 }
+    );
+  } catch (error) {
+    console.error("Verification error:", error);
+    return NextResponse.json(
+      {
+        isValid: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+  }
+}

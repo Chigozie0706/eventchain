@@ -42,6 +42,7 @@ const DIVVI_CONFIG = {
     "0x0423189886d7966f0dd7e7d256898daeee625dca",
     "0xc95876688026be9d6fa7a7c33328bd013effa2bb",
     "0x6226dde08402642964f9a6de844ea3116f0dfc7e",
+    "0x7beb0e14f8d2e6f6678cc30d867787b384b19e20",
   ] as `0x${string}`[],
 };
 
