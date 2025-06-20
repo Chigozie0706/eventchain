@@ -8,7 +8,12 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
 
-  
+    output: 'standalone', // Recommended for Vercel deployments
+  // If using TypeScript
+  typescript: {
+    ignoreBuildErrors: false, // Set to true temporarily if needed
+  },
+
 };
 
 export default nextConfig;
