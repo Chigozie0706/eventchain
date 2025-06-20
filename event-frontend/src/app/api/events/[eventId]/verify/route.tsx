@@ -1,8 +1,6 @@
 import { countries, SelfBackendVerifier } from "@selfxyz/core";
 import { NextResponse } from "next/server";
 
-const MINIMUM_AGE = 10;
-
 // Define interface for validation details based on actual API response
 interface ValidationDetails {
   isValidScope: boolean;
@@ -12,9 +10,14 @@ interface ValidationDetails {
   [key: string]: boolean | undefined; // Support for any additional properties
 }
 
-export async function POST(request: Request,   { params }: { params: { eventId: string } }
+export async function POST(
+  request: Request,
+  { params }: { params: { eventId: string } }
 ) {
   try {
+    const url = new URL(request.url);
+    const minimumAge = Number(url.searchParams.get("minimumAge"));
+
     const body = await request.json();
     const { proof, publicSignals } = body;
 
@@ -23,20 +26,21 @@ export async function POST(request: Request,   { params }: { params: { eventId: 
       return new NextResponse("Proof and publicSignals are required", {
         status: 400,
         headers: {
-          'Content-Type': 'text/plain',
-        }
+          "Content-Type": "text/plain",
+        },
       });
     }
 
-    const NGROK_URL = "https://9469-197-210-28-121.ngrok-free.app/";
+    const NGROK_URL = process.env.NEXT_PUBLIC_SELF_ENDPOINT;
 
     const configuredVerifier = new SelfBackendVerifier(
       process.env.NEXT_PUBLIC_SELF_SCOPE as string,
-        `${NGROK_URL}/api/events/${params.eventId}/verify`,
-      "uuid",
+      `${NGROK_URL}/api/events/${params.eventId}/verify`,
+      "hex",
       process.env.NEXT_PUBLIC_SELF_ENABLE_MOCK_PASSPORT === "true" // Enable mock passport based on env config
-    )
-      .excludeCountries(countries.FRANCE);
+    ).setMinimumAge(minimumAge);
+
+    //.excludeCountries(countries.FRANCE);
 
     // Define the result type that maps to what's returned by the verify method
     type VerifyResult = {
@@ -62,38 +66,41 @@ export async function POST(request: Request,   { params }: { params: { eventId: 
     }
 
     // Create a formatted error message with all validation issues
-    const errorMessage = getAllErrorMessages(result);
+    const errorMessage = getAllErrorMessages(result, minimumAge);
     console.log("errorMessage", errorMessage);
 
     // Return plain text error message
     return new NextResponse(errorMessage, {
       status: 400,
       headers: {
-        'Content-Type': 'text/plain',
-      }
+        "Content-Type": "text/plain",
+      },
     });
   } catch (error) {
     console.error("Error verifying proof:", error);
     // Return plain text error message
     return new NextResponse(
-      error instanceof Error ? error.message : "Unknown error", 
+      error instanceof Error ? error.message : "Unknown error",
       {
         status: 500,
         headers: {
-          'Content-Type': 'text/plain',
-        }
+          "Content-Type": "text/plain",
+        },
       }
     );
   }
 }
 
 // Get a formatted error message containing all validation issues
-function getAllErrorMessages(result: {
-  isValid: boolean;
-  isValidDetails?: ValidationDetails;
-  credentialSubject?: Record<string, string | boolean | number | undefined>;
-  error?: unknown;
-}): string {
+function getAllErrorMessages(
+  result: {
+    isValid: boolean;
+    isValidDetails?: ValidationDetails;
+    credentialSubject?: Record<string, string | boolean | number | undefined>;
+    error?: unknown;
+  },
+  minimumAge: number
+): string {
   const errors: string[] = [];
   const details = result.isValidDetails || ({} as ValidationDetails);
   const credentialSubject = result.credentialSubject || {};
@@ -109,20 +116,20 @@ function getAllErrorMessages(result: {
     errors.push("The verification scope is invalid.");
   }
 
-  if (details.isValidAttestationId === false) {
-    errors.push("Your attestation couldn't be verified.");
-  }
+  // if (details.isValidAttestationId === false) {
+  //   errors.push("Your attestation couldn't be verified.");
+  // }
 
-  if (details.isValidNationality === false) {
-    errors.push("Your nationality couldn't be verified.");
-  }
+  // if (details.isValidNationality === false) {
+  //   errors.push("Your nationality couldn't be verified.");
+  // }
 
   // Check credentialSubject for additional information
   // Age verification check
 
   if (credentialSubject.older_than === "0") {
     errors.push(
-      `Age verification failed. You must be at least ${MINIMUM_AGE} years old.`
+      `Age verification failed. You must be at least ${minimumAge} years old.`
     );
   }
 

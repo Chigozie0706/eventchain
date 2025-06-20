@@ -29,11 +29,12 @@ export interface Event {
   ticketPrice: bigint;
   fundsHeld: number;
   isCanceled: boolean;
+  minimumAge: number;
   fundsReleased: boolean;
   paymentToken: string;
 }
 
-const CONTRACT_ADDRESS = "0x2A668c6A60dAe7B9cBBFB1d580cEcd0eB47e4132";
+const CONTRACT_ADDRESS = "0xadF78796c383b67195FDB69cb81702958cCBB77A";
 
 const DIVVI_CONFIG = {
   consumer: "0x5e23d5Be257d9140d4C5b12654111a4D4E18D9B2" as `0x${string}`,
@@ -144,6 +145,7 @@ export default function Home() {
           isActive: eventData.isActive,
           ticketPrice: eventData.ticketPrice,
           fundsHeld: eventData.fundsHeld,
+          minimumAge: eventData.minimumAge,
           isCanceled: eventData.isCanceled,
           fundsReleased: eventData.fundsReleased,
           paymentToken: eventData.paymentToken,
@@ -209,96 +211,6 @@ export default function Home() {
       console.error("[Divvi] Reporting failed:", divviError);
     }
   };
-
-  const buyTicket1 = useCallback(async () => {
-    // Check if wallet is connected
-    if (!isConnected) {
-      toast.error("Please connect your wallet first");
-      return;
-    }
-
-    if (!eventDetails || !address || !walletClient) {
-      toast.error("Wallet not properly connected");
-      return;
-    }
-
-    // Check if user already has a ticket
-    if (eventDetails.attendees.includes(address)) {
-      toast.error("You already have a ticket for this event");
-      return;
-    }
-
-    // Check token balance
-    if (
-      tokenBalance !== undefined &&
-      tokenBalance < eventDetails.event.ticketPrice
-    ) {
-      toast.error("Insufficient token balance");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const toastId = toast.loading("Preparing transaction...");
-
-      const requiredAllowance = eventDetails.event.ticketPrice;
-
-      // First handle token approval if needed
-      if (!tokenAllowance || tokenAllowance < requiredAllowance) {
-        toast.loading("Approving token spend...", { id: toastId });
-        await write({
-          address: eventDetails.event.paymentToken as `0x${string}`,
-          abi: erc20Abi,
-          functionName: "approve",
-          args: [CONTRACT_ADDRESS, requiredAllowance],
-          gas: BigInt(300000),
-        });
-      }
-
-      // Get Divvi data suffix
-      const divviSuffix = getDataSuffix(DIVVI_CONFIG);
-
-      // Encode the buyTicket function call
-      const encodedFunction = encodeFunctionData({
-        abi: contractABI.abi,
-        functionName: "buyTicket",
-        args: [eventId],
-      });
-
-      // Combine with Divvi suffix
-      const dataWithDivvi = (encodedFunction +
-        (divviSuffix.startsWith("0x")
-          ? divviSuffix.slice(2)
-          : divviSuffix)) as `0x${string}`;
-
-      toast.loading("Waiting for wallet confirmation...", { id: toastId });
-
-      // Send transaction with Divvi data
-      const hash = await walletClient.sendTransaction({
-        account: address,
-        to: CONTRACT_ADDRESS,
-        data: dataWithDivvi,
-      });
-
-      setLoading(false);
-      toast.success("Transaction submitted!", { id: toastId });
-
-      // Report to Divvi
-      await reportToDivvi(hash);
-    } catch (error: any) {
-      console.error("Full error:", error);
-      toast.error(error.message || "Transaction failed");
-      setLoading(false);
-    }
-  }, [
-    isConnected,
-    eventDetails,
-    address,
-    eventId,
-    write,
-    tokenAllowance,
-    walletClient,
-  ]);
 
   const buyTicket = useCallback(async () => {
     console.log("[Ticket] Starting ticket purchase process");

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { parseUnits } from "ethers";
@@ -18,7 +18,6 @@ import { encodeFunctionData } from "viem";
 
 interface EventData {
   eventName: string;
-  eventCardImgUrl: string;
   eventDetails: string;
   startDate: string;
   endDate: string;
@@ -26,10 +25,11 @@ interface EventData {
   endTime: string;
   eventLocation: string;
   eventPrice: string;
+  minimumAge: string;
   paymentToken: string;
 }
 
-const CONTRACT_ADDRESS = "0x2A668c6A60dAe7B9cBBFB1d580cEcd0eB47e4132";
+const CONTRACT_ADDRESS = "0xadF78796c383b67195FDB69cb81702958cCBB77A";
 
 const tokenOptions1 = [
   { symbol: "cUSD", address: "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1" },
@@ -58,7 +58,6 @@ const EventForm = () => {
   const router = useRouter();
   const [eventData, setEventData] = useState<EventData>({
     eventName: "",
-    eventCardImgUrl: "",
     eventDetails: "",
     startDate: "",
     endDate: "",
@@ -66,6 +65,7 @@ const EventForm = () => {
     endTime: "",
     eventLocation: "",
     eventPrice: "",
+    minimumAge: "0",
     paymentToken: tokenOptions[0].address,
   });
   const [loading, setLoading] = useState(false);
@@ -125,6 +125,10 @@ const EventForm = () => {
         throw new Error("Selected payment token is not supported");
       }
 
+      const minAge = parseInt(eventData.minimumAge);
+      if (isNaN(minAge) || minAge < 0 || minAge > 120) {
+        throw new Error("Please enter a valid minimum age (0-120)");
+      }
       return true;
     } catch (error: any) {
       toast.error(error.message);
@@ -136,7 +140,7 @@ const EventForm = () => {
     setEventData({ ...eventData, paymentToken: e.target.value });
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange1 = (e: React.ChangeEvent<HTMLInputElement>) => {
     setError(null);
     if (e.target.files?.[0]) {
       const selectedFile = e.target.files[0];
@@ -160,6 +164,39 @@ const EventForm = () => {
       reader.onload = () => setPreview(reader.result as string);
       reader.readAsDataURL(selectedFile);
     }
+  };
+
+  const handleFileChange = (
+    fileOrEvent: File | React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setError(null);
+    let selectedFile: File | null = null;
+
+    if (fileOrEvent instanceof File) {
+      selectedFile = fileOrEvent;
+    } else if (fileOrEvent.target.files?.[0]) {
+      selectedFile = fileOrEvent.target.files[0];
+    }
+
+    if (!selectedFile) return;
+
+    // Rest of your validation logic...
+    if (!selectedFile.type.startsWith("image/")) {
+      setError("Only image files are allowed");
+      return;
+    }
+
+    if (selectedFile.size > 10 * 1024 * 1024) {
+      setError("File size must be less than 10MB");
+      return;
+    }
+
+    setFile(selectedFile);
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = () => setPreview(reader.result as string);
+    reader.readAsDataURL(selectedFile);
   };
 
   // const uploadToIPFS = async () => {
@@ -247,34 +284,22 @@ const EventForm = () => {
     return `https://gateway.pinata.cloud/ipfs/${response.data.IpfsHash}`;
   };
 
-  // const extractIpfsHash = (url: string): string => {
-  //   try {
-  //     const ipfsPattern = /(ipfs\/|ipfs:?\/\/)([a-zA-Z0-9]+)/;
-  //     const match = url.match(ipfsPattern);
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
 
-  //     if (match && match[2]) {
-  //       return match[2];
-  //     }
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        handleFileChange(e.dataTransfer.files[0]);
+      }
+    },
+    [handleFileChange]
+  );
 
-  //     // Fallback: Just take everything after last slash
-  //     return url.split("/").pop() || "";
-  //   } catch (error) {
-  //     console.error("Error extracting IPFS hash:", error);
-  //     return "";
-  //   }
-  // };
-
-  /////////////////////////////////
-  // Add this function to handle the uploaded image URL
-  // const handleImageUploaded = (url: string) => {
-  //   const hash = extractIpfsHash(url);
-  //   setEventData({
-  //     ...eventData,
-  //     eventCardImgUrl: hash,
-  //   });
-  //   toast.success("Image uploaded successfully!");
-  //   console.log("Uploaded image hash:", hash);
-  // };
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
 
   const createEvent = async () => {
     console.log("[DEBUG] Starting createEvent function");
@@ -322,6 +347,8 @@ const EventForm = () => {
         "end:",
         endDateTime
       );
+
+      const minimumAge = BigInt(eventData.minimumAge);
 
       const startDate = BigInt(Math.floor(startDateTime.getTime() / 1000));
       const endDate = BigInt(Math.floor(endDateTime.getTime() / 1000));
@@ -378,6 +405,7 @@ const EventForm = () => {
           endTime,
           eventData.eventLocation,
           priceInWei,
+          minimumAge,
           eventData.paymentToken,
         ],
       });
@@ -419,7 +447,6 @@ const EventForm = () => {
 
       setEventData({
         eventName: "",
-        eventCardImgUrl: "",
         eventDetails: "",
         startDate: "",
         endDate: "",
@@ -428,6 +455,7 @@ const EventForm = () => {
         eventLocation: "",
         eventPrice: "",
         paymentToken: tokenOptions[0].address,
+        minimumAge: "0",
       });
 
       console.log("[DEBUG] Redirecting to /view_events");
@@ -483,39 +511,67 @@ const EventForm = () => {
         />
       </div>
 
-      {/* Event Card Image */}
+      {/* 
       <div className="mb-4">
         <label className="block text-gray-700 font-medium text-sm mb-2">
-          Event Image URL *
-        </label>
-        <input
-          type="text"
-          name="eventCardImgUrl"
-          value={eventData.eventCardImgUrl}
-          onChange={handleChange}
-          placeholder="https://example.com/image.jpg"
-          className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
-        />
-      </div>
-
-      {/* <ImageUploader onImageUploaded={handleImageUploaded} /> */}
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
           Event Image *
         </label>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          className="block w-full text-sm text-gray-500
-            file:mr-4 file:py-2 file:px-4
-            file:rounded-md file:border-0
-            file:text-sm file:font-semibold
-            file:bg-blue-50 file:text-blue-700
-            hover:file:bg-blue-100"
-          disabled={loading}
-        />
+        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+          <div className="space-y-1 text-center">
+            <svg
+              className="mx-auto h-12 w-12 text-gray-400"
+              stroke="currentColor"
+              fill="none"
+              viewBox="0 0 48 48"
+              aria-hidden="true"
+            >
+              <path
+                d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <div className="flex text-sm text-gray-600">
+              <label
+                htmlFor="file-upload"
+                className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none"
+              >
+                <span>Upload a file</span>
+                <input
+                  id="file-upload"
+                  name="file-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="sr-only"
+                />
+              </label>
+              <p className="pl-1">or drag and drop</p>
+            </div>
+            <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+          </div>
+        </div>
+
+        {preview && (
+          <div className="mt-4">
+            <img
+              src={preview}
+              alt="Preview"
+              className="max-w-full h-auto max-h-60 rounded-lg border border-gray-200"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setPreview(null);
+                setFile(null);
+              }}
+              className="mt-2 text-sm text-red-600 hover:text-red-500"
+            >
+              Remove image
+            </button>
+          </div>
+        )}
       </div>
 
       {preview && (
@@ -526,7 +582,75 @@ const EventForm = () => {
             className="max-w-full h-auto max-h-60 rounded-lg border border-gray-200"
           />
         </div>
-      )}
+      )} */}
+
+      <div className="mb-4">
+        <label className="block text-gray-700 font-medium text-sm mb-2">
+          Event Image *
+        </label>
+        <div
+          className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md"
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+        >
+          <div className="space-y-1 text-center">
+            <svg
+              className="mx-auto h-12 w-12 text-gray-400"
+              stroke="currentColor"
+              fill="none"
+              viewBox="0 0 48 48"
+              aria-hidden="true"
+            >
+              <path
+                d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <div className="flex justify-center text-sm text-gray-600">
+              <label
+                htmlFor="file-upload"
+                className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none"
+              >
+                <span>Upload a file</span>
+                <input
+                  id="file-upload"
+                  name="file-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="sr-only"
+                />
+              </label>
+              <p className="pl-1">or drag and drop</p>
+            </div>
+            <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+            {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
+          </div>
+        </div>
+
+        {/* Single Preview Section */}
+        {preview && (
+          <div className="mt-4">
+            <img
+              src={preview}
+              alt="Preview"
+              className="max-w-full h-auto max-h-60 rounded-lg border border-gray-200"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setPreview(null);
+                setFile(null);
+              }}
+              className="mt-2 text-sm text-red-600 hover:text-red-500"
+            >
+              Remove image
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Event Details */}
       <div className="mb-4">
@@ -610,6 +734,23 @@ const EventForm = () => {
           value={eventData.eventLocation}
           onChange={handleChange}
           placeholder="Enter event location"
+          className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
+        />
+      </div>
+
+      {/* Minimum Age */}
+      <div className="mb-4">
+        <label className="block text-gray-700 font-medium mb-2 text-sm">
+          Minimum Age Requirement *
+        </label>
+        <input
+          type="number"
+          name="minimumAge"
+          value={eventData.minimumAge}
+          onChange={handleChange}
+          placeholder="Enter minimum age (0 for no restriction)"
+          min="0"
+          max="120"
           className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
         />
       </div>

@@ -57,6 +57,7 @@ contract EventChain is ReentrancyGuard {
         bool isActive;
         uint256 ticketPrice;
         uint256 fundsHeld;
+        uint256 minimumAge;
         bool isCanceled;
         bool fundsReleased;
         address paymentToken;
@@ -189,6 +190,7 @@ contract EventChain is ReentrancyGuard {
         uint64 _endTime,
         string calldata _eventLocation,
         uint256 _ticketPrice,
+        uint256 _minimumAge,
         address _paymentToken
     ) public whenNotPaused {
         // Input validation
@@ -238,6 +240,7 @@ contract EventChain is ReentrancyGuard {
             isActive: true,
             fundsHeld: 0,
             isCanceled: false,
+            minimumAge: _minimumAge,
             fundsReleased: false,
             paymentToken: _paymentToken
         });

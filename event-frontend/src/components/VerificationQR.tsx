@@ -3,11 +3,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { countries, getUniversalLink } from "@selfxyz/core";
+
 import SelfQRcodeWrapper, {
   SelfAppBuilder,
   type SelfApp,
 } from "@selfxyz/qrcode";
 import { v4 } from "uuid";
+import { useAccount } from "wagmi";
 
 export default function VerificationQR() {
   const router = useRouter();
@@ -17,32 +19,38 @@ export default function VerificationQR() {
   const [selfApp, setSelfApp] = useState<SelfApp | null>(null);
   const [universalLink, setUniversalLink] = useState("");
   const { id: eventId } = useParams<{ id: string }>();
+  const { address } = useAccount();
 
-  const minimumAge = 10;
+  const minimumAge = 18;
   // Use useMemo to cache the array to avoid creating a new array on each render
-  const excludedCountries = useMemo(() => [countries.FRANCE], []);
-  const requireName = true;
-  const checkOFAC = true;
+  // const excludedCountries = useMemo(() => [countries.FRANCE], []);
+  // const requireName = true;
+  // const checkOFAC = true;
 
   const NGROK_URL = "https://9469-197-210-28-121.ngrok-free.app/";
   const endpoint = `${NGROK_URL}/api/events/${eventId}/verify`;
 
   // Use useEffect to ensure code only executes on the client side
   useEffect(() => {
+    if (!address) return; // Don't initialize if no address is connected
+
     try {
-      const userId = v4();
+      // const userId = v4();
+
+      const userId = `${address}`;
       const app = new SelfAppBuilder({
         appName: process.env.NEXT_PUBLIC_SELF_APP_NAME || "Self Workshop",
         scope: process.env.NEXT_PUBLIC_SELF_SCOPE || "self-workshop",
         endpoint,
         logoBase64:
           "https://pluspng.com/img-png/images-owls-png-hd-owl-free-download-png-png-image-485.png",
-        userId: userId,
+        userId: address,
+        userIdType: "hex",
         disclosures: {
           minimumAge,
-          ofac: checkOFAC,
-          excludedCountries,
-          name: requireName,
+          // ofac: checkOFAC,
+          // excludedCountries,
+          // name: requireName,
         },
       }).build();
 

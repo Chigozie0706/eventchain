@@ -11,7 +11,12 @@ import {
 } from "lucide-react";
 import { formatEventDate, formatEventTime, formatPrice } from "@/utils/format";
 import { useAccount } from "wagmi";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import SelfQRcodeWrapper, {
+  SelfAppBuilder,
+  type SelfApp,
+} from "@selfxyz/qrcode";
+import { useParams, useRouter } from "next/navigation";
 
 export interface Event {
   owner: string;
@@ -25,6 +30,7 @@ export interface Event {
   eventLocation: string;
   isActive: boolean;
   ticketPrice: bigint;
+  minimumAge: number;
   paymentToken: string;
 }
 
@@ -52,11 +58,17 @@ export default function EventPage({
   id,
 }: EventPageProps) {
   const { address } = useAccount();
+  const router = useRouter();
   const formattedStartDate = formatEventDate(event.startDate);
   const formattedEndDate = formatEventDate(event.endDate);
   const formattedStartTime = formatEventTime(Number(event.startTime));
   const formattedEndTime = formatEventTime(Number(event.endTime));
+  const [selfApp, setSelfApp] = useState<SelfApp | null>(null);
   const [imgError, setImgError] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const { id: eventId } = useParams<{ id: string }>();
+  const [showToast, setShowToast] = useState(false);
+  const [verificationComplete, setVerificationComplete] = useState(false);
 
   const mentoTokens: Record<string, string> = {
     "0x765de816845861e75a25fca122bb6898b8b1282a": "cUSD",
@@ -65,6 +77,7 @@ export default function EventPage({
   };
 
   const formattedPrice = formatPrice(event.ticketPrice);
+  const minimumAge = event.minimumAge;
 
   // Normalize token address for comparison
   const normalizedToken = event.paymentToken?.trim().toLowerCase();
@@ -75,6 +88,48 @@ export default function EventPage({
     return event.eventCardImgUrl.startsWith("http")
       ? event.eventCardImgUrl
       : `https://ipfs.io/ipfs/${event.eventCardImgUrl}`;
+  };
+  const NGROK_URL = process.env.NEXT_PUBLIC_SELF_ENDPOINT;
+  // const endpoint = `${NGROK_URL}/api/events/${eventId}/verify`;
+
+  const endpoint = `${NGROK_URL}/api/events/${eventId}/verify?minimumAge=${minimumAge}`;
+
+  // Use useEffect to ensure code only executes on the client side
+  useEffect(() => {
+    if (!address) return; // Don't initialize if no address is connected
+
+    try {
+      // const userId = v4();
+
+      const userId = `${address}`;
+      const app = new SelfAppBuilder({
+        appName: process.env.NEXT_PUBLIC_SELF_APP_NAME || "EventChain",
+        scope: process.env.NEXT_PUBLIC_SELF_SCOPE || "event-chain",
+        endpoint,
+        logoBase64:
+          "https://pluspng.com/img-png/images-owls-png-hd-owl-free-download-png-png-image-485.png",
+        userId,
+        userIdType: "hex",
+        disclosures: {
+          minimumAge: Number(minimumAge),
+        },
+      }).build();
+
+      setSelfApp(app);
+    } catch (error) {
+      console.error("Failed to initialize Self app:", error);
+    }
+  }, [address, endpoint, minimumAge]);
+
+  const displayToast = (message: string) => {
+    setToastMessage(message);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  };
+
+  const handleSuccessfulVerification = () => {
+    displayToast("Verification successful! You can now register.");
+    setVerificationComplete(true);
   };
 
   // Check if current user is registered
@@ -168,7 +223,6 @@ export default function EventPage({
             </p>
           </div>
         </div>
-
         {/* Right Side (Ticket Selection) */}
         <div className="p-6 md:p-8 w-full md:w-1/3">
           <div className="border p-6 rounded-lg flex flex-col items-center bg-gray-100 shadow-md">
@@ -183,23 +237,77 @@ export default function EventPage({
             </p>
           </div>
 
-          {isRegistered ? (
+          {!address ? (
+            <div className="w-full bg-gray-600 text-white mt-4 py-2 rounded-lg text-lg font-semibold text-center">
+              Connect Wallet to Verify
+            </div>
+          ) : isRegistered ? (
             <div className="w-full bg-green-600 text-white mt-4 py-2 rounded-lg text-lg font-semibold flex items-center justify-center gap-2">
               <Check className="w-5 h-5" />
               Registered
             </div>
           ) : (
-            <button
-              className="w-full bg-orange-600 text-white mt-4 py-2 rounded-lg text-lg font-semibold hover:bg-orange-700 transition"
-              onClick={buyTicket}
-              disabled={loading || registering || !address}
-            >
-              {!address
-                ? "Connect Wallet"
-                : registering
-                ? "Processing..."
-                : "Register"}
-            </button>
+            <>
+              {/* Verification QR Code Section */}
+              {!verificationComplete && (
+                <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 w-full mt-4">
+                  <div className="flex justify-center mb-4">
+                    {selfApp ? (
+                      <SelfQRcodeWrapper
+                        selfApp={selfApp}
+                        onSuccess={handleSuccessfulVerification}
+                      />
+                    ) : (
+                      <div className="w-[256px] h-[256px] bg-gray-200 animate-pulse flex items-center justify-center">
+                        <p className="text-gray-500 text-sm">
+                          Loading QR Code...
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Configuration Info */}
+                  <div className="border-t border-gray-200 pt-3">
+                    <h3 className="text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                      Verification Requirements:
+                    </h3>
+                    <ul className="text-xs sm:text-sm text-gray-600 space-y-1">
+                      <li className="flex items-center">
+                        <svg
+                          className="h-3 w-3 sm:h-4 sm:w-4 text-green-500 mr-2"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                        <span>
+                          Minimum Age:{" "}
+                          <span className="font-medium ml-1">
+                            {minimumAge}+ years
+                          </span>
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {verificationComplete && (
+                <button
+                  className="w-full bg-orange-600 text-white mt-4 py-2 rounded-lg text-lg font-semibold hover:bg-orange-700 transition"
+                  onClick={buyTicket}
+                  disabled={loading || registering}
+                >
+                  {registering ? "Processing..." : "Complete Registration"}
+                </button>
+              )}
+            </>
           )}
 
           {isRegistered && (
@@ -212,8 +320,14 @@ export default function EventPage({
             </button>
           )}
 
-          <VerificationPage />
+          {/* Toast notification */}
+          {showToast && (
+            <div className="fixed bottom-4 right-4 bg-gray-800 text-white py-2 px-4 rounded shadow-lg animate-fade-in text-sm">
+              {toastMessage}
+            </div>
+          )}
         </div>
+        ;
       </div>
     </div>
   );
