@@ -93,7 +93,7 @@ export default function EventPage({
   };
   const NGROK_URL = process.env.NEXT_PUBLIC_SELF_ENDPOINT;
 
-  const endpoint = `${NGROK_URL}/api/events/${eventId}/verify?minimumAge=${minimumAge}`;
+  const endpoint = `${NGROK_URL}/api/events/verify?minimumAge=${minimumAge}`;
 
   // Use useEffect to ensure code only executes on the client side
   useEffect(() => {

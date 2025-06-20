@@ -1,5 +1,5 @@
 import { countries, SelfBackendVerifier } from "@selfxyz/core";
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 
 // Define interface for validation details based on actual API response
 interface ValidationDetails {
@@ -10,10 +10,7 @@ interface ValidationDetails {
   [key: string]: boolean | undefined; // Support for any additional properties
 }
 
-export async function POST(
-  request: Request,
-  { params }: { params: { eventId: string } }
-) {
+export async function POST(request: NextRequest) {
   try {
     const url = new URL(request.url);
     const minimumAge = Number(url.searchParams.get("minimumAge"));
@@ -35,7 +32,7 @@ export async function POST(
 
     const configuredVerifier = new SelfBackendVerifier(
       process.env.NEXT_PUBLIC_SELF_SCOPE as string,
-      `${NGROK_URL}/api/events/${params.eventId}/verify`,
+      `${NGROK_URL}/api/events/verify`,
       "hex",
       process.env.NEXT_PUBLIC_SELF_ENABLE_MOCK_PASSPORT === "true" // Enable mock passport based on env config
     ).setMinimumAge(minimumAge);
