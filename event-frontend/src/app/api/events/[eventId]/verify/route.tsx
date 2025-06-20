@@ -12,6 +12,9 @@ interface ValidationDetails {
 
 export async function POST(request: NextRequest) {
   try {
+    const pathParts = request.url.split("/");
+    const eventId = pathParts[pathParts.indexOf("events") + 1];
+
     const url = new URL(request.url);
     const minimumAge = Number(url.searchParams.get("minimumAge"));
 
@@ -32,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     const configuredVerifier = new SelfBackendVerifier(
       process.env.NEXT_PUBLIC_SELF_SCOPE as string,
-      `${NGROK_URL}/api/events/verify`,
+      `${NGROK_URL}/api/events/${eventId}/verify`,
       "hex",
       process.env.NEXT_PUBLIC_SELF_ENABLE_MOCK_PASSPORT === "true" // Enable mock passport based on env config
     ).setMinimumAge(minimumAge);
