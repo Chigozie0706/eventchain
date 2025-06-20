@@ -8,6 +8,7 @@ import {
   Handshake,
   UsersRound,
   Check,
+  Info,
 } from "lucide-react";
 import { formatEventDate, formatEventTime, formatPrice } from "@/utils/format";
 import { useAccount } from "wagmi";
@@ -78,6 +79,7 @@ export default function EventPage({
 
   const formattedPrice = formatPrice(event.ticketPrice);
   const minimumAge = event.minimumAge;
+  const requiresAgeVerification = minimumAge > 0;
 
   // Normalize token address for comparison
   const normalizedToken = event.paymentToken?.trim().toLowerCase();
@@ -90,13 +92,12 @@ export default function EventPage({
       : `https://ipfs.io/ipfs/${event.eventCardImgUrl}`;
   };
   const NGROK_URL = process.env.NEXT_PUBLIC_SELF_ENDPOINT;
-  // const endpoint = `${NGROK_URL}/api/events/${eventId}/verify`;
 
   const endpoint = `${NGROK_URL}/api/events/${eventId}/verify?minimumAge=${minimumAge}`;
 
   // Use useEffect to ensure code only executes on the client side
   useEffect(() => {
-    if (!address) return; // Don't initialize if no address is connected
+    if (!address || !requiresAgeVerification) return; // Don't initialize if no address is connected
 
     try {
       // const userId = v4();
@@ -195,6 +196,40 @@ export default function EventPage({
             </p>
           </div>
 
+          {/* Age Restriction */}
+          <div className="mt-6">
+            <h3 className="text-md font-semibold flex items-center space-x-2 text-gray-800">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-gray-600"
+              >
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+              </svg>
+              <span>Age Restriction</span>
+            </h3>
+            {requiresAgeVerification ? (
+              <p className="text-gray-700 text-sm">
+                This event is restricted to attendees aged{" "}
+                <span className="font-semibold">{minimumAge}+ years</span>.
+                You'll need to verify your age to register.
+              </p>
+            ) : (
+              <p className="text-gray-700 text-sm">
+                This event has{" "}
+                <span className="font-semibold">no age restrictions</span>. All
+                ages are welcome to attend.
+              </p>
+            )}
+          </div>
+
           {/* Attendee List */}
           <div className="mt-6">
             <h3 className="text-md font-semibold mb-4 flex items-center space-x-2 text-gray-800">
@@ -249,7 +284,7 @@ export default function EventPage({
           ) : (
             <>
               {/* Verification QR Code Section */}
-              {!verificationComplete && (
+              {requiresAgeVerification && !verificationComplete && (
                 <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 w-full mt-4">
                   <div className="flex justify-center mb-4">
                     {selfApp ? (
@@ -298,7 +333,25 @@ export default function EventPage({
                 </div>
               )}
 
-              {verificationComplete && (
+              {/* Information message when no age verification is needed */}
+              {!requiresAgeVerification && !verificationComplete && (
+                <div className="bg-blue-50 rounded-xl shadow-lg p-4 sm:p-6 w-full mt-4">
+                  <div className="flex items-start gap-3">
+                    <Info className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h3 className="text-sm font-medium text-blue-800 mb-1">
+                        No Age Restriction
+                      </h3>
+                      <p className="text-xs sm:text-sm text-blue-600">
+                        This event has no minimum age requirement. You can
+                        proceed directly to registration.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* Show registration button if verification is complete OR no age verification is needed */}
+              {(verificationComplete || !requiresAgeVerification) && (
                 <button
                   className="w-full bg-orange-600 text-white mt-4 py-2 rounded-lg text-lg font-semibold hover:bg-orange-700 transition"
                   onClick={buyTicket}
