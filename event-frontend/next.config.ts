@@ -1,19 +1,20 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  /* config options here */
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  output: 'standalone',
+  experimental: {
+    pnpm: true,
+    serverComponentsExternalPackages: [
+      '@selfxyz/core',
+      // Add other required packages here
+    ],
+  },
+  typescript: {
+    ignoreBuildErrors: false,
+  },
   eslint: {
-    // Warning: This allows production builds to successfully complete even if
-    // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
-
-    output: 'standalone', // Recommended for Vercel deployments
-  // If using TypeScript
-  typescript: {
-    ignoreBuildErrors: false, // Set to true temporarily if needed
-  },
-
+  // App Router is automatically enabled in Next.js 13+
 };
 
-export default nextConfig;
+module.exports = nextConfig;
