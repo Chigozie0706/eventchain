@@ -1,6 +1,5 @@
 "use client";
 import AttendeeList from "./AttendeeList";
-import VerificationPage from "./VerificationQR";
 import {
   MapPin,
   CalendarDays,

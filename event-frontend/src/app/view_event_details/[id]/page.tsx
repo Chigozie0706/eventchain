@@ -34,7 +34,7 @@ export interface Event {
   paymentToken: string;
 }
 
-const CONTRACT_ADDRESS = "0xadF78796c383b67195FDB69cb81702958cCBB77A";
+const CONTRACT_ADDRESS = "0x389be1692b18b14427E236F517Db769b3a27F075";
 
 const DIVVI_CONFIG = {
   consumer: "0x5e23d5Be257d9140d4C5b12654111a4D4E18D9B2" as `0x${string}`,

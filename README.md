@@ -10,13 +10,30 @@ A **decentralized event ticketing platform** built on the **Celo blockchain**, a
 
 ---
 
+## **✨ New Features**
+
+### **Image Upload Support**
+
+- Upload event banners via IPFS
+- Automatic fallback to default image if upload fails
+- Supports both HTTP URLs and IPFS hashes
+
+### **Self Protocol Integration**
+
+- Age Verification for age-restricted events
+- QR-code based identity verification
+- OFAC compliance checks
+- Country restrictions support
+
+---
+
 ## **Features**
 
-**Decentralized Ticketing** – Secure and transparent event ticketing powered by **smart contracts**.  
-**Multi-Token Payments** – Buy tickets using **cUSD, cEUR, cREAL**, and more.  
-**Refund System** – Request refunds in the same token used for payment if an event is canceled.  
-**Event Management** – Organizers can create, update, and deactivate events.  
-**Celo Integration** – Uses Celo blockchain for payments and event validation.
+- **Decentralized Ticketing** – Secure and transparent event ticketing powered by smart contracts
+- **Multi-Token Payments** – Buy tickets using cUSD, cEUR, cREAL, and more
+- **Refund System** – Request refunds in the same token used for payment if an event is canceled
+- **Event Management** – Organizers can create, update, and deactivate events
+- **Celo Integration** – Uses Celo blockchain for payments and event
 
 ---
 
@@ -68,6 +85,15 @@ Create a **`.env`** file in both the **backend** and **event-frontend** director
 PRIVATE_KEY=your_metamask_wallet_private_key
 ```
 
+### **Frontend (`event-frontend/.env.local`)**
+
+```sh
+NEXT_PUBLIC_SELF_APP_NAME="EventChain"
+NEXT_PUBLIC_SELF_SCOPE="event-chain"
+NEXT_PUBLIC_SELF_ENDPOINT="your-ngrok-or-server-url"
+NEXT_PUBLIC_SELF_ENABLE_MOCK_PASSPORT="false" # true for development
+```
+
 ## **Running the Project**
 
 ### **1 compile the Smart Contract (Backend)**
@@ -98,7 +124,7 @@ Your **EventChain** smart contract is deployed on the **Celo Mainnet**.
 
 | Contract   | Address                                      |
 | ---------- | -------------------------------------------- |
-| EventChain | `0x2A668c6A60dAe7B9cBBFB1d580cEcd0eB47e4132` |
+| EventChain | `0x389be1692b18b14427E236F517Db769b3a27F075` |
 
 <!-- **[View on Celo Explorer](https://alfajores.celoscan.io/address/0xBa26366767eA843A656853d348c763c41f9D67Ca)** -->
 

@@ -29,7 +29,7 @@ interface EventData {
   paymentToken: string;
 }
 
-const CONTRACT_ADDRESS = "0xadF78796c383b67195FDB69cb81702958cCBB77A";
+const CONTRACT_ADDRESS = "0x389be1692b18b14427E236F517Db769b3a27F075";
 
 const tokenOptions1 = [
   { symbol: "cUSD", address: "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1" },
@@ -140,32 +140,6 @@ const EventForm = () => {
     setEventData({ ...eventData, paymentToken: e.target.value });
   };
 
-  const handleFileChange1 = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setError(null);
-    if (e.target.files?.[0]) {
-      const selectedFile = e.target.files[0];
-
-      // Validate file
-      if (!selectedFile.type.startsWith("image/")) {
-        setError("Only image files are allowed");
-        return;
-      }
-
-      if (selectedFile.size > 10 * 1024 * 1024) {
-        // 10MB limit
-        setError("File size must be less than 10MB");
-        return;
-      }
-
-      setFile(selectedFile);
-
-      // Create preview
-      const reader = new FileReader();
-      reader.onload = () => setPreview(reader.result as string);
-      reader.readAsDataURL(selectedFile);
-    }
-  };
-
   const handleFileChange = (
     fileOrEvent: File | React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -198,65 +172,6 @@ const EventForm = () => {
     reader.onload = () => setPreview(reader.result as string);
     reader.readAsDataURL(selectedFile);
   };
-
-  // const uploadToIPFS = async () => {
-  //   if (!file) return;
-
-  //   try {
-  //     setUploading(true);
-  //     setError(null);
-
-  //     const formData = new FormData();
-  //     formData.append("file", file);
-
-  //     // Add optional metadata
-  //     formData.append(
-  //       "pinataMetadata",
-  //       JSON.stringify({
-  //         name: `event-image-${Date.now()}`,
-  //       })
-  //     );
-
-  //     const response = await axios.post(
-  //       "https://api.pinata.cloud/pinning/pinFileToIPFS",
-  //       formData,
-  //       {
-  //         headers: {
-  //           "Content-Type": "multipart/form-data",
-  //           Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`, // Alternative auth method
-  //         },
-  //         maxBodyLength: Infinity,
-  //         maxContentLength: Infinity,
-  //       }
-  //     );
-
-  //     if (response.status !== 200) {
-  //       throw new Error(`Upload failed with status ${response.status}`);
-  //     }
-
-  //     const ipfsHash = response.data.IpfsHash;
-  //     const imageUrl = `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
-
-  //     handleImageUploaded(imageUrl);
-  //     console.log("Image uploaded successfully!");
-  //   } catch (error: any) {
-  //     console.error("Upload Error:", {
-  //       error: error.response?.data || error.message,
-  //       status: error.response?.status,
-  //     });
-
-  //     setError(
-  //       error.response?.data?.error?.details ||
-  //         error.response?.data?.error ||
-  //         error.message ||
-  //         "Failed to upload image"
-  //     );
-  //   } finally {
-  //     setUploading(false);
-  //   }
-  // };
-
-  // Add this utility function near the top of your file
 
   const uploadToIPFS = async (file: File): Promise<string> => {
     const formData = new FormData();
@@ -510,79 +425,6 @@ const EventForm = () => {
           className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
         />
       </div>
-
-      {/* 
-      <div className="mb-4">
-        <label className="block text-gray-700 font-medium text-sm mb-2">
-          Event Image *
-        </label>
-        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-          <div className="space-y-1 text-center">
-            <svg
-              className="mx-auto h-12 w-12 text-gray-400"
-              stroke="currentColor"
-              fill="none"
-              viewBox="0 0 48 48"
-              aria-hidden="true"
-            >
-              <path
-                d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <div className="flex text-sm text-gray-600">
-              <label
-                htmlFor="file-upload"
-                className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none"
-              >
-                <span>Upload a file</span>
-                <input
-                  id="file-upload"
-                  name="file-upload"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="sr-only"
-                />
-              </label>
-              <p className="pl-1">or drag and drop</p>
-            </div>
-            <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
-          </div>
-        </div>
-
-        {preview && (
-          <div className="mt-4">
-            <img
-              src={preview}
-              alt="Preview"
-              className="max-w-full h-auto max-h-60 rounded-lg border border-gray-200"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                setPreview(null);
-                setFile(null);
-              }}
-              className="mt-2 text-sm text-red-600 hover:text-red-500"
-            >
-              Remove image
-            </button>
-          </div>
-        )}
-      </div>
-
-      {preview && (
-        <div className="mt-2">
-          <img
-            src={preview}
-            alt="Preview"
-            className="max-w-full h-auto max-h-60 rounded-lg border border-gray-200"
-          />
-        </div>
-      )} */}
 
       <div className="mb-4">
         <label className="block text-gray-700 font-medium text-sm mb-2">
