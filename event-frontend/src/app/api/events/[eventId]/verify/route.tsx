@@ -7,7 +7,8 @@ interface ValidationDetails {
   isValidAttestationId: boolean;
   isValidProof: boolean;
   isValidNationality: boolean;
-  [key: string]: boolean | undefined; 
+  [key: string]: boolean | undefined;
+}
 
 export async function POST(request: NextRequest) {
   try {
