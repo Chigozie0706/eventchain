@@ -12,9 +12,10 @@ import {
   useWaitForTransactionReceipt,
   useWalletClient,
 } from "wagmi";
-import { getDataSuffix, submitReferral } from "@divvi/referral-sdk";
+import { getReferralTag, submitReferral } from "@divvi/referral-sdk";
 import contractABI from "../contract/abi.json";
 import { encodeFunctionData } from "viem";
+import { celo } from "viem/chains";
 
 interface EventData {
   eventName: string;
@@ -31,28 +32,11 @@ interface EventData {
 
 const CONTRACT_ADDRESS = "0x389be1692b18b14427E236F517Db769b3a27F075";
 
-const tokenOptions1 = [
-  { symbol: "cUSD", address: "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1" },
-  { symbol: "cEUR", address: "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F" },
-  { symbol: "cREAL", address: "0xE4D517785D091D3c54818832dB6094bcc2744545" },
-];
-
 const tokenOptions = [
   { symbol: "cUSD", address: "0x765de816845861e75a25fca122bb6898b8b1282a" },
   { symbol: "cEUR", address: "0xd8763cba276a3738e6de85b4b3bf5fded6d6ca73" },
   { symbol: "cREAL", address: "0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787" },
 ];
-
-const DIVVI_CONFIG = {
-  consumer: "0x5e23d5Be257d9140d4C5b12654111a4D4E18D9B2" as `0x${string}`,
-  providers: [
-    "0x5f0a55fad9424ac99429f635dfb9bf20c3360ab8",
-    "0x0423189886d7966f0dd7e7d256898daeee625dca",
-    "0xc95876688026be9d6fa7a7c33328bd013effa2bb",
-    "0x6226dde08402642964f9a6de844ea3116f0dfc7e",
-    "0x7beb0e14f8d2e6f6678cc30d867787b384b19e20",
-  ] as `0x${string}`[],
-};
 
 const EventForm = () => {
   const router = useRouter();
@@ -77,6 +61,11 @@ const EventForm = () => {
 
   const { data: walletClient } = useWalletClient();
   const { address } = useAccount();
+
+  const DIVVI_CONFIG = {
+    user: address as `0x${string}`,
+    consumer: "0x5e23d5Be257d9140d4C5b12654111a4D4E18D9B2" as `0x${string}`,
+  };
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -290,7 +279,8 @@ const EventForm = () => {
 
       // Get Divvi data suffix
       console.log("[DEBUG] Generating Divvi suffix with config:", DIVVI_CONFIG);
-      const divviSuffix = getDataSuffix(DIVVI_CONFIG);
+      const divviSuffix = getReferralTag(DIVVI_CONFIG);
+
       console.log("[DEBUG] Divvi suffix generated:", divviSuffix);
 
       // Encode contract function call

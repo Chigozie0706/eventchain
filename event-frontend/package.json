@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@celo/contractkit": "^9.0.0",
-    "@divvi/referral-sdk": "^1.0.0",
+    "@divvi/referral-sdk": "^2.2.0",
     "@heroicons/react": "^2.2.0",
     "@pinata/sdk": "^2.1.0",
     "@rainbow-me/rainbowkit": "^2.2.4",

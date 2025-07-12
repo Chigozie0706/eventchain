@@ -10,7 +10,7 @@ import {
   useWaitForTransactionReceipt,
   useWalletClient,
 } from "wagmi";
-import { getDataSuffix, submitReferral } from "@divvi/referral-sdk";
+import { getReferralTag, submitReferral } from "@divvi/referral-sdk";
 import contractABI from "../../../contract/abi.json";
 import EventPage from "@/components/EventPage";
 import { erc20Abi, encodeFunctionData } from "viem";
@@ -36,17 +36,6 @@ export interface Event {
 
 const CONTRACT_ADDRESS = "0x389be1692b18b14427E236F517Db769b3a27F075";
 
-const DIVVI_CONFIG = {
-  consumer: "0x5e23d5Be257d9140d4C5b12654111a4D4E18D9B2" as `0x${string}`,
-  providers: [
-    "0x5f0a55fad9424ac99429f635dfb9bf20c3360ab8",
-    "0x0423189886d7966f0dd7e7d256898daeee625dca",
-    "0xc95876688026be9d6fa7a7c33328bd013effa2bb",
-    "0x6226dde08402642964f9a6de844ea3116f0dfc7e",
-    "0x7beb0e14f8d2e6f6678cc30d867787b384b19e20",
-  ] as `0x${string}`[],
-};
-
 export default function Home() {
   const [loading, setLoading] = useState(false);
   const [eventDetails, setEventDetails] = useState<{
@@ -58,6 +47,11 @@ export default function Home() {
   const eventId = id ? BigInt(id) : BigInt(0);
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
+
+  const DIVVI_CONFIG = {
+    user: address as `0x${string}`,
+    consumer: "0x5e23d5Be257d9140d4C5b12654111a4D4E18D9B2" as `0x${string}`,
+  };
 
   // Contract data fetching with refetch capability
   const {
@@ -283,7 +277,7 @@ export default function Home() {
 
       // Get Divvi data suffix
       console.log("[Ticket] Generating Divvi suffix");
-      const divviSuffix = getDataSuffix(DIVVI_CONFIG);
+      const divviSuffix = getReferralTag(DIVVI_CONFIG);
       console.log("[Ticket] Divvi suffix generated:", divviSuffix);
 
       // Encode the buyTicket function call
@@ -338,7 +332,7 @@ export default function Home() {
     walletClient,
   ]);
 
-  const requestRefund = useCallback(async () => {
+  const requestRefund1 = useCallback(async () => {
     if (!isConnected) {
       toast.error("Please connect your wallet first");
       return;
@@ -366,6 +360,85 @@ export default function Home() {
       toast.error(error?.message || "Failed to process refund");
     }
   }, [isConnected, eventDetails, address, eventId, writeRefund]);
+
+  const requestRefund = useCallback(async () => {
+    console.log("[Refund] Starting refund process");
+
+    if (!isConnected) {
+      console.log("[Refund] Wallet not connected - aborting");
+      toast.error("Please connect your wallet first");
+      return;
+    }
+
+    if (!eventDetails || !address || !walletClient) {
+      console.log("[Refund] Missing required data - aborting", {
+        eventDetails: !!eventDetails,
+        address: !!address,
+        walletClient: !!walletClient,
+      });
+      toast.error("Wallet not properly connected");
+      return;
+    }
+
+    if (!eventDetails.attendees.includes(address)) {
+      console.log("[Refund] User doesn't have ticket", { user: address });
+      toast.error("You don't have a ticket to refund");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log("[Refund] Starting transaction flow");
+      const toastId = toast.loading("Preparing refund...");
+
+      // Get Divvi data suffix
+      console.log("[Refund] Generating Divvi suffix");
+      const divviSuffix = getReferralTag(DIVVI_CONFIG);
+      console.log("[Refund] Divvi suffix generated:", divviSuffix);
+
+      // Encode the requestRefund function call
+      console.log("[Refund] Encoding requestRefund function");
+      const encodedFunction = encodeFunctionData({
+        abi: contractABI.abi,
+        functionName: "requestRefund",
+        args: [eventId],
+      });
+      console.log("[Refund] Encoded function:", encodedFunction);
+
+      // Combine with Divvi suffix
+      const dataWithDivvi = (encodedFunction +
+        (divviSuffix.startsWith("0x")
+          ? divviSuffix.slice(2)
+          : divviSuffix)) as `0x${string}`;
+      console.log("[Refund] Final transaction data:", dataWithDivvi);
+
+      toast.loading("Waiting for wallet confirmation...", { id: toastId });
+
+      // Send transaction with Divvi data
+      console.log("[Refund] Sending transaction to wallet");
+      const hash = await walletClient.sendTransaction({
+        account: address,
+        to: CONTRACT_ADDRESS,
+        data: dataWithDivvi,
+      });
+      console.log("[Refund] Transaction submitted, hash:", hash);
+
+      setLoading(false);
+      toast.success("Refund submitted!", { id: toastId });
+
+      // Report to Divvi
+      console.log("[Refund] Reporting to Divvi");
+      await reportToDivvi(hash);
+      console.log("[Refund] Refund process completed");
+    } catch (error: any) {
+      console.error("[Refund] Transaction failed:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      toast.error(error.message || "Refund failed");
+      setLoading(false);
+    }
+  }, [isConnected, eventDetails, address, eventId, walletClient]);
 
   if (isEventError) {
     return (
