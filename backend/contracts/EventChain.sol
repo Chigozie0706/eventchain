@@ -6,6 +6,13 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+interface IERC677 is IERC20 {
+    function transferAndCall(
+        address to,
+        uint value,
+        bytes calldata data
+    ) external returns (bool);
+}
 /**
  * @title EventChain
  * @dev A decentralized event ticketing smart contract that supports multiple tokens.
@@ -32,15 +39,18 @@ contract EventChain is ReentrancyGuard {
 
     /// @notice Contract pause status - emergency stop mechanism
     bool public paused;
+    address public ubiPool;
 
     /**
      * @dev Constructor to initialize supported tokens.
      * @param _supportedTokens List of token addresses to be supported for payments.
      */
-    constructor(address[] memory _supportedTokens) {
+    constructor(address[] memory _supportedTokens, address _ubiPool) {
         for (uint256 i = 0; i < _supportedTokens.length; i++) {
             supportedTokens[_supportedTokens[i]] = true;
         }
+
+        ubiPool = _ubiPool;
     }
 
     /// @notice Structure to store comprehensive event details
@@ -167,6 +177,94 @@ contract EventChain is ReentrancyGuard {
     }
 
     /**
+     * @dev ERC-677 token transfer callback
+     * @param from Sender address
+     * @param value Amount transferred
+     * @param data Additional data (contains event ID)
+     */
+    function onTokenTransfer(
+        address from,
+        uint256 value,
+        bytes calldata data
+    ) external returns (bool) {
+        // Only accept transfers from G$ token contract
+        require(
+            msg.sender == 0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A,
+            "Only G$ token"
+        );
+
+        // Extract event ID from data (first 32 bytes)
+        uint256 eventId = abi.decode(data[:32], (uint256));
+
+        // Process ticket purchase
+        _processTicketPurchase(from, eventId, value);
+
+        return true;
+    }
+
+    /**
+     * @dev Internal function to process ticket purchase
+     * @param buyer Address purchasing ticket
+     * @param eventId ID of event
+     * @param amount Payment amount
+     */
+    // function _processTicketPurchase(
+    //     address buyer,
+    //     uint256 eventId,
+    //     uint256 amount
+    // ) internal validEvent(eventId) whenNotPaused {
+    //     Event storage event_ = events[eventId];
+
+    //     require(event_.startDate > block.timestamp, "Event expired");
+    //     require(event_.isActive, "Event inactive");
+    //     require(!hasPurchasedTicket[eventId][buyer], "Already purchased");
+    //     require(
+    //         eventAttendees[eventId].length < MAX_ATTENDEES,
+    //         "Event at capacity"
+    //     );
+    //     require(amount == event_.ticketPrice, "Incorrect amount");
+
+    //     hasPurchasedTicket[eventId][buyer] = true;
+    //     eventAttendees[eventId].push(buyer);
+    //     event_.fundsHeld += amount;
+
+    //     emit TicketPurchased(eventId, buyer, amount, event_.paymentToken);
+    // }
+
+    function _processTicketPurchase(
+        address buyer,
+        uint256 eventId,
+        uint256 amount
+    ) internal validEvent(eventId) whenNotPaused {
+        Event storage event_ = events[eventId];
+
+        require(event_.startDate > block.timestamp, "Event expired");
+        require(event_.isActive, "Event inactive");
+        require(!hasPurchasedTicket[eventId][buyer], "Already purchased");
+        require(
+            eventAttendees[eventId].length < MAX_ATTENDEES,
+            "Event at capacity"
+        );
+        require(amount == event_.ticketPrice, "Incorrect amount");
+
+        hasPurchasedTicket[eventId][buyer] = true;
+        eventAttendees[eventId].push(buyer);
+
+        uint256 fee = (amount * 100) / 10000; // 1% fee
+        uint256 netAmount = amount - fee;
+
+        // Send fee to UBI pool
+        if (fee > 0 && ubiPool != address(0)) {
+            IERC20(event_.paymentToken).transfer(ubiPool, fee);
+        }
+
+        // Add remaining funds to event
+        event_.fundsHeld += netAmount;
+
+        emit TicketPurchased(eventId, buyer, amount, event_.paymentToken);
+    }
+
+    /**
      * @notice Create a new event with comprehensive details
      * @dev Creates a new event with all necessary parameters and performs validation
      * @param _eventName The name of the event (1-100 chars)
@@ -271,18 +369,30 @@ contract EventChain is ReentrancyGuard {
 
         uint256 price = event_.ticketPrice;
 
-        require(
-            IERC20(event_.paymentToken).allowance(msg.sender, address(this)) >=
+        if (event_.paymentToken == 0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A) {
+            // For G$ token, we can use transferAndCall to include event ID in the transfer
+            bytes memory data = abi.encode(_index);
+            IERC677(event_.paymentToken).transferAndCall(
+                address(this),
                 price,
-            "Insufficient allowance"
-        );
+                data
+            );
+        } else {
+            require(
+                IERC20(event_.paymentToken).allowance(
+                    msg.sender,
+                    address(this)
+                ) >= price,
+                "Insufficient allowance"
+            );
 
-        _safeTransferFrom(
-            IERC20(event_.paymentToken),
-            msg.sender,
-            address(this),
-            price
-        );
+            _safeTransferFrom(
+                IERC20(event_.paymentToken),
+                msg.sender,
+                address(this),
+                price
+            );
+        }
 
         hasPurchasedTicket[_index][msg.sender] = true;
         eventAttendees[_index].push(msg.sender);

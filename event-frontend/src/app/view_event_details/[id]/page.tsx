@@ -13,7 +13,7 @@ import {
 import { getReferralTag, submitReferral } from "@divvi/referral-sdk";
 import contractABI from "../../../contract/abi.json";
 import EventPage from "@/components/EventPage";
-import { erc20Abi, encodeFunctionData } from "viem";
+import { erc20Abi, encodeFunctionData, encodeAbiParameters } from "viem";
 
 export interface Event {
   owner: string;
@@ -34,7 +34,7 @@ export interface Event {
   paymentToken: string;
 }
 
-const CONTRACT_ADDRESS = "0x389be1692b18b14427E236F517Db769b3a27F075";
+const CONTRACT_ADDRESS = "0xaE4AA19F43e9191F9655F2eA037ad5021eE944ec";
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
@@ -206,7 +206,7 @@ export default function Home() {
     }
   };
 
-  const buyTicket = useCallback(async () => {
+  const buyTicket1 = useCallback(async () => {
     console.log("[Ticket] Starting ticket purchase process");
 
     // Check if wallet is connected
@@ -332,34 +332,184 @@ export default function Home() {
     walletClient,
   ]);
 
-  const requestRefund1 = useCallback(async () => {
+  const buyTicket = useCallback(async () => {
+    console.log("[Ticket] Starting ticket purchase process");
+
+    // Check if wallet is connected
     if (!isConnected) {
+      console.log("[Ticket] Wallet not connected - aborting");
       toast.error("Please connect your wallet first");
       return;
     }
 
-    if (!eventDetails || !address) {
+    if (!eventDetails || !address || !walletClient) {
+      console.log("[Ticket] Missing required data - aborting", {
+        eventDetails: !!eventDetails,
+        address: !!address,
+        walletClient: !!walletClient,
+      });
       toast.error("Wallet not properly connected");
       return;
     }
 
-    if (!eventDetails.attendees.includes(address)) {
-      toast.error("You don't have a ticket to refund");
+    // Check if user already has a ticket
+    if (eventDetails.attendees.includes(address)) {
+      console.log("[Ticket] User already has ticket", { user: address });
+      toast.error("You already have a ticket for this event");
+      return;
+    }
+
+    // Check token balance
+    if (
+      tokenBalance !== undefined &&
+      tokenBalance < eventDetails.event.ticketPrice
+    ) {
+      console.log("[Ticket] Insufficient balance", {
+        balance: tokenBalance.toString(),
+        required: eventDetails.event.ticketPrice.toString(),
+      });
+      toast.error("Insufficient token balance");
       return;
     }
 
     try {
-      writeRefund({
-        address: CONTRACT_ADDRESS,
-        abi: contractABI.abi,
-        functionName: "requestRefund",
-        args: [eventId],
-      });
+      setLoading(true);
+      console.log("[Ticket] Starting transaction flow");
+      const toastId = toast.loading("Preparing transaction...");
+
+      const requiredAmount = eventDetails.event.ticketPrice;
+      const paymentToken = eventDetails.event.paymentToken;
+      const isGdollar =
+        paymentToken.toLowerCase() ===
+        "0x62b8b11039fcfe5ab0c56e502b1c372a3d2a9c7a";
+
+      console.log("[Ticket] Payment token:", paymentToken, "is G$:", isGdollar);
+
+      // Get Divvi data suffix
+      console.log("[Ticket] Generating Divvi suffix");
+      const divviSuffix = getReferralTag(DIVVI_CONFIG);
+      console.log("[Ticket] Divvi suffix generated:", divviSuffix);
+
+      // Declare hash variable with proper type
+      let hash: `0x${string}`;
+
+      if (isGdollar) {
+        // Optimized path for G$ token using transferAndCall
+        toast.loading("Preparing G$ transfer...", { id: toastId });
+
+        // Encode the event ID for transferAndCall data
+        const eventIdData = encodeAbiParameters(
+          [{ type: "uint256" }],
+          [eventId]
+        );
+
+        // Combine with Divvi suffix
+        const fullData = (eventIdData +
+          (divviSuffix.startsWith("0x")
+            ? divviSuffix.slice(2)
+            : divviSuffix)) as `0x${string}`;
+
+        console.log("[Ticket] Using transferAndCall with data:", fullData);
+
+        // Execute transferAndCall and assign to hash
+        hash = await walletClient.writeContract({
+          address: paymentToken as `0x${string}`,
+          abi: [
+            {
+              inputs: [
+                { name: "to", type: "address" },
+                { name: "value", type: "uint256" },
+                { name: "data", type: "bytes" },
+              ],
+              name: "transferAndCall",
+              outputs: [{ name: "", type: "bool" }],
+              stateMutability: "nonpayable",
+              type: "function",
+            },
+          ],
+          functionName: "transferAndCall",
+          args: [CONTRACT_ADDRESS, requiredAmount, fullData],
+        });
+      } else {
+        // Standard ERC-20 flow for other tokens
+        const requiredAllowance = requiredAmount;
+        console.log(
+          "[Ticket] Required allowance:",
+          requiredAllowance.toString()
+        );
+
+        // First handle token approval if needed
+        if (!tokenAllowance || tokenAllowance < requiredAllowance) {
+          console.log(
+            "[Ticket] Approval needed - current allowance:",
+            tokenAllowance?.toString() || "0"
+          );
+          toast.loading("Approving token spend...", { id: toastId });
+
+          console.log("[Ticket] Sending approval transaction");
+          await write({
+            address: paymentToken as `0x${string}`,
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [CONTRACT_ADDRESS, requiredAllowance],
+            gas: BigInt(300000),
+          });
+          console.log("[Ticket] Approval transaction completed");
+        } else {
+          console.log("[Ticket] Sufficient allowance already exists");
+        }
+
+        // Encode the buyTicket function call
+        console.log("[Ticket] Encoding buyTicket function");
+        const encodedFunction = encodeFunctionData({
+          abi: contractABI.abi,
+          functionName: "buyTicket",
+          args: [eventId],
+        });
+
+        // Combine with Divvi suffix
+        const dataWithDivvi = (encodedFunction +
+          (divviSuffix.startsWith("0x")
+            ? divviSuffix.slice(2)
+            : divviSuffix)) as `0x${string}`;
+
+        toast.loading("Waiting for wallet confirmation...", { id: toastId });
+
+        // Send transaction with Divvi data and assign to hash
+        console.log("[Ticket] Sending transaction to wallet");
+        hash = await walletClient.sendTransaction({
+          account: address,
+          to: CONTRACT_ADDRESS,
+          data: dataWithDivvi,
+        });
+      }
+
+      console.log("[Ticket] Transaction submitted, hash:", hash);
+      setLoading(false);
+      toast.success("Transaction submitted!", { id: toastId });
+
+      // Report to Divvi - now hash is guaranteed to be defined
+      console.log("[Ticket] Reporting to Divvi");
+      await reportToDivvi(hash);
+      console.log("[Ticket] Ticket purchase process completed");
     } catch (error: any) {
-      console.error("Refund request failed:", error);
-      toast.error(error?.message || "Failed to process refund");
+      console.error("[Ticket] Transaction failed:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      toast.error(error.shortMessage || error.message || "Transaction failed");
+      setLoading(false);
     }
-  }, [isConnected, eventDetails, address, eventId, writeRefund]);
+  }, [
+    isConnected,
+    eventDetails,
+    address,
+    eventId,
+    write,
+    tokenAllowance,
+    walletClient,
+    tokenBalance,
+  ]);
 
   const requestRefund = useCallback(async () => {
     console.log("[Refund] Starting refund process");

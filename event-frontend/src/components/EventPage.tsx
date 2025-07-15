@@ -74,15 +74,19 @@ export default function EventPage({
     "0x765de816845861e75a25fca122bb6898b8b1282a": "cUSD",
     "0xd8763cba276a3738e6de85b4b3bf5fded6d6ca73": "cEUR",
     "0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787": "cREAL",
+    "0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A": "G$",
   };
+
+  // Normalize by trimming and lowercasing both sides
+  const normalizedToken = event.paymentToken?.trim().toLowerCase();
+  const tokenName =
+    Object.entries(mentoTokens).find(
+      ([address]) => address.toLowerCase() === normalizedToken
+    )?.[1] || event.paymentToken;
 
   const formattedPrice = formatPrice(event.ticketPrice);
   const minimumAge = event.minimumAge;
   const requiresAgeVerification = minimumAge > 0;
-
-  // Normalize token address for comparison
-  const normalizedToken = event.paymentToken?.trim().toLowerCase();
-  const tokenName = mentoTokens[normalizedToken] || event.paymentToken;
 
   const getImageUrl = () => {
     if (!event.eventCardImgUrl) return "/default-event.jpg";

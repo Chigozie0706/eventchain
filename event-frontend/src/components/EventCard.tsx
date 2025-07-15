@@ -30,13 +30,6 @@ export default function EventCard({ event }: { event: Event }) {
 
   return (
     <div className="w-full max-w-xs md:max-w-sm rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-200 mx-auto">
-      {/* <img
-        src={event.eventCardImgUrl}
-        width={500}
-        height={300}
-        alt="Event Banner"
-      /> */}
-
       <div className="w-full h-48 overflow-hidden rounded-lg ">
         <img
           src={imgError ? "/default-event.jpg" : getImageUrl()}

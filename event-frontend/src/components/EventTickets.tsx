@@ -7,7 +7,7 @@ import { MapPin, Calendar, Flag, DollarSign } from "lucide-react";
 import { toast } from "react-hot-toast";
 import contractABI from "../contract/abi.json";
 
-const CONTRACT_ADDRESS = "0x389be1692b18b14427E236F517Db769b3a27F075";
+const CONTRACT_ADDRESS = "0xaE4AA19F43e9191F9655F2eA037ad5021eE944ec";
 
 interface Event {
   id: string;
@@ -32,6 +32,7 @@ const mentoTokens: Record<string, string> = {
   [ethers.getAddress("0x765de816845861e75a25fca122bb6898b8b1282a")]: "cUSD",
   [ethers.getAddress("0xd8763cba276a3738e6de85b4b3bf5fded6d6ca73")]: "cEUR",
   [ethers.getAddress("0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787")]: "cREAL",
+  [ethers.getAddress("0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A")]: "G$",
 };
 
 // 2. Add a fallback symbol
