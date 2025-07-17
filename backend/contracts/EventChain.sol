@@ -39,18 +39,19 @@ contract EventChain is ReentrancyGuard {
 
     /// @notice Contract pause status - emergency stop mechanism
     bool public paused;
-    address public ubiPool;
+    // address public ubiPool;
 
+    address public ubiPool = 0x43d72Ff17701B2DA814620735C39C620Ce0ea4A1;
     /**
      * @dev Constructor to initialize supported tokens.
      * @param _supportedTokens List of token addresses to be supported for payments.
      */
-    constructor(address[] memory _supportedTokens, address _ubiPool) {
+    constructor(address[] memory _supportedTokens) {
         for (uint256 i = 0; i < _supportedTokens.length; i++) {
             supportedTokens[_supportedTokens[i]] = true;
         }
 
-        ubiPool = _ubiPool;
+        // ubiPool = 0x43d72Ff17701B2DA814620735C39C620Ce0ea4A1;
     }
 
     /// @notice Structure to store comprehensive event details
@@ -237,6 +238,10 @@ contract EventChain is ReentrancyGuard {
         uint256 amount
     ) internal validEvent(eventId) whenNotPaused {
         Event storage event_ = events[eventId];
+        require(
+            event_.paymentToken == 0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A,
+            "Only for G$ token"
+        );
 
         require(event_.startDate > block.timestamp, "Event expired");
         require(event_.isActive, "Event inactive");
@@ -354,7 +359,7 @@ contract EventChain is ReentrancyGuard {
      * @dev Handles ticket purchase with ERC20 tokens and prevents double purchases
      * @param _index The ID of the event to purchase a ticket for
      */
-    function buyTicket(
+    function buyTicket1(
         uint256 _index
     ) public nonReentrant validEvent(_index) whenNotPaused {
         Event storage event_ = events[_index];
@@ -401,6 +406,59 @@ contract EventChain is ReentrancyGuard {
         emit TicketPurchased(_index, msg.sender, price, event_.paymentToken);
     }
 
+    function buyTicket(
+        uint256 _index
+    ) public nonReentrant validEvent(_index) whenNotPaused {
+        Event storage event_ = events[_index];
+
+        require(event_.startDate > block.timestamp, "Event expired");
+        require(event_.isActive, "Event inactive");
+        require(!hasPurchasedTicket[_index][msg.sender], "Already purchased");
+        require(
+            eventAttendees[_index].length < MAX_ATTENDEES,
+            "Event at capacity"
+        );
+
+        uint256 price = event_.ticketPrice;
+        bool isGdollar = (event_.paymentToken ==
+            0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A);
+
+        if (isGdollar) {
+            // For G$ token: use transferAndCall + deduct 1% fee
+            bytes memory data = abi.encode(_index);
+            IERC677(event_.paymentToken).transferAndCall(
+                address(this),
+                price,
+                data
+            );
+
+            uint256 fee = price / 100; // 1% fee
+            uint256 netAmount = price - fee;
+
+            // Send fee to UBI pool (handled in onTokenTransfer)
+            event_.fundsHeld += netAmount;
+        } else {
+            // For other tokens: no fee, full amount goes to fundsHeld
+            require(
+                IERC20(event_.paymentToken).allowance(
+                    msg.sender,
+                    address(this)
+                ) >= price,
+                "Insufficient allowance"
+            );
+            _safeTransferFrom(
+                IERC20(event_.paymentToken),
+                msg.sender,
+                address(this),
+                price
+            );
+            event_.fundsHeld += price; // Full amount
+        }
+
+        hasPurchasedTicket[_index][msg.sender] = true;
+        eventAttendees[_index].push(msg.sender);
+        emit TicketPurchased(_index, msg.sender, price, event_.paymentToken);
+    }
     /**
      * @dev Internal function to process refunds
      * @param _index Event ID
