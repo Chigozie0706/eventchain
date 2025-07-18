@@ -14,9 +14,6 @@ const _supportedTokens = [
   ethers.getAddress("0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A"), // G$
 ];
 
-// const ubiPool = ethers.getAddress("0x43d72Ff17701B2DA814620735C39C620Ce0ea4A1"); // G$ UBI Pool (Celo)
-// const ubiPool = "0x43d72Ff17701B2DA814620735C39C620Ce0ea4A1";
-
 /**
  * @notice Deployment module for the EventChain smart contract.
  * @dev Uses Hardhat Ignition to deploy the EventChain contract with predefined supported tokens.

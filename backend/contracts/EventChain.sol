@@ -39,9 +39,10 @@ contract EventChain is ReentrancyGuard {
 
     /// @notice Contract pause status - emergency stop mechanism
     bool public paused;
-    // address public ubiPool;
 
+    /// @notice Address of the UBI pool that receives 1% fee from G$ token purchases
     address public ubiPool = 0x43d72Ff17701B2DA814620735C39C620Ce0ea4A1;
+
     /**
      * @dev Constructor to initialize supported tokens.
      * @param _supportedTokens List of token addresses to be supported for payments.
@@ -50,8 +51,6 @@ contract EventChain is ReentrancyGuard {
         for (uint256 i = 0; i < _supportedTokens.length; i++) {
             supportedTokens[_supportedTokens[i]] = true;
         }
-
-        // ubiPool = 0x43d72Ff17701B2DA814620735C39C620Ce0ea4A1;
     }
 
     /// @notice Structure to store comprehensive event details
@@ -144,6 +143,7 @@ contract EventChain is ReentrancyGuard {
      * @dev Internal function to add a new supported payment token
      * @param _token Address of the token to support
      */
+
     function _addSupportedToken(address _token) internal {
         require(_token != address(0), "Invalid token");
         supportedTokens[_token] = true;
@@ -156,6 +156,7 @@ contract EventChain is ReentrancyGuard {
      * @param to Recipient address
      * @param amount Amount to transfer
      */
+
     function _safeTransferFrom(
         IERC20 token,
         address from,
@@ -172,6 +173,7 @@ contract EventChain is ReentrancyGuard {
      * @param to Recipient address
      * @param amount Amount to transfer
      */
+
     function _safeTransfer(IERC20 token, address to, uint256 amount) internal {
         bool success = token.transfer(to, amount);
         require(success, "Transfer failed");
@@ -183,6 +185,7 @@ contract EventChain is ReentrancyGuard {
      * @param value Amount transferred
      * @param data Additional data (contains event ID)
      */
+
     function onTokenTransfer(
         address from,
         uint256 value,
@@ -204,33 +207,10 @@ contract EventChain is ReentrancyGuard {
     }
 
     /**
-     * @dev Internal function to process ticket purchase
-     * @param buyer Address purchasing ticket
-     * @param eventId ID of event
-     * @param amount Payment amount
+     * @dev Internal function to handle ticket purchase logic
+     * @notice Validates purchase conditions, processes payment, and updates event state
+     * Includes special handling for G$ token with 1% fee deduction
      */
-    // function _processTicketPurchase(
-    //     address buyer,
-    //     uint256 eventId,
-    //     uint256 amount
-    // ) internal validEvent(eventId) whenNotPaused {
-    //     Event storage event_ = events[eventId];
-
-    //     require(event_.startDate > block.timestamp, "Event expired");
-    //     require(event_.isActive, "Event inactive");
-    //     require(!hasPurchasedTicket[eventId][buyer], "Already purchased");
-    //     require(
-    //         eventAttendees[eventId].length < MAX_ATTENDEES,
-    //         "Event at capacity"
-    //     );
-    //     require(amount == event_.ticketPrice, "Incorrect amount");
-
-    //     hasPurchasedTicket[eventId][buyer] = true;
-    //     eventAttendees[eventId].push(buyer);
-    //     event_.fundsHeld += amount;
-
-    //     emit TicketPurchased(eventId, buyer, amount, event_.paymentToken);
-    // }
 
     function _processTicketPurchase(
         address buyer,
@@ -359,52 +339,6 @@ contract EventChain is ReentrancyGuard {
      * @dev Handles ticket purchase with ERC20 tokens and prevents double purchases
      * @param _index The ID of the event to purchase a ticket for
      */
-    function buyTicket1(
-        uint256 _index
-    ) public nonReentrant validEvent(_index) whenNotPaused {
-        Event storage event_ = events[_index];
-
-        require(event_.startDate > block.timestamp, "Event expired");
-        require(event_.isActive, "Event inactive");
-        require(!hasPurchasedTicket[_index][msg.sender], "Already purchased");
-        require(
-            eventAttendees[_index].length < MAX_ATTENDEES,
-            "Event at capacity"
-        );
-
-        uint256 price = event_.ticketPrice;
-
-        if (event_.paymentToken == 0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A) {
-            // For G$ token, we can use transferAndCall to include event ID in the transfer
-            bytes memory data = abi.encode(_index);
-            IERC677(event_.paymentToken).transferAndCall(
-                address(this),
-                price,
-                data
-            );
-        } else {
-            require(
-                IERC20(event_.paymentToken).allowance(
-                    msg.sender,
-                    address(this)
-                ) >= price,
-                "Insufficient allowance"
-            );
-
-            _safeTransferFrom(
-                IERC20(event_.paymentToken),
-                msg.sender,
-                address(this),
-                price
-            );
-        }
-
-        hasPurchasedTicket[_index][msg.sender] = true;
-        eventAttendees[_index].push(msg.sender);
-        event_.fundsHeld += price;
-
-        emit TicketPurchased(_index, msg.sender, price, event_.paymentToken);
-    }
 
     function buyTicket(
         uint256 _index
@@ -508,35 +442,6 @@ contract EventChain is ReentrancyGuard {
      * @dev Allows refunds for canceled events or before refund buffer period
      * @param _index The ID of the event to request refund for
      */
-    function requestRefund1(
-        uint256 _index
-    ) public nonReentrant validEvent(_index) whenNotPaused {
-        require(hasPurchasedTicket[_index][msg.sender], "No ticket purchased");
-
-        uint256 refundAmount = events[_index].ticketPrice;
-
-        // For G$ token purchases, refund 99% (since 1% was kept as fee)
-        if (
-            events[_index].paymentToken ==
-            0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A
-        ) {
-            refundAmount = (refundAmount * 99) / 100;
-        }
-
-        require(
-            events[_index].fundsHeld >= events[_index].ticketPrice,
-            "Insufficient funds"
-        );
-
-        if (!events[_index].isCanceled) {
-            require(
-                block.timestamp < events[_index].startDate - REFUND_BUFFER,
-                "Refund period ended"
-            );
-        }
-
-        _processRefund(_index, refundAmount);
-    }
 
     function requestRefund(
         uint256 _index
