@@ -30,7 +30,7 @@ export default function HeroSection() {
 
   const { data, error, isLoading, isError, isSuccess } = useReadContract({
     abi: contractABI.abi,
-    address: "0x4b1af11B7e8Ec44634A47c8b420b445cE5d6c578",
+    address: "0xcbfbBF29fD197b2Cf79B236E86e6Bade5a552eD8",
     functionName: "getAllEvents",
   });
 

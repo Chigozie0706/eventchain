@@ -508,10 +508,21 @@ contract EventChain is ReentrancyGuard {
      * @dev Allows refunds for canceled events or before refund buffer period
      * @param _index The ID of the event to request refund for
      */
-    function requestRefund(
+    function requestRefund1(
         uint256 _index
     ) public nonReentrant validEvent(_index) whenNotPaused {
         require(hasPurchasedTicket[_index][msg.sender], "No ticket purchased");
+
+        uint256 refundAmount = events[_index].ticketPrice;
+
+        // For G$ token purchases, refund 99% (since 1% was kept as fee)
+        if (
+            events[_index].paymentToken ==
+            0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A
+        ) {
+            refundAmount = (refundAmount * 99) / 100;
+        }
+
         require(
             events[_index].fundsHeld >= events[_index].ticketPrice,
             "Insufficient funds"
@@ -524,7 +535,34 @@ contract EventChain is ReentrancyGuard {
             );
         }
 
+        _processRefund(_index, refundAmount);
+    }
+
+    function requestRefund(
+        uint256 _index
+    ) public nonReentrant validEvent(_index) whenNotPaused {
+        require(hasPurchasedTicket[_index][msg.sender], "No ticket purchased");
+
         uint256 refundAmount = events[_index].ticketPrice;
+
+        // For G$ token, refund 99% (1% fee already taken)
+        if (
+            events[_index].paymentToken ==
+            0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A
+        ) {
+            refundAmount = (refundAmount * 99) / 100;
+        }
+
+        // Check if contract has enough funds (now matches refundAmount)
+        require(events[_index].fundsHeld >= refundAmount, "Insufficient funds");
+
+        if (!events[_index].isCanceled) {
+            require(
+                block.timestamp < events[_index].startDate - REFUND_BUFFER,
+                "Refund period ended"
+            );
+        }
+
         _processRefund(_index, refundAmount);
     }
 
