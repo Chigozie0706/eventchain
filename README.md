@@ -30,11 +30,7 @@ EventChain is a decentralized ticketing platform built on the Celo blockchain. U
 
 ### ✅ GoodDollar UBI Pool Integration
 
-- A portion of each ticket purchase (e.g. **1%**) is automatically donated to:
-
-```sh
-GoodDollar UBI Pool Address: 0x05Fc2cAe50EfF8f8f9580600A6fD708cDeA2Dfa2
-```
+- A portion of each ticket purchase (e.g. **1%**) is automatically donated to GoodDollar UBI Pool
 
 - Promotes **on-chain universal basic income**
 - Supports **G$** directly and encourages social good with every transaction
@@ -100,11 +96,7 @@ Divvi automatically attributes conversions and helps optimize distribution.
 
 ## 📤 GoodDollar Donation Logic
 
-When a user purchases a ticket, 99% goes to the event organizer, and 1% goes to:
-
-```solidity
-address constant UBI_POOL_ADDRESS = 0x43d72Ff17701B2DA814620735C39C620Ce0ea4A1;
-```
+When a user purchases a ticket, 99% goes to the event organizer, and 1% goes to GoodDollar UBI Pool:
 
 This supports GoodDollar's **universal basic income** pool and helps fund verified UBI recipients.
 
@@ -116,7 +108,7 @@ Your **EventChain** smart contract is deployed on the **Celo Mainnet**.
 
 | Contract   | Address                                    |
 | ---------- | ------------------------------------------ |
-| EventChain | 0x389be1692b18b14427E236F517Db769b3a27F075 |
+| EventChain | 0xcbfbBF29fD197b2Cf79B236E86e6Bade5a552eD8 |
 
 <!-- **[View on Celo Explorer](https://alfajores.celoscan.io/address/0xBa26366767eA843A656853d348c763c41f9D67Ca)** -->
 

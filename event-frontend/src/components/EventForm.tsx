@@ -5,8 +5,6 @@ import { toast } from "react-hot-toast";
 import { parseUnits } from "ethers";
 import ImageUploader from "./ImageUploader";
 import axios from "axios";
-import AutoCompleteInput from "./AutoComplete";
-import AddressForm from "./AddressForm";
 
 import {
   useAccount,
@@ -438,12 +436,6 @@ const EventForm = () => {
       <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">
         Create Your Event
       </h2>
-
-      <AddressForm
-        onSubmit={handleFormSubmit}
-        address={address1}
-        setAddress={setAddress1}
-      />
 
       {/* Form fields (same as your existing JSX) */}
       <div className="mb-4">
