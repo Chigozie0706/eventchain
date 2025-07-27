@@ -5,6 +5,8 @@ import { toast } from "react-hot-toast";
 import { parseUnits } from "ethers";
 import ImageUploader from "./ImageUploader";
 import axios from "axios";
+import AutoCompleteInput from "./AutoComplete";
+import AddressForm from "./AddressForm";
 
 import {
   useAccount,
@@ -28,6 +30,16 @@ interface EventData {
   eventPrice: string;
   minimumAge: string;
   paymentToken: string;
+}
+
+interface Address {
+  streetAndNumber: string;
+  place: string;
+  region: string;
+  postcode: string;
+  country: string;
+  latitude: string | number; // Can be string or number depending on your needs
+  longitude: string | number; // Can be string or number depending on your needs
 }
 
 const CONTRACT_ADDRESS = "0xcbfbBF29fD197b2Cf79B236E86e6Bade5a552eD8";
@@ -396,11 +408,42 @@ const EventForm = () => {
     }
   };
 
+  const [address1, setAddress1] = useState<Address>({
+    streetAndNumber: "",
+    place: "",
+    region: "",
+    postcode: "",
+    country: "",
+    latitude: "",
+    longitude: "",
+  });
+
+  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (address1.streetAndNumber) {
+      console.log("Selected address:", address1);
+    }
+  };
+
+  const updateCoordinates = (
+    latitude: string | number,
+    longitude: string | number
+  ) => {
+    setAddress1({ ...address1, latitude, longitude });
+  };
+
   return (
     <div className="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-lg my-20">
       <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">
         Create Your Event
       </h2>
+
+      <AddressForm
+        onSubmit={handleFormSubmit}
+        address={address1}
+        setAddress={setAddress1}
+      />
 
       {/* Form fields (same as your existing JSX) */}
       <div className="mb-4">
