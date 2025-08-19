@@ -5,6 +5,7 @@ pragma solidity ^0.8.3;
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface IERC677 is IERC20 {
     function transferAndCall(
@@ -24,6 +25,8 @@ interface IERC677 is IERC20 {
  * - Event capacity limits
  */
 contract EventChain is ReentrancyGuard {
+    using SafeERC20 for IERC20;
+
     /// @notice Mapping to track supported payment tokens (Mento stablecoins: cUSD, cEUR, cREAL)
     mapping(address => bool) public supportedTokens;
 
@@ -43,15 +46,27 @@ contract EventChain is ReentrancyGuard {
     /// @notice Address of the UBI pool that receives 1% fee from G$ token purchases
     address public ubiPool = 0x43d72Ff17701B2DA814620735C39C620Ce0ea4A1;
 
+    address public constant CELO = address(0);
+
     /**
      * @dev Constructor to initialize supported tokens.
      * @param _supportedTokens List of token addresses to be supported for payments.
      */
     constructor(address[] memory _supportedTokens) {
-        for (uint256 i = 0; i < _supportedTokens.length; i++) {
-            supportedTokens[_supportedTokens[i]] = true;
+        // Explicitly handle ZeroAddress
+        supportedTokens[address(0)] = true; // Native CELO
+
+        // Handle other tokens
+        for (uint i = 0; i < _supportedTokens.length; i++) {
+            address token = _supportedTokens[i];
+            if (token != address(0)) {
+                // Skip ZeroAddress in loop
+                supportedTokens[token] = true;
+            }
         }
     }
+
+    receive() external payable {} // Accept CELO natively
 
     /// @notice Structure to store comprehensive event details
     struct Event {
@@ -84,6 +99,8 @@ contract EventChain is ReentrancyGuard {
 
     /// @notice Mapping to track if a user has purchased a ticket for an event
     mapping(uint256 => mapping(address => bool)) public hasPurchasedTicket;
+
+    mapping(uint256 => uint256) public celoFundsHeld;
 
     /// @notice Event emitted when a new event is created
     event EventCreated(
@@ -145,7 +162,6 @@ contract EventChain is ReentrancyGuard {
      */
 
     function _addSupportedToken(address _token) internal {
-        require(_token != address(0), "Invalid token");
         supportedTokens[_token] = true;
     }
 
@@ -301,7 +317,6 @@ contract EventChain is ReentrancyGuard {
             _ticketPrice > 0 && _ticketPrice <= MAX_TICKET_PRICE,
             "Invalid price"
         );
-        require(_paymentToken != address(0), "Invalid token");
         require(_startDate >= block.timestamp, "Start date must be future");
         require(
             _endDate >= _startDate + MIN_EVENT_DURATION,
@@ -342,7 +357,7 @@ contract EventChain is ReentrancyGuard {
 
     function buyTicket(
         uint256 _index
-    ) public nonReentrant validEvent(_index) whenNotPaused {
+    ) public payable nonReentrant validEvent(_index) whenNotPaused {
         Event storage event_ = events[_index];
 
         require(event_.startDate > block.timestamp, "Event expired");
@@ -357,7 +372,13 @@ contract EventChain is ReentrancyGuard {
         bool isGdollar = (event_.paymentToken ==
             0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A);
 
-        if (isGdollar) {
+        // Handle CELO payments
+        if (event_.paymentToken == CELO) {
+            require(msg.value == price, "Incorrect CELO amount");
+            celoFundsHeld[_index] += price;
+        }
+        // Handle G$ token (with fee)
+        else if (isGdollar) {
             // For G$ token: use transferAndCall + deduct 1% fee
             bytes memory data = abi.encode(_index);
             IERC677(event_.paymentToken).transferAndCall(
@@ -371,7 +392,9 @@ contract EventChain is ReentrancyGuard {
 
             // Send fee to UBI pool (handled in onTokenTransfer)
             event_.fundsHeld += netAmount;
-        } else {
+        }
+        // Handle other ERC20 tokens
+        else {
             // For other tokens: no fee, full amount goes to fundsHeld
             require(
                 IERC20(event_.paymentToken).allowance(
@@ -443,7 +466,7 @@ contract EventChain is ReentrancyGuard {
      * @param _index The ID of the event to request refund for
      */
 
-    function requestRefund(
+    function requestRefund1(
         uint256 _index
     ) public nonReentrant validEvent(_index) whenNotPaused {
         require(hasPurchasedTicket[_index][msg.sender], "No ticket purchased");
@@ -471,12 +494,69 @@ contract EventChain is ReentrancyGuard {
         _processRefund(_index, refundAmount);
     }
 
+    function requestRefund(
+        uint256 _index
+    ) public nonReentrant validEvent(_index) whenNotPaused {
+        require(hasPurchasedTicket[_index][msg.sender], "No ticket purchased");
+
+        uint256 refundAmount = events[_index].ticketPrice;
+        address paymentToken = events[_index].paymentToken;
+
+        // Handle G$ token (refund 99%)
+        if (paymentToken == 0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A) {
+            refundAmount = (refundAmount * 99) / 100;
+        }
+
+        // Check available funds
+        if (paymentToken == CELO) {
+            require(
+                celoFundsHeld[_index] >= refundAmount,
+                "Insufficient CELO funds"
+            );
+        } else {
+            require(
+                events[_index].fundsHeld >= refundAmount,
+                "Insufficient funds"
+            );
+        }
+
+        if (!events[_index].isCanceled) {
+            require(
+                block.timestamp < events[_index].startDate - REFUND_BUFFER,
+                "Refund period ended"
+            );
+        }
+
+        // Process refund
+        hasPurchasedTicket[_index][msg.sender] = false;
+
+        if (paymentToken == CELO) {
+            celoFundsHeld[_index] -= refundAmount;
+            (bool success, ) = msg.sender.call{value: refundAmount}("");
+            require(success, "CELO refund failed");
+        } else {
+            events[_index].fundsHeld -= refundAmount;
+            IERC20(paymentToken).safeTransfer(msg.sender, refundAmount);
+        }
+
+        // Remove from attendees list
+        address[] storage attendees = eventAttendees[_index];
+        for (uint256 i = 0; i < attendees.length; i++) {
+            if (attendees[i] == msg.sender) {
+                attendees[i] = attendees[attendees.length - 1];
+                attendees.pop();
+                break;
+            }
+        }
+
+        emit RefundIssued(_index, msg.sender, refundAmount);
+    }
     /**
      * @notice Release collected funds to event owner after event ends
      * @dev Transfers held funds to event owner and marks funds as released
      * @param _index The ID of the event to release funds for
      */
-    function releaseFunds(
+    function releaseFunds1(
         uint256 _index
     ) public onlyOwner(_index) nonReentrant {
         require(_index < events.length, "Invalid event ID");
@@ -502,6 +582,38 @@ contract EventChain is ReentrancyGuard {
             "Fund transfer failed"
         );
 
+        emit FundsReleased(_index, amountToRelease);
+    }
+
+    function releaseFunds(
+        uint256 _index
+    ) public onlyOwner(_index) nonReentrant {
+        require(_index < events.length, "Invalid event ID");
+        require(
+            block.timestamp > events[_index].endDate,
+            "Event has not ended yet"
+        );
+        require(
+            !events[_index].isCanceled,
+            "Cannot release funds for canceled event"
+        );
+        require(!events[_index].fundsReleased, "Funds already released");
+
+        uint256 amountToRelease;
+        address paymentToken = events[_index].paymentToken;
+
+        if (paymentToken == CELO) {
+            amountToRelease = celoFundsHeld[_index];
+            celoFundsHeld[_index] = 0;
+            (bool success, ) = msg.sender.call{value: amountToRelease}("");
+            require(success, "CELO transfer failed");
+        } else {
+            amountToRelease = events[_index].fundsHeld;
+            events[_index].fundsHeld = 0;
+            IERC20(paymentToken).safeTransfer(msg.sender, amountToRelease);
+        }
+
+        events[_index].fundsReleased = true;
         emit FundsReleased(_index, amountToRelease);
     }
 

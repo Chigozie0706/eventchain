@@ -70,11 +70,17 @@ export default function EventPage({
   const [showToast, setShowToast] = useState(false);
   const [verificationComplete, setVerificationComplete] = useState(false);
 
-  const mentoTokens: Record<string, string> = {
+  const mentoTokens1: Record<string, string> = {
     "0x765de816845861e75a25fca122bb6898b8b1282a": "cUSD",
     "0xd8763cba276a3738e6de85b4b3bf5fded6d6ca73": "cEUR",
     "0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787": "cREAL",
     "0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A": "G$",
+    "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e": "USDT",
+  };
+
+  const mentoTokens: Record<string, string> = {
+    "0x874069fa1eb16d44d622f2e0ca25eea172369bc1": "cUSD",
+    "0x10c892a6ec43a53e45d0b916b4b7d383b1b78c0f": "cEUR",
   };
 
   // Normalize by trimming and lowercasing both sides

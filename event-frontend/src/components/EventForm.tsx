@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { parseUnits } from "ethers";
-import ImageUploader from "./ImageUploader";
 import axios from "axios";
 
 import {
@@ -40,13 +39,48 @@ interface Address {
   longitude: string | number; // Can be string or number depending on your needs
 }
 
-const CONTRACT_ADDRESS = "0xcbfbBF29fD197b2Cf79B236E86e6Bade5a552eD8";
+const CONTRACT_ADDRESS = "0x68ea5654c080Ce51598D270C153B3DD262d071E9";
+
+const tokenOptions1 = [
+  {
+    symbol: "CELO",
+    address: "0x0000000000000000000000000000000000000000",
+  },
+  {
+    symbol: "cUSD",
+    address: "0x765de816845861e75a25fca122bb6898b8b1282a",
+  },
+  {
+    symbol: "cEUR",
+    address: "0xd8763cba276a3738e6de85b4b3bf5fded6d6ca73",
+  },
+  {
+    symbol: "cREAL",
+    address: "0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787",
+  },
+  {
+    symbol: "G$",
+    address: "0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A",
+  },
+  {
+    symbol: "USDT",
+    address: "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e",
+  },
+];
 
 const tokenOptions = [
-  { symbol: "cUSD", address: "0x765de816845861e75a25fca122bb6898b8b1282a" },
-  { symbol: "cEUR", address: "0xd8763cba276a3738e6de85b4b3bf5fded6d6ca73" },
-  { symbol: "cREAL", address: "0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787" },
-  { symbol: "G$", address: "0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A" },
+  {
+    symbol: "CELO",
+    address: "0x0000000000000000000000000000000000000000",
+  },
+  {
+    symbol: "cUSD",
+    address: "0x874069fa1eb16d44d622f2e0ca25eea172369bc1",
+  },
+  {
+    symbol: "cEUR",
+    address: "0x10c892a6ec43a53e45d0b916b4b7d383b1b78c0f",
+  },
 ];
 
 const EventForm = () => {
@@ -217,19 +251,8 @@ const EventForm = () => {
   }, []);
 
   const createEvent = async () => {
-    console.log("[DEBUG] Starting createEvent function");
-    if (!validateForm()) {
-      console.log("[DEBUG] Form validation failed");
-      return;
-    }
-
+    if (!validateForm()) return;
     if (!address || !walletClient) {
-      console.log(
-        "[DEBUG] Wallet not connected - address:",
-        address,
-        "walletClient:",
-        walletClient
-      );
       toast.error("Please connect your wallet");
       return;
     }
@@ -239,32 +262,16 @@ const EventForm = () => {
       const toastId = toast.loading("Creating event...");
 
       // Upload image to IPFS
-      toast.loading("Uploading image...", { id: toastId });
       const imageUrl = await uploadToIPFS(file!);
       const ipfsHash = imageUrl.split("/").pop() || "";
 
-      // Validate URL length (matches contract MAX_URL_LENGTH = 200)
-      if (ipfsHash.length > 200) {
-        throw new Error("Image URL too long");
-      }
-
-      console.log("ipfsHash", ipfsHash);
-
       // Prepare transaction data
-      console.log("[DEBUG] Preparing date/time values");
       const startDateTime = new Date(
         `${eventData.startDate}T${eventData.startTime}`
       );
       const endDateTime = new Date(`${eventData.endDate}T${eventData.endTime}`);
-      console.log(
-        "[DEBUG] Date objects created - start:",
-        startDateTime,
-        "end:",
-        endDateTime
-      );
 
       const minimumAge = BigInt(eventData.minimumAge);
-
       const startDate = BigInt(Math.floor(startDateTime.getTime() / 1000));
       const endDate = BigInt(Math.floor(endDateTime.getTime() / 1000));
       const startTime = BigInt(
@@ -273,41 +280,13 @@ const EventForm = () => {
       const endTime = BigInt(
         endDateTime.getHours() * 3600 + endDateTime.getMinutes() * 60
       );
-      console.log(
-        "[DEBUG] Converted to Unix timestamps - startDate:",
-        startDate,
-        "endDate:",
-        endDate,
-        "startTime:",
-        startTime,
-        "endTime:",
-        endTime
-      );
 
-      console.log("[DEBUG] Parsing price:", eventData.eventPrice);
       const priceInWei = parseUnits(eventData.eventPrice, 18);
-      console.log("[DEBUG] Price in wei:", priceInWei.toString());
 
       // Get Divvi data suffix
-      console.log("[DEBUG] Generating Divvi suffix with config:", DIVVI_CONFIG);
       const divviSuffix = getReferralTag(DIVVI_CONFIG);
 
-      console.log("[DEBUG] Divvi suffix generated:", divviSuffix);
-
       // Encode contract function call
-      console.log("[DEBUG] Encoding function with ABI and args:", {
-        eventName: eventData.eventName,
-        eventImgUrl: ipfsHash,
-        eventDetails: eventData.eventDetails,
-        startDate,
-        endDate,
-        startTime,
-        endTime,
-        eventLocation: eventData.eventLocation,
-        priceInWei,
-        paymentToken: eventData.paymentToken,
-      });
-
       const encodedFunction = encodeFunctionData({
         abi: contractABI.abi,
         functionName: "createEvent",
@@ -322,45 +301,33 @@ const EventForm = () => {
           eventData.eventLocation,
           priceInWei,
           minimumAge,
-          eventData.paymentToken,
+          eventData.paymentToken.toLowerCase(), // Ensure lowercase for comparison
         ],
       });
-      console.log("[DEBUG] Encoded function data:", encodedFunction);
 
       // Combine with Divvi suffix
       const dataWithDivvi = (encodedFunction +
         (divviSuffix.startsWith("0x")
           ? divviSuffix.slice(2)
           : divviSuffix)) as `0x${string}`;
-      console.log("[DEBUG] Combined data with Divvi suffix:", dataWithDivvi);
 
-      toast.loading("Waiting for wallet confirmation...", { id: toastId });
-      console.log("[DEBUG] Sending transaction...");
-
-      // Send transaction
+      // Send transaction with sufficient gas
       const hash = await walletClient.sendTransaction({
         account: address,
         to: CONTRACT_ADDRESS,
         data: dataWithDivvi,
+        gas: BigInt(1_000_000),
       });
-      console.log("[DEBUG] Transaction sent, hash:", hash);
 
       setTxHash(hash);
       toast.loading("Processing transaction...", { id: toastId });
-      console.log("[DEBUG] Transaction hash set:", hash);
 
       // Report to Divvi
-      console.log("[DEBUG] Reporting to Divvi with hash:", hash);
       await reportToDivvi(hash);
-      console.log("[DEBUG] Successfully reported to Divvi");
 
-      // Success
       toast.success("Event created successfully!", { id: toastId });
-      setLoading(false);
-      console.log("[DEBUG] Loading state set to false after success");
 
       // Reset form and redirect
-
       setEventData({
         eventName: "",
         eventDetails: "",
@@ -374,19 +341,14 @@ const EventForm = () => {
         minimumAge: "0",
       });
 
-      console.log("[DEBUG] Redirecting to /view_events");
       router.push("/view_events");
     } catch (error: any) {
-      console.error("[ERROR] Event creation failed:", {
-        error: error.message,
-        stack: error.stack,
-        eventData,
-        timestamp: new Date().toISOString(),
-      });
-      toast.dismiss();
-      toast.error(error.message || "Failed to create event");
+      console.error("Event creation failed:", error);
+      toast.error(
+        error.shortMessage || error.message || "Failed to create event"
+      );
+    } finally {
       setLoading(false);
-      console.log("[DEBUG] Loading state set to false after error");
     }
   };
 

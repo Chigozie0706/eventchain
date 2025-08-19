@@ -9,11 +9,19 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
   useWalletClient,
+  useBalance,
 } from "wagmi";
 import { getReferralTag, submitReferral } from "@divvi/referral-sdk";
 import contractABI from "../../../contract/abi.json";
 import EventPage from "@/components/EventPage";
-import { erc20Abi, encodeFunctionData, encodeAbiParameters } from "viem";
+import {
+  erc20Abi,
+  encodeFunctionData,
+  encodeAbiParameters,
+  createWalletClient,
+  custom,
+} from "viem";
+import { celoAlfajores } from "viem/chains";
 
 export interface Event {
   owner: string;
@@ -34,7 +42,9 @@ export interface Event {
   paymentToken: string;
 }
 
-const CONTRACT_ADDRESS = "0xcbfbBF29fD197b2Cf79B236E86e6Bade5a552eD8";
+const CONTRACT_ADDRESS = "0x68ea5654c080Ce51598D270C153B3DD262d071E9";
+const CELO_TOKEN_ADDRESS = "0x0000000000000000000000000000000000000000";
+const USDT_ADDRESS = "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e"; // Mainnet USDT
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
@@ -52,6 +62,33 @@ export default function Home() {
     user: address as `0x${string}`,
     consumer: "0x5e23d5Be257d9140d4C5b12654111a4D4E18D9B2" as `0x${string}`,
   };
+
+  const [address1, setAddress1] = useState<string | null>(null);
+
+  const getUserAddress = async () => {
+    if (typeof window !== "undefined" && window.ethereum) {
+      let walletClient = createWalletClient({
+        transport: custom(window.ethereum),
+        chain: celoAlfajores,
+      });
+
+      let [address1] = await walletClient.getAddresses();
+      setAddress1(address1);
+      console.log("address1", address1);
+    }
+  };
+
+  useEffect(() => {
+    getUserAddress();
+  }, []);
+
+  console.log("address2", address1);
+
+  // Add CELO balance check
+  const { data: celoBalance } = useBalance({
+    address: address,
+    query: { enabled: !!address },
+  });
 
   // Contract data fetching with refetch capability
   const {
@@ -82,7 +119,13 @@ export default function Home() {
     abi: erc20Abi,
     functionName: "balanceOf",
     args: [address!],
-    query: { enabled: !!address && !!eventDetails?.event.paymentToken },
+    query: {
+      enabled:
+        !!address &&
+        !!eventDetails?.event.paymentToken &&
+        eventDetails.event.paymentToken !== CELO_TOKEN_ADDRESS,
+    },
+    // query: { enabled: !!address && !!eventDetails?.event.paymentToken },
   });
 
   // Token allowance check
@@ -91,7 +134,13 @@ export default function Home() {
     abi: erc20Abi,
     functionName: "allowance",
     args: [address!, CONTRACT_ADDRESS],
-    query: { enabled: !!address && !!eventDetails?.event.paymentToken },
+    query: {
+      enabled:
+        !!address &&
+        !!eventDetails?.event.paymentToken &&
+        eventDetails.event.paymentToken !== CELO_TOKEN_ADDRESS,
+    },
+    // query: { enabled: !!address && !!eventDetails?.event.paymentToken },
   });
 
   // Refund transaction handling
@@ -209,46 +258,23 @@ export default function Home() {
   const buyTicket = useCallback(async () => {
     console.log("[Ticket] Starting ticket purchase process");
 
-    // Check if wallet is connected
     if (!isConnected) {
-      console.log("[Ticket] Wallet not connected - aborting");
       toast.error("Please connect your wallet first");
       return;
     }
 
     if (!eventDetails || !address || !walletClient) {
-      console.log("[Ticket] Missing required data - aborting", {
-        eventDetails: !!eventDetails,
-        address: !!address,
-        walletClient: !!walletClient,
-      });
       toast.error("Wallet not properly connected");
       return;
     }
 
-    // Check if user already has a ticket
     if (eventDetails.attendees.includes(address)) {
-      console.log("[Ticket] User already has ticket", { user: address });
       toast.error("You already have a ticket for this event");
-      return;
-    }
-
-    // Check token balance
-    if (
-      tokenBalance !== undefined &&
-      tokenBalance < eventDetails.event.ticketPrice
-    ) {
-      console.log("[Ticket] Insufficient balance", {
-        balance: tokenBalance.toString(),
-        required: eventDetails.event.ticketPrice.toString(),
-      });
-      toast.error("Insufficient token balance");
       return;
     }
 
     try {
       setLoading(true);
-      console.log("[Ticket] Starting transaction flow");
       const toastId = toast.loading("Preparing transaction...");
 
       const requiredAmount = eventDetails.event.ticketPrice;
@@ -256,36 +282,90 @@ export default function Home() {
       const isGdollar =
         paymentToken.toLowerCase() ===
         "0x62b8b11039fcfe5ab0c56e502b1c372a3d2a9c7a";
+      const isCelo = paymentToken === CELO_TOKEN_ADDRESS;
+      const isUSDT = [USDT_ADDRESS.toLowerCase()].includes(
+        paymentToken.toLowerCase()
+      );
 
-      console.log("[Ticket] Payment token:", paymentToken, "is G$:", isGdollar);
+      // Balance checks
+      if (isCelo) {
+        if (!celoBalance || celoBalance.value < requiredAmount) {
+          toast.error("Insufficient CELO balance");
+          setLoading(false);
+          return;
+        }
+      } else if (tokenBalance !== undefined && tokenBalance < requiredAmount) {
+        toast.error("Insufficient token balance");
+        setLoading(false);
+        return;
+      }
 
-      // Get Divvi data suffix
-      console.log("[Ticket] Generating Divvi suffix");
+      // Get Divvi suffix
       const divviSuffix = getReferralTag(DIVVI_CONFIG);
-      console.log("[Ticket] Divvi suffix generated:", divviSuffix);
-
-      // Declare hash variable with proper type
       let hash: `0x${string}`;
 
-      if (isGdollar) {
-        // Optimized path for G$ token using transferAndCall
+      // USDT-specific flow
+      if (isUSDT) {
+        toast.loading("Preparing USDT transaction...", { id: toastId });
+
+        // 1. Reset allowance if needed
+        if (tokenAllowance && tokenAllowance > BigInt(0)) {
+          await write({
+            address: paymentToken as `0x${string}`,
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [CONTRACT_ADDRESS, BigInt(0)],
+            gas: BigInt(100000),
+          });
+        }
+
+        // 2. Set new allowance
+        await write({
+          address: paymentToken as `0x${string}`,
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [CONTRACT_ADDRESS, requiredAmount],
+          gas: BigInt(150000),
+        });
+
+        // 3. Verify allowance
+        const newAllowance = await refetchAllowance();
+        if (newAllowance.data! < requiredAmount) {
+          throw new Error("USDT approval failed");
+        }
+
+        // 4. Execute purchase
+        const encodedFunction = encodeFunctionData({
+          abi: contractABI.abi,
+          functionName: "buyTicket",
+          args: [eventId],
+        });
+
+        const dataWithDivvi = (encodedFunction +
+          (divviSuffix.startsWith("0x")
+            ? divviSuffix.slice(2)
+            : divviSuffix)) as `0x${string}`;
+
+        hash = await walletClient.sendTransaction({
+          account: address,
+          to: CONTRACT_ADDRESS,
+          data: dataWithDivvi,
+          gas: BigInt(300000),
+        });
+      }
+      // G$ token flow
+      else if (isGdollar) {
         toast.loading("Preparing G$ transfer...", { id: toastId });
 
-        // Encode the event ID for transferAndCall data
         const eventIdData = encodeAbiParameters(
           [{ type: "uint256" }],
           [eventId]
         );
-
-        // Combine with Divvi suffix
         const fullData = (eventIdData +
           (divviSuffix.startsWith("0x")
             ? divviSuffix.slice(2)
             : divviSuffix)) as `0x${string}`;
 
-        console.log("[Ticket] Using transferAndCall with data:", fullData);
-
-        // Execute transferAndCall and assign to hash
         hash = await walletClient.writeContract({
           address: paymentToken as `0x${string}`,
           abi: [
@@ -304,75 +384,78 @@ export default function Home() {
           functionName: "transferAndCall",
           args: [CONTRACT_ADDRESS, requiredAmount, fullData],
         });
-      } else {
-        // Standard ERC-20 flow for other tokens
-        const requiredAllowance = requiredAmount;
-        console.log(
-          "[Ticket] Required allowance:",
-          requiredAllowance.toString()
-        );
-
-        // First handle token approval if needed
-        if (!tokenAllowance || tokenAllowance < requiredAllowance) {
-          console.log(
-            "[Ticket] Approval needed - current allowance:",
-            tokenAllowance?.toString() || "0"
-          );
-          toast.loading("Approving token spend...", { id: toastId });
-
-          console.log("[Ticket] Sending approval transaction");
-          await write({
-            address: paymentToken as `0x${string}`,
-            abi: erc20Abi,
-            functionName: "approve",
-            args: [CONTRACT_ADDRESS, requiredAllowance],
-            gas: BigInt(300000),
-          });
-          console.log("[Ticket] Approval transaction completed");
-        } else {
-          console.log("[Ticket] Sufficient allowance already exists");
-        }
-
-        // Encode the buyTicket function call
-        console.log("[Ticket] Encoding buyTicket function");
+      }
+      // CELO native token flow
+      else if (isCelo) {
         const encodedFunction = encodeFunctionData({
           abi: contractABI.abi,
           functionName: "buyTicket",
           args: [eventId],
         });
 
-        // Combine with Divvi suffix
+        const dataWithDivvi = (encodedFunction +
+          (divviSuffix.startsWith("0x")
+            ? divviSuffix.slice(2)
+            : divviSuffix)) as `0x${string}`;
+
+        hash = await walletClient.sendTransaction({
+          account: address,
+          to: CONTRACT_ADDRESS,
+          data: dataWithDivvi,
+          value: requiredAmount,
+        });
+      }
+      // Standard ERC-20 flow
+      else {
+        // Handle token approval if needed
+        if (!tokenAllowance || tokenAllowance < requiredAmount) {
+          toast.loading("Approving token spend...", { id: toastId });
+          await write({
+            address: paymentToken as `0x${string}`,
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [CONTRACT_ADDRESS, requiredAmount],
+            gas: BigInt(100000),
+          });
+        }
+
+        const encodedFunction = encodeFunctionData({
+          abi: contractABI.abi,
+          functionName: "buyTicket",
+          args: [eventId],
+        });
+
         const dataWithDivvi = (encodedFunction +
           (divviSuffix.startsWith("0x")
             ? divviSuffix.slice(2)
             : divviSuffix)) as `0x${string}`;
 
         toast.loading("Waiting for wallet confirmation...", { id: toastId });
-
-        // Send transaction with Divvi data and assign to hash
-        console.log("[Ticket] Sending transaction to wallet");
         hash = await walletClient.sendTransaction({
           account: address,
           to: CONTRACT_ADDRESS,
           data: dataWithDivvi,
-          gas: BigInt(300000),
+          gas: BigInt(250000),
         });
       }
 
-      console.log("[Ticket] Transaction submitted, hash:", hash);
       setLoading(false);
       toast.success("Transaction submitted!", { id: toastId });
-
-      // Report to Divvi - now hash is guaranteed to be defined
-      console.log("[Ticket] Reporting to Divvi");
       await reportToDivvi(hash);
-      console.log("[Ticket] Ticket purchase process completed");
     } catch (error: any) {
-      console.error("[Ticket] Transaction failed:", {
-        error: error.message,
-        stack: error.stack,
-      });
-      toast.error(error.shortMessage || error.message || "Transaction failed");
+      console.error("[Ticket] Transaction failed:", error);
+      let errorMessage =
+        error.shortMessage || error.message || "Transaction failed";
+
+      if (error.message.includes("transfer amount exceeds balance")) {
+        errorMessage = "Insufficient token balance";
+      } else if (error.message.includes("not enough allowance")) {
+        errorMessage = "Approval failed - please try again";
+      } else if (error.message.includes("execution reverted")) {
+        errorMessage = "Transaction reverted - check contract status";
+      }
+
+      toast.error(errorMessage);
       setLoading(false);
     }
   }, [
@@ -384,6 +467,8 @@ export default function Home() {
     tokenAllowance,
     walletClient,
     tokenBalance,
+    celoBalance,
+    refetchAllowance,
   ]);
 
   const requestRefund = useCallback(async () => {

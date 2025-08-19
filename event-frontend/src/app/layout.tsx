@@ -33,7 +33,7 @@ export default function RootLayout({
         suppressHydrationWarning={true}
       >
         <Providers>
-          <MiniPayScripts />
+          {/* <MiniPayScripts /> */}
           <Navbar />
           {children}
           <Toaster position="top-right" />

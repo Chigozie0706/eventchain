@@ -34,7 +34,7 @@ interface Event {
   paymentToken: string;
 }
 
-const CONTRACT_ADDRESS = "0xcbfbBF29fD197b2Cf79B236E86e6Bade5a552eD8";
+const CONTRACT_ADDRESS = "0x68ea5654c080Ce51598D270C153B3DD262d071E9";
 
 export default function MyEvents() {
   const [events, setEvents] = useState<Event[]>([]);

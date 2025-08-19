@@ -10,9 +10,9 @@ import "@rainbow-me/rainbowkit/styles.css";
 const config = getDefaultConfig({
   appName: "EventChain",
   projectId: "b2086c0b61d1965614aefb4fb914a316",
-  chains: [celo],
+  chains: [celoAlfajores],
   transports: {
-    [celo.id]: http(),
+    [celoAlfajores.id]: http(),
   },
   ssr: true,
 });
@@ -29,7 +29,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider initialChain={celo}>{children}</RainbowKitProvider>
+        <RainbowKitProvider initialChain={celoAlfajores}>
+          {children}
+        </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );

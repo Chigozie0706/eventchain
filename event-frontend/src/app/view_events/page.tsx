@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import EventCard from "@/components/EventCard";
-import { useReadContract } from "wagmi";
+import { useAccount, useBalance, useReadContract } from "wagmi";
 import contractABI from "../../contract/abi.json";
+import { createWalletClient, custom } from "viem";
+import { celoAlfajores } from "viem/chains";
 
 interface Event {
   index: number;
@@ -23,12 +25,13 @@ interface Event {
   paymentToken: string;
 }
 
-const CONTRACT_ADDRESS = "0xcbfbBF29fD197b2Cf79B236E86e6Bade5a552eD8";
+const CONTRACT_ADDRESS = "0x68ea5654c080Ce51598D270C153B3DD262d071E9";
 
 export default function Home() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { address, isConnected } = useAccount();
 
   const {
     data,
@@ -41,6 +44,50 @@ export default function Home() {
     abi: contractABI.abi,
     functionName: "getAllEvents",
   });
+
+  const [address1, setAddress1] = useState<string | null>(null);
+
+  const getUserAddress = async () => {
+    if (typeof window !== "undefined" && window.ethereum) {
+      let walletClient = createWalletClient({
+        transport: custom(window.ethereum),
+        chain: celoAlfajores,
+      });
+
+      let [address1] = await walletClient.getAddresses();
+      setAddress1(address1);
+      console.log("address1", address1);
+    }
+  };
+
+  const {
+    data: balanceData,
+    isLoading: isBalanceLoading,
+    isError: isBalanceError,
+  } = useBalance({
+    address,
+    chainId: 44787, // Celo Alfajores testnet
+  });
+
+  // format balance
+  let formattedBalance = null;
+  if (balanceData) {
+    const userLocale = navigator.language || "en-US";
+    const decimalFormatter = new Intl.NumberFormat(userLocale, {
+      style: "decimal",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 4,
+    });
+    formattedBalance = decimalFormatter.format(
+      parseFloat(balanceData.formatted)
+    );
+  }
+
+  useEffect(() => {
+    getUserAddress();
+  }, []);
+
+  console.log("address2", address1);
 
   useEffect(() => {
     if (isLoading) {
@@ -148,6 +195,17 @@ export default function Home() {
           Featured & Upcoming Events
         </h3>
 
+        {/* 👇 Show balance at top */}
+        <div className="mx-5 my-4 text-gray-700">
+          {isBalanceLoading && "Loading balance..."}
+          {isBalanceError && "Error fetching balance"}
+          {formattedBalance && (
+            <span>
+              Your Balance: {formattedBalance} {balanceData?.symbol}
+            </span>
+          )}
+        </div>
+
         <div className="w-full px-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 justify-center">
             {events.length > 0 ? (
@@ -158,9 +216,15 @@ export default function Home() {
                 />
               ))
             ) : (
-              <p className="text-center text-gray-500 col-span-full">
-                No events found.
-              </p>
+              <>
+                <p className="text-center text-gray-500 col-span-full">
+                  No events found. {address1}
+                </p>
+                <p className="text-center text-gray-500 col-span-full">
+                  p1L {address}
+                  {formattedBalance}
+                </p>
+              </>
             )}
           </div>
         </div>

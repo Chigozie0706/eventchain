@@ -28,6 +28,7 @@ const mentoTokens: Record<string, string> = {
   "0x765de816845861e75a25fca122bb6898b8b1282a": "cUSD",
   "0xd8763cba276a3738e6de85b4b3bf5fded6d6ca73": "cEUR",
   "0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787": "cREAL",
+  "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e": "USDT",
 };
 
 const CreatorEventCard: React.FC<CreatorEventCardProps> = ({
