@@ -1,34 +1,29 @@
-import {
-  SelfBackendVerifier,
-  AttestationId,
-  IConfigStorage,
-  AllIds,
-  DefaultConfigStore,
-  VerificationConfig,
-  countryCodes,
-} from "@selfxyz/core";
+import { NextRequest, NextResponse } from "next/server";
 import {
   countries,
   Country3LetterCode,
   SelfAppDisclosureConfig,
 } from "@selfxyz/common";
+import {
+  countryCodes,
+  SelfBackendVerifier,
+  AllIds,
+  DefaultConfigStore,
+  VerificationConfig,
+} from "@selfxyz/core";
 
-import { NextResponse, NextRequest } from "next/server";
-
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   console.log("Received request");
-  console.log(request);
+  console.log(req);
   try {
-    const pathParts = request.url.split("/");
+    const pathParts = req.url.split("/");
     const eventId = pathParts[pathParts.indexOf("events") + 1];
 
-    const url = new URL(request.url);
+    const url = new URL(req.url);
     const minimumAge = Number(url.searchParams.get("minimumAge")) || 0;
 
     const { attestationId, proof, publicSignals, userContextData } =
-      await request.json();
-
-    const NGROK_URL = process.env.NEXT_PUBLIC_SELF_ENDPOINT;
+      await req.json();
 
     if (!proof || !publicSignals || !attestationId || !userContextData) {
       return NextResponse.json(
@@ -47,14 +42,13 @@ export async function POST(request: NextRequest) {
     };
     const configStore = new DefaultConfigStore(disclosures_config);
 
-    // Initialize verifier with V2 constructor
     const selfBackendVerifier = new SelfBackendVerifier(
-      process.env.NEXT_PUBLIC_SELF_SCOPE as string,
-      `${NGROK_URL}/api/events/${eventId}/verify`,
-      process.env.NEXT_PUBLIC_SELF_ENABLE_MOCK_PASSPORT === "true",
-      AllIds, // Accept all document types
+      "self-workshop",
+      process.env.NEXT_PUBLIC_SELF_ENDPOINT || "",
+      true,
+      AllIds,
       configStore,
-      "hex" // Match your frontend userIdType
+      "hex"
     );
 
     const result = await selfBackendVerifier.verify(

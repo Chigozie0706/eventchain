@@ -12,11 +12,15 @@ import {
 import { formatEventDate, formatEventTime, formatPrice } from "@/utils/format";
 import { useAccount } from "wagmi";
 import { useEffect, useState } from "react";
-import SelfQRcodeWrapper, {
+import { countries, getUniversalLink } from "@selfxyz/core";
+
+import {
+  SelfQRcodeWrapper,
   SelfAppBuilder,
   type SelfApp,
 } from "@selfxyz/qrcode";
 import { useParams, useRouter } from "next/navigation";
+import { ethers } from "ethers";
 
 export interface Event {
   owner: string;
@@ -69,6 +73,7 @@ export default function EventPage({
   const { id: eventId } = useParams<{ id: string }>();
   const [showToast, setShowToast] = useState(false);
   const [verificationComplete, setVerificationComplete] = useState(false);
+  const [universalLink, setUniversalLink] = useState("");
 
   const mentoTokens1: Record<string, string> = {
     "0x765de816845861e75a25fca122bb6898b8b1282a": "cUSD",
@@ -103,33 +108,81 @@ export default function EventPage({
   const NGROK_URL = process.env.NEXT_PUBLIC_SELF_ENDPOINT;
 
   const endpoint = `${NGROK_URL}/api/events/${eventId}/verify?minimumAge=${minimumAge}`;
+  const userId1 = `${address}`;
+  const [userId] = useState(ethers.ZeroAddress);
+
+  // useEffect(() => {
+  //   try {
+  //     const app = new SelfAppBuilder({
+  //       version: 2,
+  //       appName: process.env.NEXT_PUBLIC_SELF_APP_NAME || "Self Workshop",
+  //       scope: process.env.NEXT_PUBLIC_SELF_SCOPE || "self-workshop",
+  //       endpoint: `${process.env.NEXT_PUBLIC_SELF_ENDPOINT}`,
+  //       logoBase64: "https://i.postimg.cc/mrmVf9hm/self.png", // url of a png image, base64 is accepted but not recommended
+  //       userId: userId,
+  //       endpointType: "staging_https",
+  //       userIdType: "hex", // use 'hex' for ethereum address or 'uuid' for uuidv4
+  //       userDefinedData: "Bonjour Cannes!",
+  //       disclosures: {
+  //         // // what you want to verify from users' identity
+  //         minimumAge: 18,
+  //         // ofac: false,
+  //         // excludedCountries: [countries.BELGIUM],
+
+  //         // //what you want users to reveal
+  //         // name: false,
+  //         // issuing_state: true,
+  //         nationality: true,
+  //         // date_of_birth: true,
+  //         // passport_number: false,
+  //         gender: true,
+  //         // expiry_date: false,
+  //       },
+  //     }).build();
+
+  //     setSelfApp(app);
+  //     //setUniversalLink(getUniversalLink(app));
+  //   } catch (error) {
+  //     console.error("Failed to initialize Self app:", error);
+  //   }
+  // }, []);
 
   // Use useEffect to ensure code only executes on the client side
   useEffect(() => {
-    if (!address || !requiresAgeVerification) return; // Don't initialize if no address is connected
-
     try {
-      // const userId = v4();
-
-      const userId = `${address}`;
       const app = new SelfAppBuilder({
-        appName: process.env.NEXT_PUBLIC_SELF_APP_NAME || "EventChain",
-        scope: process.env.NEXT_PUBLIC_SELF_SCOPE || "event-chain",
+        version: 2,
+        appName: process.env.NEXT_PUBLIC_SELF_APP_NAME || "Self Workshop",
+        scope: process.env.NEXT_PUBLIC_SELF_SCOPE || "self-workshop",
         endpoint,
-        logoBase64:
-          "https://pluspng.com/img-png/images-owls-png-hd-owl-free-download-png-png-image-485.png",
-        userId,
-        userIdType: "hex",
+        logoBase64: "https://i.postimg.cc/mrmVf9hm/self.png", // url of a png image, base64 is accepted but not recommended
+        userId: userId,
+        endpointType: "staging_https",
+        userIdType: "hex", // use 'hex' for ethereum address or 'uuid' for uuidv4
+        userDefinedData: "Bonjour Cannes!",
         disclosures: {
-          minimumAge: Number(minimumAge),
+          // // what you want to verify from users' identity
+          minimumAge: 18,
+          // ofac: false,
+          // excludedCountries: [countries.BELGIUM],
+
+          // //what you want users to reveal
+          // name: false,
+          // issuing_state: true,
+          nationality: true,
+          // date_of_birth: true,
+          // passport_number: false,
+          gender: true,
+          // expiry_date: false,
         },
       }).build();
 
       setSelfApp(app);
+      setUniversalLink(getUniversalLink(app));
     } catch (error) {
       console.error("Failed to initialize Self app:", error);
     }
-  }, [address, endpoint, minimumAge]);
+  }, []);
 
   const displayToast = (message: string) => {
     setToastMessage(message);
@@ -137,9 +190,16 @@ export default function EventPage({
     setTimeout(() => setShowToast(false), 3000);
   };
 
-  const handleSuccessfulVerification = () => {
+  const handleSuccessfulVerification1 = () => {
     displayToast("Verification successful! You can now register.");
     setVerificationComplete(true);
+  };
+
+  const handleSuccessfulVerification = () => {
+    displayToast("Verification successful! Redirecting...");
+    setTimeout(() => {
+      router.push("/verified");
+    }, 1500);
   };
 
   // Check if current user is registered
@@ -300,6 +360,9 @@ export default function EventPage({
                       <SelfQRcodeWrapper
                         selfApp={selfApp}
                         onSuccess={handleSuccessfulVerification}
+                        onError={() => {
+                          displayToast("Error: Failed to verify identity");
+                        }}
                       />
                     ) : (
                       <div className="w-[256px] h-[256px] bg-gray-200 animate-pulse flex items-center justify-center">
