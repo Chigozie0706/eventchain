@@ -111,44 +111,8 @@ export default function EventPage({
   const userId1 = `${address}`;
   const [userId] = useState(ethers.ZeroAddress);
 
-  // useEffect(() => {
-  //   try {
-  //     const app = new SelfAppBuilder({
-  //       version: 2,
-  //       appName: process.env.NEXT_PUBLIC_SELF_APP_NAME || "Self Workshop",
-  //       scope: process.env.NEXT_PUBLIC_SELF_SCOPE || "self-workshop",
-  //       endpoint: `${process.env.NEXT_PUBLIC_SELF_ENDPOINT}`,
-  //       logoBase64: "https://i.postimg.cc/mrmVf9hm/self.png", // url of a png image, base64 is accepted but not recommended
-  //       userId: userId,
-  //       endpointType: "staging_https",
-  //       userIdType: "hex", // use 'hex' for ethereum address or 'uuid' for uuidv4
-  //       userDefinedData: "Bonjour Cannes!",
-  //       disclosures: {
-  //         // // what you want to verify from users' identity
-  //         minimumAge: 18,
-  //         // ofac: false,
-  //         // excludedCountries: [countries.BELGIUM],
-
-  //         // //what you want users to reveal
-  //         // name: false,
-  //         // issuing_state: true,
-  //         nationality: true,
-  //         // date_of_birth: true,
-  //         // passport_number: false,
-  //         gender: true,
-  //         // expiry_date: false,
-  //       },
-  //     }).build();
-
-  //     setSelfApp(app);
-  //     //setUniversalLink(getUniversalLink(app));
-  //   } catch (error) {
-  //     console.error("Failed to initialize Self app:", error);
-  //   }
-  // }, []);
-
-  // Use useEffect to ensure code only executes on the client side
   useEffect(() => {
+    if (!address) return;
     try {
       const app = new SelfAppBuilder({
         version: 2,
@@ -156,13 +120,13 @@ export default function EventPage({
         scope: process.env.NEXT_PUBLIC_SELF_SCOPE || "self-workshop",
         endpoint,
         logoBase64: "https://i.postimg.cc/mrmVf9hm/self.png", // url of a png image, base64 is accepted but not recommended
-        userId: userId,
+        userId: `${address}`,
         endpointType: "staging_https",
         userIdType: "hex", // use 'hex' for ethereum address or 'uuid' for uuidv4
         userDefinedData: "Bonjour Cannes!",
         disclosures: {
           // // what you want to verify from users' identity
-          minimumAge: 18,
+          minimumAge: Number(minimumAge),
           // ofac: false,
           // excludedCountries: [countries.BELGIUM],
 
@@ -182,7 +146,7 @@ export default function EventPage({
     } catch (error) {
       console.error("Failed to initialize Self app:", error);
     }
-  }, []);
+  }, [address]);
 
   const displayToast = (message: string) => {
     setToastMessage(message);
@@ -190,12 +154,12 @@ export default function EventPage({
     setTimeout(() => setShowToast(false), 3000);
   };
 
-  const handleSuccessfulVerification1 = () => {
+  const handleSuccessfulVerification = () => {
     displayToast("Verification successful! You can now register.");
     setVerificationComplete(true);
   };
 
-  const handleSuccessfulVerification = () => {
+  const handleSuccessfulVerification1 = () => {
     displayToast("Verification successful! Redirecting...");
     setTimeout(() => {
       router.push("/verified");

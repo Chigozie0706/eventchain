@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     const disclosures_config: VerificationConfig = {
       excludedCountries: [],
       ofac: false,
-      minimumAge: 18,
+      minimumAge,
     };
     const configStore = new DefaultConfigStore(disclosures_config);
 
