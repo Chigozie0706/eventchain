@@ -7,19 +7,13 @@ const { ethers } = require("ethers");
  *      Make sure these addresses are correct and available on the target network.
  */
 
-const _supportedTokens1 = [
+const _supportedTokens = [
   ethers.getAddress("0x765de816845861e75a25fca122bb6898b8b1282a"), // cUSD (Celo Dollar)
   ethers.getAddress("0xd8763cba276a3738e6de85b4b3bf5fded6d6ca73"), // cEUR (Celo Euro)
   ethers.getAddress("0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787"), // cREAL (Celo Real)
   ethers.getAddress("0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A"), // G$
   ethers.getAddress("0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e"), // USDT
   ethers.ZeroAddress, // Native CELO token representation
-];
-
-const _supportedTokens = [
-  ethers.getAddress("0x874069fa1eb16d44d622f2e0ca25eea172369bc1"),
-  ethers.getAddress("0x10c892a6ec43a53e45d0b916b4b7d383b1b78c0f"),
-  ethers.getAddress("0xE4D517785D091D3c54818832dB6094bcc2744545"),
 ];
 
 /**

@@ -4,7 +4,7 @@ import EventCard from "@/components/EventCard";
 import { useAccount, useBalance, useReadContract } from "wagmi";
 import contractABI from "../../contract/abi.json";
 import { createWalletClient, custom } from "viem";
-import { celoAlfajores } from "viem/chains";
+import { celo } from "viem/chains";
 
 interface Event {
   index: number;
@@ -25,7 +25,7 @@ interface Event {
   paymentToken: string;
 }
 
-const CONTRACT_ADDRESS = "0x68ea5654c080Ce51598D270C153B3DD262d071E9";
+const CONTRACT_ADDRESS = "0xcbfbBF29fD197b2Cf79B236E86e6Bade5a552eD8";
 
 export default function Home() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -51,7 +51,7 @@ export default function Home() {
     if (typeof window !== "undefined" && window.ethereum) {
       let walletClient = createWalletClient({
         transport: custom(window.ethereum),
-        chain: celoAlfajores,
+        chain: celo,
       });
 
       let [address1] = await walletClient.getAddresses();
@@ -219,10 +219,6 @@ export default function Home() {
               <>
                 <p className="text-center text-gray-500 col-span-full">
                   No events found. {address1}
-                </p>
-                <p className="text-center text-gray-500 col-span-full">
-                  p1L {address}
-                  {formattedBalance}
                 </p>
               </>
             )}

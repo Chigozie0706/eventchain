@@ -50,6 +50,12 @@ EventChain is a decentralized ticketing platform built on the Celo blockchain. U
 - Supports IPFS hashes and web URLs
 - Graceful fallback to default image if upload fails
 
+### ✅ MiniPay Integration
+
+- Added support for MiniPay (cUSD) as a native payment option.
+- Enabled seamless mobile-first payments with stable assets.
+- Improved user onboarding with wallet simplicity.
+
 ---
 
 ## 🔁 User Flow

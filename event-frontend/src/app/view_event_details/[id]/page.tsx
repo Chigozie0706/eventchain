@@ -21,7 +21,7 @@ import {
   createWalletClient,
   custom,
 } from "viem";
-import { celoAlfajores } from "viem/chains";
+import { celo } from "viem/chains";
 
 export interface Event {
   owner: string;
@@ -42,7 +42,7 @@ export interface Event {
   paymentToken: string;
 }
 
-const CONTRACT_ADDRESS = "0x68ea5654c080Ce51598D270C153B3DD262d071E9";
+const CONTRACT_ADDRESS = "0xcbfbBF29fD197b2Cf79B236E86e6Bade5a552eD8";
 const CELO_TOKEN_ADDRESS = "0x0000000000000000000000000000000000000000";
 const USDT_ADDRESS = "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e"; // Mainnet USDT
 
@@ -69,7 +69,7 @@ export default function Home() {
     if (typeof window !== "undefined" && window.ethereum) {
       let walletClient = createWalletClient({
         transport: custom(window.ethereum),
-        chain: celoAlfajores,
+        chain: celo,
       });
 
       let [address1] = await walletClient.getAddresses();

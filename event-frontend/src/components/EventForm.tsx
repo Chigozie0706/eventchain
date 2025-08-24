@@ -39,9 +39,9 @@ interface Address {
   longitude: string | number; // Can be string or number depending on your needs
 }
 
-const CONTRACT_ADDRESS = "0x68ea5654c080Ce51598D270C153B3DD262d071E9";
+const CONTRACT_ADDRESS = "0xcbfbBF29fD197b2Cf79B236E86e6Bade5a552eD8";
 
-const tokenOptions1 = [
+const tokenOptions = [
   {
     symbol: "CELO",
     address: "0x0000000000000000000000000000000000000000",
@@ -65,21 +65,6 @@ const tokenOptions1 = [
   {
     symbol: "USDT",
     address: "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e",
-  },
-];
-
-const tokenOptions = [
-  {
-    symbol: "CELO",
-    address: "0x0000000000000000000000000000000000000000",
-  },
-  {
-    symbol: "cUSD",
-    address: "0x874069fa1eb16d44d622f2e0ca25eea172369bc1",
-  },
-  {
-    symbol: "cEUR",
-    address: "0x10c892a6ec43a53e45d0b916b4b7d383b1b78c0f",
   },
 ];
 
