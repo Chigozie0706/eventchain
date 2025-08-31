@@ -20,8 +20,11 @@ import {
   encodeAbiParameters,
   createWalletClient,
   custom,
+  createPublicClient,
+  http,
 } from "viem";
 import { celo } from "viem/chains";
+import { tokenOptions } from "@/utils/tokens";
 
 export interface Event {
   owner: string;
@@ -42,7 +45,7 @@ export interface Event {
   paymentToken: string;
 }
 
-const CONTRACT_ADDRESS = "0xcbfbBF29fD197b2Cf79B236E86e6Bade5a552eD8";
+const CONTRACT_ADDRESS = "0xc21Ea2C50ddF20B20fdfa80A1547Bf67089c7e04";
 const CELO_TOKEN_ADDRESS = "0x0000000000000000000000000000000000000000";
 const USDT_ADDRESS = "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e"; // Mainnet USDT
 
@@ -85,10 +88,10 @@ export default function Home() {
   console.log("address2", address1);
 
   // Add CELO balance check
-  const { data: celoBalance } = useBalance({
-    address: address,
-    query: { enabled: !!address },
-  });
+  // const { data: celoBalance } = useBalance({
+  //   address: address,
+  //   query: { enabled: !!address },
+  // });
 
   // Contract data fetching with refetch capability
   const {
@@ -114,19 +117,19 @@ export default function Home() {
     useWaitForTransactionReceipt({ hash });
 
   // Token balance check
-  const { data: tokenBalance, refetch: refetchBalance } = useReadContract({
-    address: eventDetails?.event.paymentToken as `0x${string}`,
-    abi: erc20Abi,
-    functionName: "balanceOf",
-    args: [address!],
-    query: {
-      enabled:
-        !!address &&
-        !!eventDetails?.event.paymentToken &&
-        eventDetails.event.paymentToken !== CELO_TOKEN_ADDRESS,
-    },
-    // query: { enabled: !!address && !!eventDetails?.event.paymentToken },
-  });
+  // const { data: tokenBalance, refetch: refetchBalance } = useReadContract({
+  //   address: eventDetails?.event.paymentToken as `0x${string}`,
+  //   abi: erc20Abi,
+  //   functionName: "balanceOf",
+  //   args: [address!],
+  //   query: {
+  //     enabled:
+  //       !!address &&
+  //       !!eventDetails?.event.paymentToken &&
+  //       eventDetails.event.paymentToken !== CELO_TOKEN_ADDRESS,
+  //   },
+  //   // query: { enabled: !!address && !!eventDetails?.event.paymentToken },
+  // });
 
   // Token allowance check
   const { data: tokenAllowance, refetch: refetchAllowance } = useReadContract({
@@ -153,13 +156,19 @@ export default function Home() {
   const { isLoading: isRefundConfirming, isSuccess: isRefundConfirmed } =
     useWaitForTransactionReceipt({ hash: refundHash });
 
+  // Create public client instance
+  const publicClient = createPublicClient({
+    chain: celo,
+    transport: http(), // Celo mainnet RPC
+  });
+
   // Refetch data after successful actions
   useEffect(() => {
     if (isConfirmed || isRefundConfirmed) {
       // Refetch all relevant data
       Promise.all([
         refetchEvent(),
-        refetchBalance?.(),
+        // refetchBalance?.(),
         refetchAllowance?.(),
       ]).catch(console.error);
     }
@@ -167,7 +176,7 @@ export default function Home() {
     isConfirmed,
     isRefundConfirmed,
     refetchEvent,
-    refetchBalance,
+    // refetchBalance,
     refetchAllowance,
   ]);
 
@@ -255,6 +264,15 @@ export default function Home() {
     }
   };
 
+  // Helper function to get token symbol
+  const getTokenSymbol = (tokenAddress: string): string => {
+    const normalizedAddr = tokenAddress.toLowerCase();
+    const token = tokenOptions.find(
+      (t) => t.address.toLowerCase() === normalizedAddr
+    );
+    return token ? token.symbol : "Token";
+  };
+
   const buyTicket = useCallback(async () => {
     console.log("[Ticket] Starting ticket purchase process");
 
@@ -287,72 +305,218 @@ export default function Home() {
         paymentToken.toLowerCase()
       );
 
-      // Balance checks
       if (isCelo) {
-        if (!celoBalance || celoBalance.value < requiredAmount) {
+        // Check native CELO balance
+        const balance = await publicClient.getBalance({ address });
+        if (balance < requiredAmount) {
           toast.error("Insufficient CELO balance");
           setLoading(false);
           return;
         }
-      } else if (tokenBalance !== undefined && tokenBalance < requiredAmount) {
-        toast.error("Insufficient token balance");
-        setLoading(false);
-        return;
+      } else {
+        // Check ERC20 token balance
+        const balance = await publicClient.readContract({
+          address: paymentToken as `0x${string}`,
+          abi: erc20Abi,
+          functionName: "balanceOf",
+          args: [address],
+        });
+
+        // Handle USDT's 6 decimals differently
+        let adjustedRequiredAmount = requiredAmount;
+        if (isUSDT) {
+          adjustedRequiredAmount = requiredAmount / BigInt(10 ** 12); // Convert from 18 to 6 decimals
+        }
+
+        if (balance < adjustedRequiredAmount) {
+          toast.error(`Insufficient ${getTokenSymbol(paymentToken)} balance`);
+          setLoading(false);
+          return;
+        }
       }
 
       // Get Divvi suffix
       const divviSuffix = getReferralTag(DIVVI_CONFIG);
       let hash: `0x${string}`;
 
-      // USDT-specific flow
+      // USDT-specific flow - FIXED with proper decimal handling
+      // if (isUSDT) {
+      //   toast.loading("Preparing USDT transaction...", { id: toastId });
+
+      //   try {
+      //     // 1. FIRST check USDT balance (USDT has 6 decimals!)
+      //     const usdtBalance = await publicClient.readContract({
+      //       address: paymentToken as `0x${string}`,
+      //       abi: erc20Abi,
+      //       functionName: "balanceOf",
+      //       args: [address],
+      //     });
+
+      //     console.log(
+      //       "USDT Balance:",
+      //       usdtBalance.toString(),
+      //       "Required:",
+      //       requiredAmount.toString()
+      //     );
+
+      //     // Convert required amount to USDT's 6 decimal format
+      //     const requiredAmountUSDT = requiredAmount / BigInt(10 ** 12); // Convert from 18 to 6 decimals
+
+      //     if (usdtBalance < requiredAmountUSDT) {
+      //       const formattedRequired = Number(requiredAmountUSDT) / 10 ** 6;
+      //       const formattedBalance = Number(usdtBalance) / 10 ** 6;
+      //       toast.error(
+      //         `Insufficient USDT balance. You need ${formattedRequired} USDT, but you have ${formattedBalance} USDT`
+      //       );
+      //       setLoading(false);
+      //       return;
+      //     }
+
+      //     // 2. Check current allowance
+      //     const currentAllowance = await publicClient.readContract({
+      //       address: paymentToken as `0x${string}`,
+      //       abi: erc20Abi,
+      //       functionName: "allowance",
+      //       args: [address, CONTRACT_ADDRESS],
+      //     });
+
+      //     // Convert allowance comparison to 6 decimals
+      //     const currentAllowanceUSDT = currentAllowance;
+      //     const requiredAllowanceUSDT = requiredAmountUSDT;
+
+      //     // 3. Reset allowance to 0 if needed (USDT requires this)
+      //     if (currentAllowanceUSDT > BigInt(0)) {
+      //       const resetHash = await walletClient.writeContract({
+      //         address: paymentToken as `0x${string}`,
+      //         abi: erc20Abi,
+      //         functionName: "approve",
+      //         args: [CONTRACT_ADDRESS, BigInt(0)],
+      //       });
+
+      //       // WAIT for reset transaction to be confirmed
+      //       await publicClient.waitForTransactionReceipt({ hash: resetHash });
+      //     }
+
+      //     // 4. Set new allowance (in USDT's 6 decimal format)
+      //     const approveHash = await walletClient.writeContract({
+      //       address: paymentToken as `0x${string}`,
+      //       abi: erc20Abi,
+      //       functionName: "approve",
+      //       args: [CONTRACT_ADDRESS, requiredAmountUSDT],
+      //     });
+
+      //     // WAIT for approval transaction to be confirmed
+      //     await publicClient.waitForTransactionReceipt({ hash: approveHash });
+
+      //     // 5. Verify the new allowance was set correctly
+      //     const newAllowance = await publicClient.readContract({
+      //       address: paymentToken as `0x${string}`,
+      //       abi: erc20Abi,
+      //       functionName: "allowance",
+      //       args: [address, CONTRACT_ADDRESS],
+      //     });
+
+      //     if (newAllowance < requiredAmountUSDT) {
+      //       throw new Error(
+      //         "USDT approval failed - insufficient allowance set"
+      //       );
+      //     }
+
+      //     // 6. Now execute the purchase
+      //     const encodedFunction = encodeFunctionData({
+      //       abi: contractABI.abi,
+      //       functionName: "buyTicket",
+      //       args: [eventId],
+      //     });
+
+      //     const dataWithDivvi = (encodedFunction +
+      //       (divviSuffix.startsWith("0x")
+      //         ? divviSuffix.slice(2)
+      //         : divviSuffix)) as `0x${string}`;
+
+      //     hash = await walletClient.sendTransaction({
+      //       account: address,
+      //       to: CONTRACT_ADDRESS,
+      //       data: dataWithDivvi,
+      //       gas: BigInt(300000),
+      //     });
+      //   } catch (usdtError: any) {
+      //     console.error("USDT transaction failed:", usdtError);
+      //     toast.error("USDT approval failed. Please try again.");
+      //     setLoading(false);
+      //     return;
+      //   }
+      // }
+
+      // USDT-specific flow - SIMPLIFIED
       if (isUSDT) {
         toast.loading("Preparing USDT transaction...", { id: toastId });
 
-        // 1. Reset allowance if needed
-        if (tokenAllowance && tokenAllowance > BigInt(0)) {
-          await write({
+        try {
+          // 1. Check USDT balance (convert required amount to 6 decimals for comparison)
+          const usdtBalance = await publicClient.readContract({
             address: paymentToken as `0x${string}`,
             abi: erc20Abi,
-            functionName: "approve",
-            args: [CONTRACT_ADDRESS, BigInt(0)],
-            gas: BigInt(100000),
+            functionName: "balanceOf",
+            args: [address],
           });
+
+          const requiredAmountUSDT = requiredAmount / BigInt(10 ** 12);
+
+          if (usdtBalance < requiredAmountUSDT) {
+            const formattedRequired = Number(requiredAmountUSDT) / 10 ** 6;
+            const formattedBalance = Number(usdtBalance) / 10 ** 6;
+            toast.error(
+              `Insufficient USDT balance. You need ${formattedRequired} USDT, but you have ${formattedBalance} USDT`
+            );
+            setLoading(false);
+            return;
+          }
+
+          // 2. Approve the ORIGINAL amount (18 decimals) - contract will convert
+          const currentAllowance = await publicClient.readContract({
+            address: paymentToken as `0x${string}`,
+            abi: erc20Abi,
+            functionName: "allowance",
+            args: [address, CONTRACT_ADDRESS],
+          });
+
+          if (currentAllowance < requiredAmount) {
+            const approveHash = await walletClient.writeContract({
+              address: paymentToken as `0x${string}`,
+              abi: erc20Abi,
+              functionName: "approve",
+              args: [CONTRACT_ADDRESS, requiredAmount], // Original 18 decimal amount
+            });
+            await publicClient.waitForTransactionReceipt({ hash: approveHash });
+          }
+
+          // 3. Execute purchase - contract will handle decimal conversion
+          const encodedFunction = encodeFunctionData({
+            abi: contractABI.abi,
+            functionName: "buyTicket",
+            args: [eventId],
+          });
+
+          const dataWithDivvi = (encodedFunction +
+            (divviSuffix.startsWith("0x")
+              ? divviSuffix.slice(2)
+              : divviSuffix)) as `0x${string}`;
+
+          hash = await walletClient.sendTransaction({
+            account: address,
+            to: CONTRACT_ADDRESS,
+            data: dataWithDivvi,
+            gas: BigInt(300000),
+          });
+        } catch (usdtError: any) {
+          console.error("USDT transaction failed:", usdtError);
+          toast.error("USDT transaction failed. Please try again.");
+          setLoading(false);
+          return;
         }
-
-        // 2. Set new allowance
-        await write({
-          address: paymentToken as `0x${string}`,
-          abi: erc20Abi,
-          functionName: "approve",
-          args: [CONTRACT_ADDRESS, requiredAmount],
-          gas: BigInt(150000),
-        });
-
-        // 3. Verify allowance
-        const newAllowance = await refetchAllowance();
-        if (newAllowance.data! < requiredAmount) {
-          throw new Error("USDT approval failed");
-        }
-
-        // 4. Execute purchase
-        const encodedFunction = encodeFunctionData({
-          abi: contractABI.abi,
-          functionName: "buyTicket",
-          args: [eventId],
-        });
-
-        const dataWithDivvi = (encodedFunction +
-          (divviSuffix.startsWith("0x")
-            ? divviSuffix.slice(2)
-            : divviSuffix)) as `0x${string}`;
-
-        hash = await walletClient.sendTransaction({
-          account: address,
-          to: CONTRACT_ADDRESS,
-          data: dataWithDivvi,
-          gas: BigInt(300000),
-        });
       }
+
       // G$ token flow
       else if (isGdollar) {
         toast.loading("Preparing G$ transfer...", { id: toastId });
@@ -463,12 +627,12 @@ export default function Home() {
     eventDetails,
     address,
     eventId,
-    write,
-    tokenAllowance,
+    // write,
+    // tokenAllowance,
     walletClient,
-    tokenBalance,
-    celoBalance,
-    refetchAllowance,
+    // tokenBalance,
+
+    // refetchAllowance,
   ]);
 
   const requestRefund = useCallback(async () => {

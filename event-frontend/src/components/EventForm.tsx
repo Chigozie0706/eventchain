@@ -15,6 +15,7 @@ import { getReferralTag, submitReferral } from "@divvi/referral-sdk";
 import contractABI from "../contract/abi.json";
 import { encodeFunctionData } from "viem";
 import { celo } from "viem/chains";
+import { tokenOptions, normalizeAddress } from "@/utils/tokens";
 
 interface EventData {
   eventName: string;
@@ -39,34 +40,13 @@ interface Address {
   longitude: string | number; // Can be string or number depending on your needs
 }
 
-const CONTRACT_ADDRESS = "0xcbfbBF29fD197b2Cf79B236E86e6Bade5a552eD8";
+export interface Token {
+  symbol: string;
+  address: `0x${string}`;
+  decimals: number;
+}
 
-const tokenOptions = [
-  {
-    symbol: "CELO",
-    address: "0x0000000000000000000000000000000000000000",
-  },
-  {
-    symbol: "cUSD",
-    address: "0x765de816845861e75a25fca122bb6898b8b1282a",
-  },
-  {
-    symbol: "cEUR",
-    address: "0xd8763cba276a3738e6de85b4b3bf5fded6d6ca73",
-  },
-  {
-    symbol: "cREAL",
-    address: "0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787",
-  },
-  {
-    symbol: "G$",
-    address: "0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A",
-  },
-  {
-    symbol: "USDT",
-    address: "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e",
-  },
-];
+const CONTRACT_ADDRESS = "0xc21Ea2C50ddF20B20fdfa80A1547Bf67089c7e04";
 
 const EventForm = () => {
   const router = useRouter();
@@ -148,6 +128,7 @@ const EventForm = () => {
       if (isNaN(minAge) || minAge < 0 || minAge > 120) {
         throw new Error("Please enter a valid minimum age (0-120)");
       }
+
       return true;
     } catch (error: any) {
       toast.error(error.message);
@@ -266,10 +247,23 @@ const EventForm = () => {
         endDateTime.getHours() * 3600 + endDateTime.getMinutes() * 60
       );
 
-      const priceInWei = parseUnits(eventData.eventPrice, 18);
+      // Get the selected token to check decimals
+      const selectedToken = tokenOptions.find(
+        (token) => token.address === eventData.paymentToken.toLowerCase()
+      );
+
+      // Use correct decimals for the token
+      const decimals = selectedToken?.decimals || 18;
+      const priceInWei = parseUnits(eventData.eventPrice, decimals);
+
+      // const priceInWei = parseUnits(eventData.eventPrice, 18);
 
       // Get Divvi data suffix
       const divviSuffix = getReferralTag(DIVVI_CONFIG);
+
+      // const paymentTokenAddress = eventData.paymentToken;
+
+      const normalizedPaymentToken = normalizeAddress(eventData.paymentToken);
 
       // Encode contract function call
       const encodedFunction = encodeFunctionData({
@@ -286,7 +280,8 @@ const EventForm = () => {
           eventData.eventLocation,
           priceInWei,
           minimumAge,
-          eventData.paymentToken.toLowerCase(), // Ensure lowercase for comparison
+          normalizedPaymentToken,
+          // eventData.paymentToken.toLowerCase(), // Ensure lowercase for comparison
         ],
       });
 
@@ -573,7 +568,7 @@ const EventForm = () => {
       {/* Select Payment Token */}
       <div className="mb-4">
         <label className="block text-gray-700 font-medium text-sm mb-2">
-          Payment Token (cUSD, cEUR, cREAL)*
+          Payment Token (cUSD, cEUR, cREAL, USDT)*
         </label>
         <select
           name="paymentToken"

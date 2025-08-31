@@ -29,6 +29,7 @@ const mentoTokens: Record<string, string> = {
   "0xd8763cba276a3738e6de85b4b3bf5fded6d6ca73": "cEUR",
   "0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787": "cREAL",
   "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e": "USDT",
+  "0x0000000000000000000000000000000000000000": "CELO",
 };
 
 const CreatorEventCard: React.FC<CreatorEventCardProps> = ({
@@ -42,7 +43,7 @@ const CreatorEventCard: React.FC<CreatorEventCardProps> = ({
 
   const formatTicketPrice = (price: number) => {
     if (price < 1e18) {
-      return price.toFixed(2);
+      return price.toFixed(3);
     }
     return (price / 1e18).toFixed(2);
   };

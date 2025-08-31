@@ -20,7 +20,7 @@ import {
   type SelfApp,
 } from "@selfxyz/qrcode";
 import { useParams, useRouter } from "next/navigation";
-import { ethers } from "ethers";
+import { ethers, formatEther } from "ethers";
 
 export interface Event {
   owner: string;
@@ -81,7 +81,12 @@ export default function EventPage({
     "0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787": "cREAL",
     "0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A": "G$",
     "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e": "USDT",
+    "0x0000000000000000000000000000000000000000": "CELO",
   };
+
+  const isUSDT =
+    event.paymentToken.toLowerCase() ===
+    "0x48065fbbe25f71c9282ddf5e1cd6d6a887483d5e";
 
   // Normalize by trimming and lowercasing both sides
   const normalizedToken = event.paymentToken?.trim().toLowerCase();
@@ -90,7 +95,14 @@ export default function EventPage({
       ([address]) => address.toLowerCase() === normalizedToken
     )?.[1] || event.paymentToken;
 
-  const formattedPrice = formatPrice(event.ticketPrice);
+  // const formattedPrice = formatPrice(event.ticketPrice);
+  // In your EventPage component, update the formatPrice usage:
+  const formattedPrice1 = formatPrice(event.ticketPrice, event.paymentToken);
+
+  // CORRECT: Convert and format properly
+  const formattedPrice = isUSDT
+    ? (Number(event.ticketPrice) / 1e12 / 1e6).toFixed(6) // This should work
+    : formatEther(event.ticketPrice);
   const minimumAge = event.minimumAge;
   const requiresAgeVerification = minimumAge > 0;
 

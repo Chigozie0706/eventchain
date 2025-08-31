@@ -25,7 +25,7 @@ interface Event {
   paymentToken: string;
 }
 
-const CONTRACT_ADDRESS = "0xcbfbBF29fD197b2Cf79B236E86e6Bade5a552eD8";
+const CONTRACT_ADDRESS = "0xc21Ea2C50ddF20B20fdfa80A1547Bf67089c7e04";
 
 export default function Home() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -194,17 +194,6 @@ export default function Home() {
         <h3 className="text-xl md:text-2xl font-bold mt-20 mx-5">
           Featured & Upcoming Events
         </h3>
-
-        {/* 👇 Show balance at top */}
-        <div className="mx-5 my-4 text-gray-700">
-          {isBalanceLoading && "Loading balance..."}
-          {isBalanceError && "Error fetching balance"}
-          {formattedBalance && (
-            <span>
-              Your Balance: {formattedBalance} {balanceData?.symbol}
-            </span>
-          )}
-        </div>
 
         <div className="w-full px-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 justify-center">

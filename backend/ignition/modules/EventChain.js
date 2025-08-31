@@ -14,7 +14,7 @@ const _supportedTokens = [
   ethers.getAddress("0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A"), // G$
   ethers.getAddress("0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e"), // USDT
   ethers.ZeroAddress, // Native CELO token representation
-];
+].map((addr) => addr.toLowerCase()); // Convert all to lowercase
 
 /**
  * @notice Deployment module for the EventChain smart contract.

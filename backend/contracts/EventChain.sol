@@ -372,6 +372,10 @@ contract EventChain is ReentrancyGuard {
         bool isGdollar = (event_.paymentToken ==
             0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A);
 
+        // USDT address - add this constant
+        address USDT = 0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e;
+        bool isUSDT = (event_.paymentToken == USDT);
+
         // Handle CELO payments
         if (event_.paymentToken == CELO) {
             require(msg.value == price, "Incorrect CELO amount");
@@ -392,6 +396,27 @@ contract EventChain is ReentrancyGuard {
 
             // Send fee to UBI pool (handled in onTokenTransfer)
             event_.fundsHeld += netAmount;
+        }
+        // FIXED USDT handling in buyTicket
+        else if (isUSDT) {
+            // Convert price from 18 to 6 decimals for USDT
+            uint256 usdtPrice = price / 1e12;
+
+            require(
+                IERC20(event_.paymentToken).allowance(
+                    msg.sender,
+                    address(this)
+                ) >= usdtPrice,
+                "Insufficient allowance"
+            );
+            _safeTransferFrom(
+                IERC20(event_.paymentToken),
+                msg.sender,
+                address(this),
+                usdtPrice
+            );
+            // STORE the actual amount received (6 decimals), not the 18 decimal representation
+            event_.fundsHeld += usdtPrice; // This is the key fix!
         }
         // Handle other ERC20 tokens
         else {
@@ -465,36 +490,7 @@ contract EventChain is ReentrancyGuard {
      * @dev Allows refunds for canceled events or before refund buffer period
      * @param _index The ID of the event to request refund for
      */
-
     function requestRefund1(
-        uint256 _index
-    ) public nonReentrant validEvent(_index) whenNotPaused {
-        require(hasPurchasedTicket[_index][msg.sender], "No ticket purchased");
-
-        uint256 refundAmount = events[_index].ticketPrice;
-
-        // For G$ token, refund 99% (1% fee already taken)
-        if (
-            events[_index].paymentToken ==
-            0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A
-        ) {
-            refundAmount = (refundAmount * 99) / 100;
-        }
-
-        // Check if contract has enough funds (now matches refundAmount)
-        require(events[_index].fundsHeld >= refundAmount, "Insufficient funds");
-
-        if (!events[_index].isCanceled) {
-            require(
-                block.timestamp < events[_index].startDate - REFUND_BUFFER,
-                "Refund period ended"
-            );
-        }
-
-        _processRefund(_index, refundAmount);
-    }
-
-    function requestRefund(
         uint256 _index
     ) public nonReentrant validEvent(_index) whenNotPaused {
         require(hasPurchasedTicket[_index][msg.sender], "No ticket purchased");
@@ -551,40 +547,85 @@ contract EventChain is ReentrancyGuard {
 
         emit RefundIssued(_index, msg.sender, refundAmount);
     }
+
+    function requestRefund(
+        uint256 _index
+    ) public nonReentrant validEvent(_index) whenNotPaused {
+        require(hasPurchasedTicket[_index][msg.sender], "No ticket purchased");
+
+        uint256 refundAmount = events[_index].ticketPrice;
+        address paymentToken = events[_index].paymentToken;
+
+        // USDT address
+        address USDT = 0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e;
+        bool isUSDT = (paymentToken == USDT);
+
+        // Handle G$ token (refund 99%)
+        if (paymentToken == 0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A) {
+            refundAmount = (refundAmount * 99) / 100;
+        }
+
+        // Check available funds
+        if (paymentToken == CELO) {
+            require(
+                celoFundsHeld[_index] >= refundAmount,
+                "Insufficient CELO funds"
+            );
+        } else {
+            require(
+                events[_index].fundsHeld >= refundAmount,
+                "Insufficient funds"
+            );
+        }
+
+        if (!events[_index].isCanceled) {
+            require(
+                block.timestamp < events[_index].startDate - REFUND_BUFFER,
+                "Refund period ended"
+            );
+        }
+
+        // Process refund
+        hasPurchasedTicket[_index][msg.sender] = false;
+
+        if (paymentToken == CELO) {
+            celoFundsHeld[_index] -= refundAmount;
+            (bool success, ) = msg.sender.call{value: refundAmount}("");
+            require(success, "CELO refund failed");
+        }
+        // FIXED USDT handling in requestRefund
+        else if (isUSDT) {
+            // fundsHeld is already in USDT's 6 decimals
+            uint256 usdtRefundAmount = refundAmount / 1e12;
+
+            // Update funds held (in 6 decimal format)
+            events[_index].fundsHeld -= usdtRefundAmount;
+
+            // Transfer the correct amount (6 decimals)
+            IERC20(paymentToken).safeTransfer(msg.sender, usdtRefundAmount);
+        } else {
+            events[_index].fundsHeld -= refundAmount;
+            IERC20(paymentToken).safeTransfer(msg.sender, refundAmount);
+        }
+
+        // Remove from attendees list
+        address[] storage attendees = eventAttendees[_index];
+        for (uint256 i = 0; i < attendees.length; i++) {
+            if (attendees[i] == msg.sender) {
+                attendees[i] = attendees[attendees.length - 1];
+                attendees.pop();
+                break;
+            }
+        }
+
+        emit RefundIssued(_index, msg.sender, refundAmount);
+    }
+
     /**
      * @notice Release collected funds to event owner after event ends
      * @dev Transfers held funds to event owner and marks funds as released
      * @param _index The ID of the event to release funds for
      */
-    function releaseFunds1(
-        uint256 _index
-    ) public onlyOwner(_index) nonReentrant {
-        require(_index < events.length, "Invalid event ID");
-        require(
-            block.timestamp > events[_index].endDate,
-            "Event has not ended yet"
-        );
-        require(
-            !events[_index].isCanceled,
-            "Cannot release funds for a canceled event"
-        );
-        require(!events[_index].fundsReleased, "Funds already released");
-
-        uint256 amountToRelease = events[_index].fundsHeld;
-        events[_index].fundsHeld = 0;
-        events[_index].fundsReleased = true;
-
-        require(
-            IERC20(events[_index].paymentToken).transfer(
-                msg.sender,
-                amountToRelease
-            ),
-            "Fund transfer failed"
-        );
-
-        emit FundsReleased(_index, amountToRelease);
-    }
-
     function releaseFunds(
         uint256 _index
     ) public onlyOwner(_index) nonReentrant {
@@ -602,11 +643,22 @@ contract EventChain is ReentrancyGuard {
         uint256 amountToRelease;
         address paymentToken = events[_index].paymentToken;
 
+        // USDT address
+        address USDT = 0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e;
+        bool isUSDT = (paymentToken == USDT);
+
         if (paymentToken == CELO) {
             amountToRelease = celoFundsHeld[_index];
             celoFundsHeld[_index] = 0;
             (bool success, ) = msg.sender.call{value: amountToRelease}("");
             require(success, "CELO transfer failed");
+        }
+        // FIXED USDT handling in releaseFunds
+        else if (isUSDT) {
+            // fundsHeld is already in USDT's 6 decimals, no conversion needed
+            amountToRelease = events[_index].fundsHeld;
+            events[_index].fundsHeld = 0;
+            IERC20(paymentToken).safeTransfer(msg.sender, amountToRelease);
         } else {
             amountToRelease = events[_index].fundsHeld;
             events[_index].fundsHeld = 0;
