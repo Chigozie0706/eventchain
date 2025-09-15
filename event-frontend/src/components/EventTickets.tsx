@@ -7,7 +7,7 @@ import { MapPin, Calendar, Flag, DollarSign } from "lucide-react";
 import { toast } from "react-hot-toast";
 import contractABI from "../contract/abi.json";
 
-const CONTRACT_ADDRESS = "0xc21Ea2C50ddF20B20fdfa80A1547Bf67089c7e04";
+const CONTRACT_ADDRESS = "0x2FE3B8dd920C6b0cE4bA6495C39552904Cf30D28";
 
 interface Event {
   id: string;

@@ -13,7 +13,7 @@ import { formatEventDate, formatEventTime, formatPrice } from "@/utils/format";
 import { useAccount } from "wagmi";
 import { useEffect, useState } from "react";
 import { countries, getUniversalLink } from "@selfxyz/core";
-
+import { formatUnits } from "ethers";
 import {
   SelfQRcodeWrapper,
   SelfAppBuilder,
@@ -101,7 +101,7 @@ export default function EventPage({
 
   // CORRECT: Convert and format properly
   const formattedPrice = isUSDT
-    ? (Number(event.ticketPrice) / 1e12 / 1e6).toFixed(6) // This should work
+    ? (Number(event.ticketPrice) / 1e12 / 1e6).toFixed(6)
     : formatEther(event.ticketPrice);
   const minimumAge = event.minimumAge;
   const requiresAgeVerification = minimumAge > 0;
@@ -117,6 +117,19 @@ export default function EventPage({
   const endpoint = `${NGROK_URL}/api/events/${eventId}/verify?minimumAge=${minimumAge}`;
   const userId1 = `${address}`;
   const [userId] = useState(ethers.ZeroAddress);
+
+  const getTokenDecimals = (tokenAddress: string) => {
+    const normalizedToken = tokenAddress.trim().toLowerCase();
+    if (normalizedToken === "0x48065fbbe25f71c9282ddf5e1cd6d6a887483d5e")
+      return 6; // USDT
+    // ... other tokens
+    return 18; // default
+  };
+
+  const formattedPrice2 = formatUnits(
+    event.ticketPrice,
+    getTokenDecimals(event.paymentToken)
+  );
 
   useEffect(() => {
     if (!address) return;
@@ -155,6 +168,7 @@ export default function EventPage({
     }
   }, [address]);
 
+  console.log("isUSDT", formattedPrice2);
   const displayToast = (message: string) => {
     setToastMessage(message);
     setShowToast(true);
@@ -232,7 +246,7 @@ export default function EventPage({
               <span>Ticket Price</span>
             </h3>
             <p className="text-green-600 text-sm font-bold">
-              {formattedPrice} {tokenName}
+              {formattedPrice2} {tokenName}
             </p>
           </div>
 
@@ -307,7 +321,7 @@ export default function EventPage({
             <p className="text-gray-600 text-base mt-2">
               Price:{" "}
               <span className="font-semibold">
-                {formattedPrice} {tokenName}
+                {formattedPrice2} {tokenName}
               </span>
             </p>
           </div>

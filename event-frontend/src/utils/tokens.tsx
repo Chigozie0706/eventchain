@@ -38,12 +38,12 @@ export const tokenOptions: Token[] = [
       "0x62b8b11039fcfe5ab0c56e502b1c372a3d2a9c7a".toLowerCase() as `0x${string}`,
     decimals: 18,
   },
-  // {
-  //   symbol: "USDT",
-  //   address:
-  //     "0x48065fbbe25f71c9282ddf5e1cd6d6a887483d5e".toLowerCase() as `0x${string}`,
-  //   decimals: 6,
-  // },
+  {
+    symbol: "USDT",
+    address:
+      "0x48065fbbe25f71c9282ddf5e1cd6d6a887483d5e".toLowerCase() as `0x${string}`,
+    decimals: 6,
+  },
 ];
 
 // Helper function to normalize any address to lowercase
