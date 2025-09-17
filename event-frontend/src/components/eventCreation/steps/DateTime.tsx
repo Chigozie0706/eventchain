@@ -18,7 +18,7 @@ export default function DateTime({ eventData, setEventData }: Props) {
           name="startDate"
           value={eventData.startDate}
           onChange={(e) =>
-            setEventData({ ...eventData, eventName: e.target.value })
+            setEventData({ ...eventData, startDate: e.target.value })
           }
           className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
         />
@@ -34,7 +34,7 @@ export default function DateTime({ eventData, setEventData }: Props) {
           name="endDate"
           value={eventData.endDate}
           onChange={(e) =>
-            setEventData({ ...eventData, eventName: e.target.value })
+            setEventData({ ...eventData, endDate: e.target.value })
           }
           className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
         />
@@ -51,7 +51,7 @@ export default function DateTime({ eventData, setEventData }: Props) {
           name="startTime"
           value={eventData.startTime}
           onChange={(e) =>
-            setEventData({ ...eventData, eventName: e.target.value })
+            setEventData({ ...eventData, startTime: e.target.value })
           }
           className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
         />
@@ -65,7 +65,7 @@ export default function DateTime({ eventData, setEventData }: Props) {
           name="endTime"
           value={eventData.endTime}
           onChange={(e) =>
-            setEventData({ ...eventData, eventName: e.target.value })
+            setEventData({ ...eventData, endTime: e.target.value })
           }
           className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
         />

@@ -631,6 +631,9 @@ const EventForm = () => {
         handleFileChange={handleFileChange}
         handleDrop={handleDrop}
         handleDragOver={handleDragOver}
+        handleTokenChange={handleTokenChange}
+        tokenOptions={tokenOptions}
+        createEvent={createEvent}
       />
     </>
   );

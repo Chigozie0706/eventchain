@@ -29,7 +29,9 @@ export default function EventDetails({
 }: Props) {
   return (
     <div>
-      <label>Event Title *</label>
+      <label className="block text-gray-700 font-medium text-sm mb-2">
+        Event Title *
+      </label>
       <input
         type="text"
         name="eventName"

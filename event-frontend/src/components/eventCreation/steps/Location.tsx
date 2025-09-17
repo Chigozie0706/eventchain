@@ -7,19 +7,20 @@ interface Props {
 
 export default function Location({ eventData, setEventData }: Props) {
   return (
-    <div>
-      <label>Event Title *</label>
+    <div className="mb-4">
+      <label className="block text-gray-700 font-medium mb-2 text-sm">
+        Location *
+      </label>
       <input
         type="text"
-        name="eventName"
-        value={eventData.eventName}
+        name="eventLocation"
+        value={eventData.eventLocation}
         onChange={(e) =>
-          setEventData({ ...eventData, eventName: e.target.value })
+          setEventData({ ...eventData, eventLocation: e.target.value })
         }
-        className="border p-2 w-full mb-4"
+        placeholder="Enter event location"
+        className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
       />
-
-      <label>Event Image *</label>
     </div>
   );
 }

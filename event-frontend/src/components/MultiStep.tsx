@@ -12,6 +12,12 @@ import { error } from "console";
 
 const totalSteps = 4;
 
+export type Token = {
+  symbol: string;
+  address: `0x${string}`;
+  decimals: number;
+};
+
 interface MultiStepProps {
   eventData: EventData;
   setEventData: React.Dispatch<React.SetStateAction<EventData>>;
@@ -24,6 +30,9 @@ interface MultiStepProps {
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleDrop: (e: React.DragEvent<HTMLDivElement>) => void;
   handleDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
+  handleTokenChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  tokenOptions: Token[];
+  createEvent: () => Promise<void>;
 }
 
 export function MultiStep({
@@ -38,6 +47,9 @@ export function MultiStep({
   handleFileChange,
   handleDrop,
   handleDragOver,
+  handleTokenChange,
+  createEvent,
+  tokenOptions,
 }: MultiStepProps) {
   const [steps, setSteps] = useState(1);
 
@@ -99,7 +111,12 @@ export function MultiStep({
           <Location eventData={eventData} setEventData={setEventData} />
         )}
         {steps === 3 && (
-          <Tickets eventData={eventData} setEventData={setEventData} />
+          <Tickets
+            eventData={eventData}
+            setEventData={setEventData}
+            handleTokenChange={handleTokenChange}
+            tokenOptions={tokenOptions}
+          />
         )}
         {steps === 4 && (
           <DateTime eventData={eventData} setEventData={setEventData} />
@@ -114,12 +131,21 @@ export function MultiStep({
         >
           Prev
         </button>
-        <button
-          className={`${steps === totalSteps ? styles.disabled : styles.btn}`}
-          onClick={handleNext}
-        >
-          Next
-        </button>
+        {steps < 4 ? (
+          <button
+            className={`${steps === totalSteps ? styles.disabled : styles.btn}`}
+            onClick={handleNext}
+          >
+            Next
+          </button>
+        ) : (
+          <button
+            className={`${steps === totalSteps ? styles.disabled : styles.btn}`}
+            onClick={createEvent}
+          >
+            Create Event
+          </button>
+        )}
       </div>
     </div>
   );
