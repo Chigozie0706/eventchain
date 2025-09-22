@@ -17,14 +17,36 @@ color:  #930303;
 
 }
 
-.progress_container{
+/* .progress_container{
     display: flex;
     justify-content: space-between;
     margin:  1rem 0;
     position: relative;
+} */
+
+.progress_container {
+  position: relative;
+  margin: 2rem 0 3rem;
+  width: 100%;
 }
 
-.progress_container::before{
+
+.steps_with_labels {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+}
+
+
+.step_container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 2;
+}
+
+
+/* .progress_container::before{
     content: "";
     position: absolute;
     background-color: #ddd;
@@ -34,7 +56,7 @@ color:  #930303;
     left: 0;
     z-index: 1;
     transform: translateY(-50%);
-}
+} */
 
 .progress{
     background-color:  #630cf1;
@@ -48,7 +70,7 @@ color:  #930303;
     transition: all 0.8s ease-in;
 }
 
-.circle{
+/* .circle{
     background-color:  #ddd;
     height: 30px;
     width: 30px;
@@ -57,12 +79,45 @@ color:  #930303;
     align-items: center;
     border-radius: 50%;
     z-index: 1;
+} */
+
+
+.circle {
+  background-color: #ddd;
+  height: 30px;
+  width: 30px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  z-index: 2;
+  margin-bottom: 8px;
 }
 
-.circle.active{
+
+/* .circle.active{
     border-color: #383838;
     color: #fff;
-    background-color: #43766c;
+    background-color: orangered;
+} */
+
+.circle.active {
+  border-color: #383838;
+  color: #fff;
+  background-color: orangered;
+}
+
+.label {
+  font-size: 0.75rem;
+  color: #888;
+  text-align: center;
+  max-width: 80px;
+  word-wrap: break-word;
+}
+
+.label.active {
+  color: orangered;
+  font-weight: bold;
 }
 
 .btns{
@@ -76,7 +131,7 @@ color:  #930303;
     border: none;
     cursor: pointer;
     border-radius: 4px;
-    background-color: #43766c;
+    background-color: orangered;
     color: white;
     padding: 4px 40px;
 }
@@ -88,11 +143,11 @@ color:  #930303;
 }
 
 .disabled{
-        outline: none;
+    outline: none;
     border: none;
     cursor: pointer;
     border-radius: 4px;
-    background-color: #43766c;
+    background-color: orangered;
     color: white;
     padding: 4px 40px;
     cursor: not-allowed;

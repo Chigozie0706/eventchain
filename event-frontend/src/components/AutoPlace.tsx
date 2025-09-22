@@ -4,20 +4,34 @@ import {
   MarkerF,
   CircleF,
 } from "@react-google-maps/api";
-import type { NextPage } from "next";
 import { useMemo, useState } from "react";
 import usePlacesAutocomplete, {
   getGeocode,
   getLatLng,
 } from "use-places-autocomplete";
+import { EventData } from "../components/eventCreation/types";
 import styles from "../styles/Home.module.css";
 
-const Home: NextPage = () => {
+interface GoogleMapWithSearchProps {
+  width?: string;
+  height?: string;
+  zoom?: number;
+  eventData: EventData;
+  setEventData: React.Dispatch<React.SetStateAction<EventData>>;
+}
+
+const GoogleMapWithSearch: React.FC<GoogleMapWithSearchProps> = ({
+  width = "100%",
+  height = "800px",
+  zoom = 14,
+  eventData,
+  setEventData,
+}) => {
   const [lat, setLat] = useState(27.672932021393862);
   const [lng, setLng] = useState(85.31184012689732);
 
   const libraries = useMemo(() => ["places"], []);
-  const mapCenter = useMemo(() => ({ lat: lat, lng: lng }), [lat, lng]);
+  const mapCenter = useMemo(() => ({ lat, lng }), [lat, lng]);
 
   const mapOptions = useMemo<google.maps.MapOptions>(
     () => ({
@@ -33,62 +47,63 @@ const Home: NextPage = () => {
     libraries: libraries as any,
   });
 
-  if (!isLoaded) {
-    return <p>Loading...</p>;
-  }
+  if (!isLoaded) return <p>Loading...</p>;
 
   return (
     <div className={styles.homeWrapper}>
       <div className={styles.sidebar}>
-        {/* render Places Auto Complete and pass custom handler which updates the state */}
         <PlacesAutocomplete
+          eventData={eventData}
+          setEventData={setEventData}
           onAddressSelect={(address) => {
-            getGeocode({ address: address }).then((results) => {
+            getGeocode({ address }).then((results) => {
               const { lat, lng } = getLatLng(results[0]);
-
               setLat(lat);
               setLng(lng);
+              setEventData({ ...eventData, eventLocation: address });
             });
           }}
         />
       </div>
+
       <GoogleMap
         options={mapOptions}
-        zoom={14}
+        zoom={zoom}
         center={mapCenter}
         mapTypeId={google.maps.MapTypeId.ROADMAP}
-        mapContainerStyle={{ width: "800px", height: "800px" }}
-        onLoad={(map) => console.log("Map Loaded")}
+        mapContainerStyle={{ width, height }}
       >
-        <MarkerF
-          position={mapCenter}
-          onLoad={() => console.log("Marker Loaded")}
-        />
+        {/* Marker */}
+        <MarkerF position={mapCenter} />
 
-        {[1000, 2500].map((radius, idx) => {
-          return (
-            <CircleF
-              key={idx}
-              center={mapCenter}
-              radius={radius}
-              onLoad={() => console.log("Circle Load...")}
-              options={{
-                fillColor: radius > 1000 ? "red" : "green",
-                strokeColor: radius > 1000 ? "red" : "green",
-                strokeOpacity: 0.8,
-              }}
-            />
-          );
-        })}
+        {/* Circles */}
+        {[1000, 2500].map((radius, idx) => (
+          <CircleF
+            key={idx}
+            center={mapCenter}
+            radius={radius}
+            options={{
+              fillColor: radius > 1000 ? "red" : "green",
+              strokeColor: radius > 1000 ? "red" : "green",
+              strokeOpacity: 0.8,
+            }}
+          />
+        ))}
       </GoogleMap>
     </div>
   );
 };
 
-const PlacesAutocomplete = ({
-  onAddressSelect,
-}: {
+interface PlacesAutocompleteProps {
   onAddressSelect?: (address: string) => void;
+  eventData: EventData;
+  setEventData: React.Dispatch<React.SetStateAction<EventData>>;
+}
+
+const PlacesAutocomplete: React.FC<PlacesAutocompleteProps> = ({
+  onAddressSelect,
+  eventData,
+  setEventData,
 }) => {
   const {
     ready,
@@ -97,13 +112,12 @@ const PlacesAutocomplete = ({
     setValue,
     clearSuggestions,
   } = usePlacesAutocomplete({
-    //requestOptions: { componentRestrictions: { country: "us" } },
     debounce: 300,
     cache: 86400,
   });
 
-  const renderSuggestions = () => {
-    return data.map((suggestion) => {
+  const renderSuggestions = () =>
+    data.map((suggestion) => {
       const {
         place_id,
         structured_formatting: { main_text, secondary_text },
@@ -116,23 +130,26 @@ const PlacesAutocomplete = ({
           onClick={() => {
             setValue(description, false);
             clearSuggestions();
-            onAddressSelect && onAddressSelect(description);
+            onAddressSelect?.(description);
           }}
         >
           <strong>{main_text}</strong> <small>{secondary_text}</small>
         </li>
       );
     });
-  };
 
   return (
     <div className={styles.autocompleteWrapper}>
       <input
-        value={value}
         className={styles.autocompleteInput}
         disabled={!ready}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="123 Stariway To Heaven"
+        value={eventData.eventLocation || value}
+        onChange={(e) => {
+          setValue(e.target.value);
+          setEventData({ ...eventData, eventLocation: e.target.value });
+        }}
+        placeholder="Enter an address"
+        name="eventLocation"
       />
 
       {status === "OK" && (
@@ -142,4 +159,4 @@ const PlacesAutocomplete = ({
   );
 };
 
-export default Home;
+export default GoogleMapWithSearch;

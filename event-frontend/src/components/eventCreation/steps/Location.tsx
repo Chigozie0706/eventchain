@@ -1,3 +1,4 @@
+import GoogleMapWithSearch from "@/components/AutoPlace";
 import { EventData } from "../types";
 
 interface Props {
@@ -11,7 +12,7 @@ export default function Location({ eventData, setEventData }: Props) {
       <label className="block text-gray-700 font-medium mb-2 text-sm">
         Location *
       </label>
-      <input
+      {/* <input
         type="text"
         name="eventLocation"
         value={eventData.eventLocation}
@@ -20,7 +21,9 @@ export default function Location({ eventData, setEventData }: Props) {
         }
         placeholder="Enter event location"
         className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
-      />
+      /> */}
+
+      <GoogleMapWithSearch eventData={eventData} setEventData={setEventData} />
     </div>
   );
 }

@@ -24,6 +24,7 @@ interface MultiStepProps {
   file: File | null;
   setFile: React.Dispatch<React.SetStateAction<File | null>>;
   preview: string | null;
+  loading: boolean;
   setPreview: React.Dispatch<React.SetStateAction<string | null>>;
   error: string | null;
   setError: React.Dispatch<React.SetStateAction<string | null>>;
@@ -50,6 +51,7 @@ export function MultiStep({
   handleTokenChange,
   createEvent,
   tokenOptions,
+  loading,
 }: MultiStepProps) {
   const [steps, setSteps] = useState(1);
 
@@ -72,80 +74,77 @@ export function MultiStep({
   }
 
   return (
-    <div className={styles.container}>
+    <div>
       <div className={styles.progress_container}>
         {/* <div className={styles.progress}></div> */}
-        <Progress totalSteps={totalSteps} steps={steps} />
-        <div className={`${styles.circle} ${steps >= 1 ? styles.active : ""}`}>
-          1
-        </div>
-        <div className={`${styles.circle} ${steps >= 2 ? styles.active : ""}`}>
-          2
-        </div>
-        <div className={`${styles.circle} ${steps >= 3 ? styles.active : ""}`}>
-          3
-        </div>
-        <div className={`${styles.circle} ${steps >= 4 ? styles.active : ""}`}>
-          4
-        </div>
-      </div>
+        {/* <div className={styles.container}> */}
+        <Progress
+          totalSteps={totalSteps}
+          steps={steps}
+          labels={["Event Details", "Location", "Tickets", "Date & Time"]}
+        />
+        {/* </div> */}
 
-      {/* Render step content */}
-      <div className={styles.content}>
-        {steps === 1 && (
-          <EventDetails
-            eventData={eventData}
-            setEventData={setEventData}
-            file={file}
-            setFile={setFile}
-            preview={preview}
-            setPreview={setPreview}
-            error={error}
-            setError={setError}
-            handleFileChange={handleFileChange}
-            handleDrop={handleDragOver}
-            handleDragOver={handleDragOver}
-          />
-        )}
-        {steps === 2 && (
-          <Location eventData={eventData} setEventData={setEventData} />
-        )}
-        {steps === 3 && (
-          <Tickets
-            eventData={eventData}
-            setEventData={setEventData}
-            handleTokenChange={handleTokenChange}
-            tokenOptions={tokenOptions}
-          />
-        )}
-        {steps === 4 && (
-          <DateTime eventData={eventData} setEventData={setEventData} />
-        )}
-      </div>
+        {/* Render step content */}
+        <div className={styles.content}>
+          {steps === 1 && (
+            <EventDetails
+              eventData={eventData}
+              setEventData={setEventData}
+              file={file}
+              setFile={setFile}
+              preview={preview}
+              setPreview={setPreview}
+              error={error}
+              setError={setError}
+              handleFileChange={handleFileChange}
+              handleDrop={handleDragOver}
+              handleDragOver={handleDragOver}
+            />
+          )}
+          {steps === 2 && (
+            <Location eventData={eventData} setEventData={setEventData} />
+          )}
+          {steps === 3 && (
+            <Tickets
+              eventData={eventData}
+              setEventData={setEventData}
+              handleTokenChange={handleTokenChange}
+              tokenOptions={tokenOptions}
+            />
+          )}
+          {steps === 4 && (
+            <DateTime eventData={eventData} setEventData={setEventData} />
+          )}
+        </div>
 
-      <div className={styles.btns}>
-        <button
-          //   className={`${styles.btn} ${styles.disabled}`}
-          className={`${steps <= 1 ? styles.disabled : styles.btn}`}
-          onClick={handlePrev}
-        >
-          Prev
-        </button>
-        {steps < 4 ? (
+        <div className={styles.btns}>
           <button
-            className={`${steps === totalSteps ? styles.disabled : styles.btn}`}
-            onClick={handleNext}
+            //   className={`${styles.btn} ${styles.disabled}`}
+            className={`${steps <= 1 ? styles.disabled : styles.btn}`}
+            onClick={handlePrev}
           >
-            Next
+            Prev
           </button>
-        ) : (
-          <button
-            className={`${steps === totalSteps ? styles.disabled : styles.btn}`}
-            onClick={createEvent}
-          >
-            Create Event
-          </button>
-        )}
+          {steps < 4 ? (
+            <button
+              className={`${
+                steps === totalSteps ? styles.disabled : styles.btn
+              }`}
+              onClick={handleNext}
+            >
+              Next
+            </button>
+          ) : (
+            <button
+              className=" bg-orange-700 text-white p-3 rounded-lg font-semibold hover:bg-orange-800 transition"
+              onClick={createEvent}
+              disabled={loading}
+            >
+              {loading ? "Processing..." : "Create Event"}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
