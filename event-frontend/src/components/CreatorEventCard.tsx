@@ -1,4 +1,4 @@
-import { Trash2, XCircle } from "lucide-react";
+import { DollarSign, Trash2, XCircle } from "lucide-react";
 import { useState } from "react";
 
 interface CreatorEventCardProps {
@@ -20,8 +20,10 @@ interface CreatorEventCardProps {
   };
   onDelete: (eventId: number) => void;
   onCancel: (eventId: number) => Promise<void>;
+  onClaimFunds: (eventId: number) => Promise<void>;
   loading: boolean;
   cancelLoading: boolean;
+  claimLoading: boolean;
 }
 
 const mentoTokens: Record<string, string> = {
@@ -36,8 +38,10 @@ const CreatorEventCard: React.FC<CreatorEventCardProps> = ({
   event,
   onDelete,
   onCancel,
+  onClaimFunds,
   loading,
   cancelLoading,
+  claimLoading,
 }) => {
   const [imgError, setImgError] = useState(false);
 
@@ -107,6 +111,20 @@ const CreatorEventCard: React.FC<CreatorEventCardProps> = ({
             <XCircle size={16} />
           </button>
         )}
+
+        {/* Claim Button */}
+        {/* {eventEnded && !event.isCanceled && ( */}
+
+        {/* <button
+          onClick={() => onClaimFunds(event.index)}
+          disabled={claimLoading}
+          className="bg-green-500 text-white p-2 rounded-full shadow-md hover:bg-green-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-label="Claim funds"
+        >
+          <DollarSign size={16} />
+        </button> */}
+
+        {/* )} */}
 
         {/* Delete Button */}
         {/* <button
@@ -216,6 +234,14 @@ const CreatorEventCard: React.FC<CreatorEventCardProps> = ({
             {formattedTicketPrice} {tokenSymbol}
           </span>
         </div>
+
+        <button
+          className="w-full bg-orange-700 text-white p-3 rounded-lg font-semibold hover:bg-orange-800 transition"
+          onClick={() => onClaimFunds(event.index)}
+          disabled={claimLoading}
+        >
+          {claimLoading ? "Processing..." : "Claim Funds"}
+        </button>
       </div>
     </div>
   );

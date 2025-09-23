@@ -44,6 +44,7 @@ export default function MyEvents() {
   const { address: connectedAddress } = useAccount();
   const [cancelingId, setCancelingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [claimingId, setClaimingId] = useState<number | null>(null);
   const { data: walletClient } = useWalletClient();
 
   // Add this hook for transaction tracking
@@ -168,37 +169,6 @@ export default function MyEvents() {
     refetch();
   }, [blockNumber, refetch]);
 
-  const cancelEvent1 = async (eventId: number) => {
-    setCancelingId(eventId);
-    const toastId = toast.loading("Canceling event...");
-    try {
-      const hash = await writeContractAsync({
-        address: CONTRACT_ADDRESS,
-        abi: contractABI.abi,
-        functionName: "cancelEvent",
-        args: [eventId],
-      });
-
-      toast.dismiss(toastId);
-      toast.success("Transaction submitted! Waiting for confirmation...");
-
-      // Force a refresh after a short delay to account for block confirmation
-      setTimeout(() => {
-        refetch();
-      }, 5000);
-
-      // The useEffect above will handle the refetch after confirmation
-    } catch (error) {
-      toast.dismiss(toastId);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to cancel event"
-      );
-      console.error("Cancel error:", error);
-    } finally {
-      setCancelingId(null);
-    }
-  };
-
   const cancelEvent = useCallback(
     async (eventId: number) => {
       console.log("[Cancel] Starting event cancellation process");
@@ -298,6 +268,56 @@ export default function MyEvents() {
     }
   };
 
+  const claimFunds = useCallback(
+    async (eventId: number) => {
+      console.log("[Claim] Starting claim process");
+
+      if (!connectedAddress || !walletClient) {
+        toast.error("Please connect your wallet first");
+        return;
+      }
+
+      setClaimingId(eventId);
+      const toastId = toast.loading("Preparing claim...");
+
+      try {
+        const divviSuffix = getReferralTag(DIVVI_CONFIG);
+        const encodedFunction = encodeFunctionData({
+          abi: contractABI.abi,
+          functionName: "releaseFunds",
+          args: [eventId],
+        });
+
+        const dataWithDivvi = (encodedFunction +
+          (divviSuffix.startsWith("0x")
+            ? divviSuffix.slice(2)
+            : divviSuffix)) as `0x${string}`;
+
+        toast.loading("Waiting for wallet confirmation...", { id: toastId });
+
+        const hash = await walletClient.sendTransaction({
+          account: connectedAddress,
+          to: CONTRACT_ADDRESS,
+          data: dataWithDivvi,
+        });
+
+        toast.success("Claim submitted!", { id: toastId });
+
+        await reportToDivvi(hash);
+
+        setTimeout(() => {
+          refetch();
+        }, 5000);
+      } catch (error: any) {
+        console.error("[Claim] Transaction failed:", error);
+        toast.error(error.message || "Failed to claim funds");
+      } finally {
+        setClaimingId(null);
+      }
+    },
+    [connectedAddress, walletClient, refetch]
+  );
+
   if (loading) {
     return (
       <div className="pt-16 text-center">
@@ -329,7 +349,9 @@ export default function MyEvents() {
               event={event}
               onDelete={deleteEvent}
               onCancel={cancelEvent}
+              onClaimFunds={claimFunds}
               cancelLoading={cancelingId === event.index}
+              claimLoading={claimingId === event.index}
               loading={isLoading}
             />
           ))
