@@ -114,7 +114,7 @@ Your **EventChain** smart contract is deployed on the **Celo Mainnet**.
 
 | Contract   | Address                                    |
 | ---------- | ------------------------------------------ |
-| EventChain | 0x8863A17c4d0AFE0650B24d496b99082d0B677e5D |
+| EventChain | 0x2FE3B8dd920C6b0cE4bA6495C39552904Cf30D28 |
 
 <!-- **[View on Celo Explorer](https://alfajores.celoscan.io/address/0xBa26366767eA843A656853d348c763c41f9D67Ca)** -->
 
@@ -172,6 +172,7 @@ NEXT_PUBLIC_SELF_APP_NAME="EventChain"
 NEXT_PUBLIC_SELF_SCOPE="event-chain"
 NEXT_PUBLIC_SELF_ENDPOINT="your-ngrok-or-server-url"
 NEXT_PUBLIC_SELF_ENABLE_MOCK_PASSPORT="false" # true for development
+NEXT_PUBLIC_GOOGLE_MAPS_KEY = YOUR_NEXT_PUBLIC_GOOGLE_MAPS_KEY
 ```
 
 Frontend is built with **Next.js** using **WAGMI**, **RainbowKit**, **viem**, and **Tailwind CSS**.
