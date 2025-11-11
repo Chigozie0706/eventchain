@@ -1,19 +1,11 @@
 "use client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { celo } from "wagmi/chains";
-import { http } from "wagmi";
+import { config } from "./config";
 import { WagmiProvider, createConfig } from "@privy-io/wagmi";
 import { useEffect } from "react";
 import type { PrivyClientConfig } from "@privy-io/react-auth";
 import { PrivyProvider, usePrivy } from "@privy-io/react-auth";
-
-const config = createConfig({
-  chains: [celo],
-  transports: {
-    [celo.id]: http(),
-  },
-  ssr: true,
-});
 
 const privyConfig: PrivyClientConfig = {
   embeddedWallets: {
@@ -37,7 +29,7 @@ const queryClient = new QueryClient({
   },
 });
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <PrivyProvider

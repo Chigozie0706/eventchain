@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import toast, { Toaster } from "react-hot-toast";
-import { Providers } from "@/providers/providers";
+import { AppProvider } from "@/providers/AppProvider";
 import MiniPayScripts from "@/providers/MiniPayScripts";
 
 const geistSans = Geist({
@@ -32,12 +32,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning={true}
       >
-        <Providers>
+        <AppProvider>
           {/* <MiniPayScripts /> */}
           <Navbar />
           {children}
           <Toaster position="top-right" />
-        </Providers>
+        </AppProvider>
       </body>
     </html>
   );
