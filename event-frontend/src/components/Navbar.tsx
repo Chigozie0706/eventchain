@@ -3,27 +3,22 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, ChevronDown } from "lucide-react";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useAccount, useConnect } from "wagmi";
-import { injected } from "wagmi/connectors";
+import { useAccount, useDisconnect } from "wagmi";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 
 export default function Navbar() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isMiniPay, setIsMiniPay] = useState(false);
   const [eventsDropdownOpen, setEventsDropdownOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { isConnected } = useAccount();
-  const { connect } = useConnect();
 
-  // Detect MiniPay and auto-connect
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.ethereum?.isMiniPay) {
-      setIsMiniPay(true);
-      connect({ connector: injected({ target: "metaMask" }) });
-    }
-  }, [connect]);
+  // Wagmi hooks
+  const { address, isConnected } = useAccount();
+  const { disconnect: disconnectWagmi } = useDisconnect();
+
+  // Privy hooks
+  const { ready, user, authenticated, login, logout: logoutPrivy } = usePrivy();
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -49,6 +44,20 @@ export default function Navbar() {
     setMenuOpen(false);
   }, [pathname]);
 
+  // Handle complete logout (both Privy and wagmi)
+  const handleLogout = async () => {
+    // Disconnect from wagmi first
+    if (isConnected) {
+      disconnectWagmi();
+    }
+
+    // Then logout from Privy
+    logoutPrivy();
+  };
+
+  // Get display address (prefer wagmi address, fallback to Privy)
+  const displayAddress = address || user?.wallet?.address;
+
   return (
     <nav className="flex items-center justify-between bg-white px-6 py-4 shadow-md fixed w-full z-50">
       {/* Logo */}
@@ -66,7 +75,7 @@ export default function Navbar() {
           {menuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
 
-        {/* Navigation Menu (Mobile + Desktop) */}
+        {/* Navigation Menu */}
         <div
           ref={menuRef}
           className={`absolute md:static top-16 left-0 w-full md:w-auto bg-white shadow-md md:shadow-none px-6 py-4 md:p-0 transition-all duration-300 ${
@@ -101,7 +110,7 @@ export default function Navbar() {
           </Link>
 
           {/* Mobile View - Show My Events links directly */}
-          {isConnected && menuOpen && (
+          {authenticated && menuOpen && (
             <div className="md:hidden flex flex-col space-y-4 w-full">
               <Link
                 href="/event_tickets"
@@ -128,7 +137,7 @@ export default function Navbar() {
         </div>
 
         {/* Desktop View - My Events Dropdown */}
-        {isConnected && (
+        {authenticated && (
           <div className="relative hidden md:block" ref={dropdownRef}>
             <button
               onClick={() => setEventsDropdownOpen(!eventsDropdownOpen)}
@@ -156,16 +165,33 @@ export default function Navbar() {
           </div>
         )}
 
-        {/* RainbowKit Connect Button - Always Visible */}
-        {!isMiniPay && (
-          <div className="ml-2">
-            <ConnectButton
-              showBalance={false}
-              chainStatus="none"
-              accountStatus="address"
-            />
-          </div>
-        )}
+        {/* Auth + Wallet Connect Section */}
+        <div>
+          {!authenticated ? (
+            <button
+              onClick={login}
+              className="bg-orange-500 text-white px-4 py-2 rounded-lg text-xs hover:bg-orange-600 transition"
+            >
+              Login with Privy
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-gray-600 text-xs">
+                {displayAddress
+                  ? `${displayAddress.slice(0, 6)}...${displayAddress.slice(
+                      -4
+                    )}`
+                  : "Connected"}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-xs hover:bg-gray-300 transition"
+              >
+                Logout
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </nav>
   );

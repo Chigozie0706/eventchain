@@ -40,6 +40,8 @@ contract EventChain is ReentrancyGuard {
     uint256 public constant MIN_EVENT_DURATION = 1 hours;
     uint256 public constant REFUND_BUFFER = 5 hours;
 
+    address public constant USDT = 0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e;
+
     /// @notice Contract pause status - emergency stop mechanism
     bool public paused;
 
@@ -265,6 +267,38 @@ contract EventChain is ReentrancyGuard {
         emit TicketPurchased(eventId, buyer, amount, event_.paymentToken);
     }
 
+    IERC20 public immutable usdt;
+    uint256 public ticketPrice;
+    mapping(address => uint256) public ticketsBought;
+
+    event TicketPurchased(
+        address indexed buyer,
+        uint256 count,
+        uint256 totalAmount
+    );
+    event Refunded(address indexed user, uint256 amount);
+
+    function buyTicketx(uint256 count) external {
+        uint256 totalCost = count;
+        require(count > 0, "Invalid ticket count");
+
+        usdt.safeTransferFrom(msg.sender, address(this), totalCost);
+        ticketsBought[msg.sender] += totalCost;
+
+        emit TicketPurchased(msg.sender, count, totalCost);
+    }
+
+    // 🔵 Owner refunds user
+    function refund(address user) external {
+        uint256 amount = ticketsBought[user];
+        require(amount > 0, "No tickets to refund");
+
+        ticketsBought[user] = 0; // Prevent reentrancy
+        usdt.safeTransfer(user, amount);
+
+        emit Refunded(user, amount);
+    }
+
     /**
      * @notice Create a new event with comprehensive details
      * @dev Creates a new event with all necessary parameters and performs validation
@@ -360,6 +394,8 @@ contract EventChain is ReentrancyGuard {
     ) public payable nonReentrant validEvent(_index) whenNotPaused {
         Event storage event_ = events[_index];
 
+        address paymentToken = event_.paymentToken;
+
         require(event_.startDate > block.timestamp, "Event expired");
         require(event_.isActive, "Event inactive");
         require(!hasPurchasedTicket[_index][msg.sender], "Already purchased");
@@ -371,10 +407,6 @@ contract EventChain is ReentrancyGuard {
         uint256 price = event_.ticketPrice;
         bool isGdollar = (event_.paymentToken ==
             0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A);
-
-        // USDT address - add this constant
-        address USDT = 0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e;
-        bool isUSDT = (event_.paymentToken == USDT);
 
         // Handle CELO payments
         if (event_.paymentToken == CELO) {
@@ -396,25 +428,35 @@ contract EventChain is ReentrancyGuard {
 
             // Send fee to UBI pool (handled in onTokenTransfer)
             event_.fundsHeld += netAmount;
-        }
-        // FIXED USDT handling in buyTicket
-        else if (isUSDT) {
+        } else if (paymentToken == USDT) {
             // Convert price from 18 to 6 decimals for USDT
             uint256 usdtPrice = price / 1e12;
 
             require(
-                IERC20(event_.paymentToken).allowance(
-                    msg.sender,
-                    address(this)
-                ) >= usdtPrice,
-                "Insufficient allowance"
+                IERC20(paymentToken).allowance(msg.sender, address(this)) >=
+                    usdtPrice,
+                "Insufficient allowance for USDT"
             );
+            uint256 balanceBefore = IERC20(paymentToken).balanceOf(
+                address(this)
+            );
+
             _safeTransferFrom(
                 IERC20(event_.paymentToken),
                 msg.sender,
                 address(this),
                 usdtPrice
             );
+
+            uint256 balanceAfter = IERC20(paymentToken).balanceOf(
+                address(this)
+            );
+
+            require(
+                balanceAfter - balanceBefore == usdtPrice,
+                "USDT transfer amount mismatch"
+            );
+
             // STORE the actual amount received (6 decimals), not the 18 decimal representation
             event_.fundsHeld += usdtPrice; // This is the key fix!
         }
@@ -490,63 +532,6 @@ contract EventChain is ReentrancyGuard {
      * @dev Allows refunds for canceled events or before refund buffer period
      * @param _index The ID of the event to request refund for
      */
-    function requestRefund1(
-        uint256 _index
-    ) public nonReentrant validEvent(_index) whenNotPaused {
-        require(hasPurchasedTicket[_index][msg.sender], "No ticket purchased");
-
-        uint256 refundAmount = events[_index].ticketPrice;
-        address paymentToken = events[_index].paymentToken;
-
-        // Handle G$ token (refund 99%)
-        if (paymentToken == 0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A) {
-            refundAmount = (refundAmount * 99) / 100;
-        }
-
-        // Check available funds
-        if (paymentToken == CELO) {
-            require(
-                celoFundsHeld[_index] >= refundAmount,
-                "Insufficient CELO funds"
-            );
-        } else {
-            require(
-                events[_index].fundsHeld >= refundAmount,
-                "Insufficient funds"
-            );
-        }
-
-        if (!events[_index].isCanceled) {
-            require(
-                block.timestamp < events[_index].startDate - REFUND_BUFFER,
-                "Refund period ended"
-            );
-        }
-
-        // Process refund
-        hasPurchasedTicket[_index][msg.sender] = false;
-
-        if (paymentToken == CELO) {
-            celoFundsHeld[_index] -= refundAmount;
-            (bool success, ) = msg.sender.call{value: refundAmount}("");
-            require(success, "CELO refund failed");
-        } else {
-            events[_index].fundsHeld -= refundAmount;
-            IERC20(paymentToken).safeTransfer(msg.sender, refundAmount);
-        }
-
-        // Remove from attendees list
-        address[] storage attendees = eventAttendees[_index];
-        for (uint256 i = 0; i < attendees.length; i++) {
-            if (attendees[i] == msg.sender) {
-                attendees[i] = attendees[attendees.length - 1];
-                attendees.pop();
-                break;
-            }
-        }
-
-        emit RefundIssued(_index, msg.sender, refundAmount);
-    }
 
     function requestRefund(
         uint256 _index
@@ -557,7 +542,7 @@ contract EventChain is ReentrancyGuard {
         address paymentToken = events[_index].paymentToken;
 
         // USDT address
-        address USDT = 0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e;
+
         bool isUSDT = (paymentToken == USDT);
 
         // Handle G$ token (refund 99%)
@@ -644,7 +629,7 @@ contract EventChain is ReentrancyGuard {
         address paymentToken = events[_index].paymentToken;
 
         // USDT address
-        address USDT = 0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e;
+
         bool isUSDT = (paymentToken == USDT);
 
         if (paymentToken == CELO) {

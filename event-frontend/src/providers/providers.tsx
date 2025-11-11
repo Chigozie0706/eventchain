@@ -1,15 +1,13 @@
 "use client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { WagmiProvider } from "wagmi";
-import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import { celo } from "wagmi/chains";
-import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import { http } from "wagmi";
-import "@rainbow-me/rainbowkit/styles.css";
+import { WagmiProvider, createConfig } from "@privy-io/wagmi";
+import { useEffect } from "react";
+import type { PrivyClientConfig } from "@privy-io/react-auth";
+import { PrivyProvider, usePrivy } from "@privy-io/react-auth";
 
-const config = getDefaultConfig({
-  appName: "EventChain",
-  projectId: "b2086c0b61d1965614aefb4fb914a316",
+const config = createConfig({
   chains: [celo],
   transports: {
     [celo.id]: http(),
@@ -17,6 +15,20 @@ const config = getDefaultConfig({
   ssr: true,
 });
 
+const privyConfig: PrivyClientConfig = {
+  embeddedWallets: {
+    ethereum: {
+      createOnLogin: "users-without-wallets",
+    },
+    // requireUserPasswordOnCreate: true,
+    // noPromptOnSignature: false,
+  },
+  loginMethods: ["wallet", "email", "sms"],
+  appearance: {
+    showWalletLoginFirst: true,
+  },
+  defaultChain: celo,
+};
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -27,10 +39,32 @@ const queryClient = new QueryClient({
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider initialChain={celo}>{children}</RainbowKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <QueryClientProvider client={queryClient}>
+      <PrivyProvider
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        // apiUrl={process.env.NEXT_PUBLIC_PRIVY_AUTH_URL as string}
+        appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID as string}
+        config={privyConfig}
+      >
+        <PrivyInitializationTracker>
+          <WagmiProvider config={config}>{children}</WagmiProvider>
+        </PrivyInitializationTracker>
+      </PrivyProvider>
+    </QueryClientProvider>
   );
+}
+
+function PrivyInitializationTracker({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { ready, authenticated } = usePrivy();
+
+  useEffect(() => {
+    console.log("Privy State Changed:", { ready, authenticated });
+  }, [ready, authenticated]);
+
+  return <>{children}</>;
 }

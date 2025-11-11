@@ -5,7 +5,6 @@ import { toast } from "react-hot-toast";
 import { parseUnits } from "ethers";
 import axios from "axios";
 import MapView from "./MapView";
-// import Home from "./AutoPlace";
 import GoogleMapWithSearch from "./AutoPlace";
 import { MultiStep } from "./MultiStep";
 
@@ -19,7 +18,11 @@ import { getReferralTag, submitReferral } from "@divvi/referral-sdk";
 import contractABI from "../contract/abi.json";
 import { encodeFunctionData } from "viem";
 import { celo } from "viem/chains";
-import { tokenOptions, normalizeAddress } from "@/utils/tokens";
+import {
+  tokenOptions,
+  normalizeAddress,
+  getTokenByAddress,
+} from "@/utils/tokens";
 
 interface EventData {
   eventName: string;
@@ -50,7 +53,7 @@ export interface Token {
   decimals: number;
 }
 
-const CONTRACT_ADDRESS = "0x2FE3B8dd920C6b0cE4bA6495C39552904Cf30D28";
+const CONTRACT_ADDRESS = "0x73E04559f141f524EFd7b2743C510428c497cdb6";
 
 const EventForm = () => {
   const router = useRouter();
@@ -80,7 +83,40 @@ const EventForm = () => {
     user: address as `0x${string}`,
     consumer: "0x5e23d5Be257d9140d4C5b12654111a4D4E18D9B2" as `0x${string}`,
   };
+  const [ticketCount, setTicketCount] = useState("");
+  const [refundAddress, setRefundAddress] = useState("");
+  const { writeContractAsync } = useWriteContract();
 
+  const handleBuy = async () => {
+    if (!address) return toast.error("Connect your wallet");
+    const priceInUSDT = parseUnits(ticketCount, 6); // 6 decimals for USDT
+
+    try {
+      await writeContractAsync({
+        address: CONTRACT_ADDRESS,
+        abi: contractABI.abi,
+        functionName: "buyTicket",
+        args: [BigInt(ticketCount)],
+      });
+      toast.success(`Purchased ${ticketCount} ticket(s)!`);
+    } catch (err: any) {
+      toast.error(err.shortMessage || "Purchase failed");
+    }
+  };
+
+  const handleRefund = async () => {
+    try {
+      await writeContractAsync({
+        address: CONTRACT_ADDRESS,
+        abi: contractABI.abi,
+        functionName: "refund",
+        args: [refundAddress],
+      });
+      toast.success(`Refund sent to ${refundAddress}`);
+    } catch (err: any) {
+      toast.error(err.shortMessage || "Refund failed");
+    }
+  };
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -252,9 +288,11 @@ const EventForm = () => {
       );
 
       // Get the selected token to check decimals
-      const selectedToken = tokenOptions.find(
-        (token) => token.address === eventData.paymentToken.toLowerCase()
-      );
+      // const selectedToken = tokenOptions.find(
+      //   (token) => token.address === eventData.paymentToken.toLowerCase()
+      // );
+
+      const selectedToken = getTokenByAddress(eventData.paymentToken);
 
       // Use correct decimals for the token
       const decimals = selectedToken?.decimals || 18;
@@ -287,6 +325,13 @@ const EventForm = () => {
           normalizedPaymentToken,
           // eventData.paymentToken.toLowerCase(), // Ensure lowercase for comparison
         ],
+      });
+
+      console.log("Creating event with:", {
+        token: selectedToken?.symbol,
+        decimals: decimals,
+        price: eventData.eventPrice,
+        priceInWei: priceInWei.toString(),
       });
 
       // Combine with Divvi suffix
@@ -401,6 +446,53 @@ const EventForm = () => {
           createEvent={createEvent}
           loading={loading}
         />
+
+        <div className="max-w-md mx-auto mt-10 p-6 rounded-2xl shadow-lg border border-gray-200">
+          <h1 className="text-2xl font-bold mb-4 text-center">
+            🎟 EventChain — USDT Ticket
+          </h1>
+
+          {/* Buy Ticket */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium mb-1">
+              Ticket Count
+            </label>
+            <input
+              type="text"
+              value={ticketCount}
+              onChange={(e) => setTicketCount(e.target.value)}
+              className="w-full border rounded-md p-2"
+            />
+            <button
+              onClick={handleBuy}
+              className="mt-3 w-full bg-green-600 text-white py-2 rounded-md hover:bg-green-700"
+            >
+              Buy Ticket
+            </button>
+          </div>
+
+          <hr className="my-4" />
+
+          {/* Refund */}
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Refund Address
+            </label>
+            <input
+              type="text"
+              placeholder="0x..."
+              value={refundAddress}
+              onChange={(e) => setRefundAddress(e.target.value)}
+              className="w-full border rounded-md p-2"
+            />
+            <button
+              onClick={handleRefund}
+              className="mt-3 w-full bg-red-600 text-white py-2 rounded-md hover:bg-red-700"
+            >
+              Refund User
+            </button>
+          </div>
+        </div>
       </div>
     </>
   );
