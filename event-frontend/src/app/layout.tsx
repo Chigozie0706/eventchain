@@ -4,7 +4,6 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import toast, { Toaster } from "react-hot-toast";
 import { AppProvider } from "@/providers/AppProvider";
-import MiniPayScripts from "@/providers/MiniPayScripts";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

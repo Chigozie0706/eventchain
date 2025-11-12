@@ -6,6 +6,7 @@ import { WagmiProvider, createConfig } from "@privy-io/wagmi";
 import { useEffect } from "react";
 import type { PrivyClientConfig } from "@privy-io/react-auth";
 import { PrivyProvider, usePrivy } from "@privy-io/react-auth";
+import { useChainId, useSwitchChain } from "wagmi";
 
 const privyConfig: PrivyClientConfig = {
   embeddedWallets: {
@@ -20,7 +21,9 @@ const privyConfig: PrivyClientConfig = {
     showWalletLoginFirst: true,
   },
   defaultChain: celo,
+  supportedChains: [celo],
 };
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -39,9 +42,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID as string}
         config={privyConfig}
       >
-        <PrivyInitializationTracker>
-          <WagmiProvider config={config}>{children}</WagmiProvider>
-        </PrivyInitializationTracker>
+        <WagmiProvider config={config}>
+          <PrivyInitializationTracker>{children}</PrivyInitializationTracker>
+        </WagmiProvider>
       </PrivyProvider>
     </QueryClientProvider>
   );

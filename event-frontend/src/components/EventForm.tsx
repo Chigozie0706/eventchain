@@ -4,8 +4,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { parseUnits } from "ethers";
 import axios from "axios";
-import MapView from "./MapView";
-import GoogleMapWithSearch from "./AutoPlace";
 import { MultiStep } from "./MultiStep";
 
 import {
@@ -13,11 +11,12 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
   useWalletClient,
+  useChainId,
+  useSwitchChain,
 } from "wagmi";
 import { getReferralTag, submitReferral } from "@divvi/referral-sdk";
 import contractABI from "../contract/abi.json";
 import { encodeFunctionData } from "viem";
-import { celo } from "viem/chains";
 import {
   tokenOptions,
   normalizeAddress,
@@ -43,8 +42,8 @@ interface Address {
   region: string;
   postcode: string;
   country: string;
-  latitude: string | number; // Can be string or number depending on your needs
-  longitude: string | number; // Can be string or number depending on your needs
+  latitude: string | number;
+  longitude: string | number;
 }
 
 export interface Token {
@@ -73,9 +72,7 @@ const EventForm = () => {
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const { data: walletClient } = useWalletClient();
   const { address } = useAccount();
 
@@ -258,6 +255,7 @@ const EventForm = () => {
 
   const createEvent = async () => {
     if (!validateForm()) return;
+
     if (!address || !walletClient) {
       toast.error("Please connect your wallet");
       return;
@@ -286,11 +284,6 @@ const EventForm = () => {
       const endTime = BigInt(
         endDateTime.getHours() * 3600 + endDateTime.getMinutes() * 60
       );
-
-      // Get the selected token to check decimals
-      // const selectedToken = tokenOptions.find(
-      //   (token) => token.address === eventData.paymentToken.toLowerCase()
-      // );
 
       const selectedToken = getTokenByAddress(eventData.paymentToken);
 
@@ -323,7 +316,6 @@ const EventForm = () => {
           priceInWei,
           minimumAge,
           normalizedPaymentToken,
-          // eventData.paymentToken.toLowerCase(), // Ensure lowercase for comparison
         ],
       });
 
@@ -406,21 +398,6 @@ const EventForm = () => {
     latitude: "",
     longitude: "",
   });
-
-  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (address1.streetAndNumber) {
-      console.log("Selected address:", address1);
-    }
-  };
-
-  const updateCoordinates = (
-    latitude: string | number,
-    longitude: string | number
-  ) => {
-    setAddress1({ ...address1, latitude, longitude });
-  };
 
   return (
     <>
