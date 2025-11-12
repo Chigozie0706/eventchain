@@ -389,16 +389,6 @@ const EventForm = () => {
     }
   };
 
-  const [address1, setAddress1] = useState<Address>({
-    streetAndNumber: "",
-    place: "",
-    region: "",
-    postcode: "",
-    country: "",
-    latitude: "",
-    longitude: "",
-  });
-
   return (
     <>
       <div className="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-lg my-20">
@@ -423,53 +413,52 @@ const EventForm = () => {
           createEvent={createEvent}
           loading={loading}
         />
-
+        {/* 
         <div className="max-w-md mx-auto mt-10 p-6 rounded-2xl shadow-lg border border-gray-200">
           <h1 className="text-2xl font-bold mb-4 text-center">
             🎟 EventChain — USDT Ticket
           </h1>
 
           {/* Buy Ticket */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium mb-1">
-              Ticket Count
-            </label>
-            <input
-              type="text"
-              value={ticketCount}
-              onChange={(e) => setTicketCount(e.target.value)}
-              className="w-full border rounded-md p-2"
-            />
-            <button
-              onClick={handleBuy}
-              className="mt-3 w-full bg-green-600 text-white py-2 rounded-md hover:bg-green-700"
-            >
-              Buy Ticket
-            </button>
-          </div>
 
-          <hr className="my-4" />
+        {/* <div className="mb-6">
+          <label className="block text-sm font-medium mb-1">Ticket Count</label>
+          <input
+            type="text"
+            value={ticketCount}
+            onChange={(e) => setTicketCount(e.target.value)}
+            className="w-full border rounded-md p-2"
+          />
+          <button
+            onClick={handleBuy}
+            className="mt-3 w-full bg-green-600 text-white py-2 rounded-md hover:bg-green-700"
+          >
+            Buy Ticket
+          </button>
+        </div> */}
 
-          {/* Refund */}
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Refund Address
-            </label>
-            <input
-              type="text"
-              placeholder="0x..."
-              value={refundAddress}
-              onChange={(e) => setRefundAddress(e.target.value)}
-              className="w-full border rounded-md p-2"
-            />
-            <button
-              onClick={handleRefund}
-              className="mt-3 w-full bg-red-600 text-white py-2 rounded-md hover:bg-red-700"
-            >
-              Refund User
-            </button>
-          </div>
-        </div>
+        {/* <hr className="my-4" /> */}
+
+        {/* Refund */}
+        {/* <div>
+          <label className="block text-sm font-medium mb-1">
+            Refund Address
+          </label>
+          <input
+            type="text"
+            placeholder="0x..."
+            value={refundAddress}
+            onChange={(e) => setRefundAddress(e.target.value)}
+            className="w-full border rounded-md p-2"
+          />
+          <button
+            onClick={handleRefund}
+            className="mt-3 w-full bg-red-600 text-white py-2 rounded-md hover:bg-red-700"
+          >
+            Refund User
+          </button>
+        </div> */}
+        {/* </div> */}
       </div>
     </>
   );

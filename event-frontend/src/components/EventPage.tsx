@@ -122,7 +122,6 @@ export default function EventPage({
     const normalizedToken = tokenAddress.trim().toLowerCase();
     if (normalizedToken === "0x48065fbbe25f71c9282ddf5e1cd6d6a887483d5e")
       return 6; // USDT
-    // ... other tokens
     return 18; // default
   };
 
@@ -149,7 +148,6 @@ export default function EventPage({
           minimumAge: Number(minimumAge),
           // ofac: false,
           // excludedCountries: [countries.BELGIUM],
-
           // //what you want users to reveal
           // name: false,
           // issuing_state: true,
