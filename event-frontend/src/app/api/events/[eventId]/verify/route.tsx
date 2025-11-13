@@ -7,12 +7,6 @@ import {
   VerificationConfig,
   countryCodes,
 } from "@selfxyz/core";
-import {
-  countries,
-  Country3LetterCode,
-  SelfAppDisclosureConfig,
-} from "@selfxyz/common";
-
 import { NextResponse, NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -75,42 +69,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const saveOptions = (await configStore.getConfig(
-      result.userData.userIdentifier
-    )) as unknown as SelfAppDisclosureConfig;
-
     if (result.isValidDetails.isValid) {
       return NextResponse.json({
         status: "success",
         result: result.isValidDetails.isValid,
         credentialSubject: result.discloseOutput,
-        verificationOptions: {
-          minimumAge: saveOptions.minimumAge,
-          ofac: saveOptions.ofac,
-          excludedCountries: saveOptions.excludedCountries?.map(
-            (countryName) => {
-              const entry = Object.entries(countryCodes).find(
-                ([_, name]) => name === countryName
-              );
-              return entry ? entry[0] : countryName;
-            }
-          ),
-        },
       });
     } else {
+      //verificatio failed
       return NextResponse.json({
         status: "error",
-        result: result.isValidDetails.isValid,
-        message: "Verification failed",
-        details: result,
+        result: false,
+        reason: "Verification failed",
+        error_code: "VERIFICATION_FAILED",
+        details: result.isValidDetails,
       });
     }
   } catch (error) {
     console.error("Error verifying proof:", error);
-    return NextResponse.json({
-      status: "error",
-      result: false,
-      message: error instanceof Error ? error.message : "Unknown error",
-    });
+    return NextResponse.json(
+      {
+        status: "error",
+        result: false,
+        reason: error instanceof Error ? error.message : "Unknown error",
+        error_code: "UNKNOWN_ERROR",
+      },
+      { status: 200 }
+    );
   }
 }
