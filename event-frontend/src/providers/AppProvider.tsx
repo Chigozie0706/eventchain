@@ -2,11 +2,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { celo } from "wagmi/chains";
 import { config } from "./config";
-import { WagmiProvider, createConfig } from "@privy-io/wagmi";
+import { WagmiProvider } from "@privy-io/wagmi";
 import { useEffect } from "react";
 import type { PrivyClientConfig } from "@privy-io/react-auth";
 import { PrivyProvider, usePrivy } from "@privy-io/react-auth";
-import { useChainId, useSwitchChain } from "wagmi";
 
 const privyConfig: PrivyClientConfig = {
   embeddedWallets: {

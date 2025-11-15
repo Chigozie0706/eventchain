@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  countries,
-  Country3LetterCode,
-  SelfAppDisclosureConfig,
-} from "@selfxyz/common";
-import {
   countryCodes,
   SelfBackendVerifier,
   AllIds,
@@ -69,27 +64,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const saveOptions = (await configStore.getConfig(
-      result.userData.userIdentifier
-    )) as unknown as SelfAppDisclosureConfig;
-
     if (result.isValidDetails.isValid) {
       return NextResponse.json({
         status: "success",
         result: result.isValidDetails.isValid,
         credentialSubject: result.discloseOutput,
-        verificationOptions: {
-          minimumAge: saveOptions.minimumAge,
-          ofac: saveOptions.ofac,
-          excludedCountries: saveOptions.excludedCountries?.map(
-            (countryName) => {
-              const entry = Object.entries(countryCodes).find(
-                ([_, name]) => name === countryName
-              );
-              return entry ? entry[0] : countryName;
-            }
-          ),
-        },
       });
     } else {
       return NextResponse.json({

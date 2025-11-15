@@ -114,7 +114,7 @@ Your **EventChain** smart contract is deployed on the **Celo Mainnet**.
 
 | Contract   | Address                                    |
 | ---------- | ------------------------------------------ |
-| EventChain | 0x2FE3B8dd920C6b0cE4bA6495C39552904Cf30D28 |
+| EventChain | 0x73E04559f141f524EFd7b2743C510428c497cdb6 |
 
 <!-- **[View on Celo Explorer](https://alfajores.celoscan.io/address/0xBa26366767eA843A656853d348c763c41f9D67Ca)** -->
 
