@@ -1,451 +1,893 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const {
+  loadFixture,
+  time,
+  setBalance,
+} = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 
-describe("EventChain", function () {
-  let EventChain;
-  let eventChain;
-  let owner, attendee1, attendee2, attendee3;
-  let token1, token2;
+describe("EventChain Contract Tests", function () {
+  async function deployEventChainFixture() {
+    const [owner, user1, user2, user3, ubiPool] = await ethers.getSigners();
 
-  before(async function () {
-    [owner, attendee1, attendee2, attendee3] = await ethers.getSigners();
-
-    // Deploy mock ERC20 tokens
-    const ERC20Mock = await ethers.getContractFactory("ERC20Mock");
-    token1 = await ERC20Mock.deploy(
-      "Test Token 1",
-      "TT1",
+    // Deploy mock tokens
+    const MockERC20 = await ethers.getContractFactory("MockERC20");
+    const mockUSDT = await MockERC20.deploy(
+      "Mock USDT",
+      "MUSDT",
+      6,
+      ethers.parseUnits("1000000", 6)
+    );
+    const mockCUSD = await MockERC20.deploy(
+      "Mock cUSD",
+      "MCUSD",
+      18,
       ethers.parseEther("1000000")
     );
-    token2 = await ERC20Mock.deploy(
-      "Test Token 2",
-      "TT2",
+
+    const MockERC677 = await ethers.getContractFactory("MockERC677");
+    const mockGDollar = await MockERC677.deploy(
+      "Mock G$",
+      "MG$",
       ethers.parseEther("1000000")
     );
 
-    await token1.waitForDeployment();
-    await token2.waitForDeployment();
+    // Deploy EventChain with supported tokens
+    const supportedTokens = [
+      mockUSDT.target,
+      mockCUSD.target,
+      mockGDollar.target,
+    ];
+    const EventChain = await ethers.getContractFactory("EventChain");
+    const eventChain = await EventChain.deploy(supportedTokens);
 
-    // Get the contract addresses
-    const token1Address = await token1.getAddress();
-    const token2Address = await token2.getAddress();
+    // Distribute tokens to users
+    await mockUSDT.transfer(user1.address, ethers.parseUnits("10000", 6));
+    await mockUSDT.transfer(user2.address, ethers.parseUnits("10000", 6));
+    await mockCUSD.transfer(user1.address, ethers.parseEther("10000"));
+    await mockCUSD.transfer(user2.address, ethers.parseEther("10000"));
+    await mockGDollar.transfer(user1.address, ethers.parseEther("10000"));
+    await mockGDollar.transfer(user2.address, ethers.parseEther("10000"));
 
-    // Deploy EventChain contract with the token addresses
-    EventChain = await ethers.getContractFactory("EventChain");
-    eventChain = await EventChain.deploy([token1Address, token2Address]);
-    await eventChain.waitForDeployment();
+    // Set initial CELO balances for native token tests
+    await setBalance(user1.address, ethers.parseEther("100"));
+    await setBalance(user2.address, ethers.parseEther("100"));
+    await setBalance(owner.address, ethers.parseEther("100"));
 
-    // Distribute tokens to test accounts
-    await token1.transfer(attendee1.address, ethers.parseEther("1000"));
-    await token1.transfer(attendee2.address, ethers.parseEther("1000"));
-    await token1.transfer(attendee3.address, ethers.parseEther("1000"));
-    await token2.transfer(attendee1.address, ethers.parseEther("1000"));
-  });
+    const currentTime = await time.latest();
+    const futureTime = currentTime + 86400; // 24 hours from now
+    const endTime = futureTime + 7200; // 2 hours duration
 
-  describe("Initialization", function () {
-    it("Should initialize with supported tokens", async function () {
-      expect(await eventChain.supportedTokens(await token1.getAddress())).to.be
-        .true;
-      expect(await eventChain.supportedTokens(await token2.getAddress())).to.be
-        .true;
+    return {
+      eventChain,
+      mockUSDT,
+      mockCUSD,
+      mockGDollar,
+      owner,
+      user1,
+      user2,
+      user3,
+      ubiPool,
+      currentTime,
+      futureTime,
+      endTime,
+    };
+  }
+
+  describe("Contract Deployment", function () {
+    it("Should deploy with correct supported tokens", async function () {
+      const { eventChain, mockUSDT, mockCUSD, mockGDollar } = await loadFixture(
+        deployEventChainFixture
+      );
+
+      expect(await eventChain.supportedTokens(ethers.ZeroAddress)).to.be.true; // CELO
+      expect(await eventChain.supportedTokens(mockUSDT.target)).to.be.true;
+      expect(await eventChain.supportedTokens(mockCUSD.target)).to.be.true;
+      expect(await eventChain.supportedTokens(mockGDollar.target)).to.be.true;
     });
 
-    it("Should have correct constants", async function () {
+    it("Should have correct contract constants", async function () {
+      const { eventChain } = await loadFixture(deployEventChainFixture);
+
       expect(await eventChain.MAX_NAME_LENGTH()).to.equal(100);
-      expect(await eventChain.MAX_URL_LENGTH()).to.equal(200);
-      expect(await eventChain.MAX_TICKET_PRICE()).to.equal(
-        ethers.parseEther("1000000")
-      );
       expect(await eventChain.MAX_ATTENDEES()).to.equal(5000);
+      expect(await eventChain.MIN_EVENT_DURATION()).to.equal(3600); // 1 hour
+      expect(await eventChain.REFUND_BUFFER()).to.equal(18000); // 5 hours
     });
   });
 
   describe("Event Creation", function () {
-    it("Should create a new event", async function () {
-      const startDate = Math.floor(Date.now() / 1000) + 86400; // 1 day from now
-      const endDate = startDate + 86400; // 2 days from now
+    it("Should create event with valid parameters", async function () {
+      const { eventChain, mockCUSD, owner, futureTime, endTime } =
+        await loadFixture(deployEventChainFixture);
 
-      await expect(
-        eventChain.connect(owner).createEvent(
-          "Test Event",
-          "https://example.com/image.jpg",
-          "This is a test event description",
-          startDate,
-          endDate,
-          3600, // 1 hour
-          7200, // 2 hours
-          "Virtual Event",
-          ethers.parseEther("10"),
-          await token1.getAddress()
-        )
-      ).to.emit(eventChain, "EventCreated");
+      const tx = await eventChain.createEvent(
+        "Test Event",
+        "https://example.com/image.jpg",
+        "This is a test event description",
+        futureTime,
+        endTime,
+        1200, // 12:00 PM
+        1600, // 4:00 PM
+        "Virtual Event Location",
+        ethers.parseEther("10"), // 10 tokens
+        18,
+        mockCUSD.target
+      );
 
-      const eventCount = await eventChain.getEventLength();
-      expect(eventCount).to.equal(1);
+      await expect(tx)
+        .to.emit(eventChain, "EventCreated")
+        .withArgs(0, owner.address, "Test Event");
 
-      const [event] = await eventChain.getEventById(0);
-      expect(event.eventName).to.equal("Test Event");
+      const eventLength = await eventChain.getEventLength();
+      expect(eventLength).to.equal(1);
+
+      const event = await eventChain.events(0);
       expect(event.owner).to.equal(owner.address);
-      expect(event.paymentToken).to.equal(await token1.getAddress());
+      expect(event.eventName).to.equal("Test Event");
+      expect(event.ticketPrice).to.equal(ethers.parseEther("10"));
+      expect(event.isActive).to.be.true;
+      expect(event.paymentToken).to.equal(mockCUSD.target);
     });
 
-    it("Should fail with invalid parameters", async function () {
-      const startDate = Math.floor(Date.now() / 1000) + 86400;
+    it("Should reject event creation with invalid parameters", async function () {
+      const { eventChain, mockCUSD, futureTime, endTime, currentTime } =
+        await loadFixture(deployEventChainFixture);
 
+      // Empty name
       await expect(
-        eventChain.connect(owner).createEvent(
-          "", // Empty name
-          "https://example.com/image.jpg",
-          "Description",
-          startDate,
-          startDate + 86400,
-          3600,
-          7200,
-          "Location",
+        eventChain.createEvent(
+          "",
+          "url",
+          "details",
+          futureTime,
+          endTime,
+          1200,
+          1600,
+          "location",
           ethers.parseEther("10"),
-          await token1.getAddress()
+          18,
+          mockCUSD.target
         )
       ).to.be.revertedWith("Invalid name");
 
+      // Name too long
+      const longName = "a".repeat(101);
       await expect(
-        eventChain.connect(owner).createEvent(
-          "Test Event",
-          "https://example.com/image.jpg",
-          "Description",
-          startDate,
-          startDate + 3600, // Less than MIN_EVENT_DURATION
-          3600,
-          7200,
-          "Location",
+        eventChain.createEvent(
+          longName,
+          "url",
+          "details",
+          futureTime,
+          endTime,
+          1200,
+          1600,
+          "location",
           ethers.parseEther("10"),
-          await token1.getAddress()
+          18,
+          mockCUSD.target
         )
-      ).to.be.revertedWith("Duration too short");
+      ).to.be.revertedWith("Invalid name");
 
+      // Past start date
       await expect(
-        eventChain.connect(owner).createEvent(
-          "Test Event",
-          "https://example.com/image.jpg",
-          "Description",
-          startDate - 86400, // Past date
-          startDate,
-          3600,
-          7200,
-          "Location",
+        eventChain.createEvent(
+          "Event",
+          "url",
+          "details",
+          currentTime - 1000,
+          endTime,
+          1200,
+          1600,
+          "location",
           ethers.parseEther("10"),
-          await token1.getAddress()
+          18,
+          mockCUSD.target
         )
       ).to.be.revertedWith("Start date must be future");
 
+      // Duration too short
       await expect(
-        eventChain.connect(owner).createEvent(
-          "Test Event",
-          "https://example.com/image.jpg",
-          "Description",
-          startDate,
-          startDate + 86400,
-          3600,
-          7200,
-          "Location",
-          ethers.parseEther("1000001"), // Exceeds MAX_TICKET_PRICE
-          await token1.getAddress()
-        )
-      ).to.be.revertedWith("Invalid price");
-
-      await expect(
-        eventChain.connect(owner).createEvent(
-          "Test Event",
-          "https://example.com/image.jpg",
-          "Description",
-          startDate,
-          startDate + 86400,
-          3600,
-          7200,
-          "Location",
+        eventChain.createEvent(
+          "Event",
+          "url",
+          "details",
+          futureTime,
+          futureTime + 1800,
+          1200,
+          1600,
+          "location",
           ethers.parseEther("10"),
-          ethers.ZeroAddress // Invalid token
+          18,
+          mockCUSD.target
         )
-      ).to.be.revertedWith("Invalid token");
+      ).to.be.revertedWith("Duration too short");
+
+      // Unsupported token
+      await expect(
+        eventChain.createEvent(
+          "Event",
+          "url",
+          "details",
+          futureTime,
+          endTime,
+          1200,
+          1600,
+          "location",
+          ethers.parseEther("10"),
+          18,
+          ethers.ZeroAddress.slice(0, -1) + "1"
+        )
+      ).to.be.revertedWith("Unsupported token");
     });
   });
 
-  describe("Ticket Purchasing", function () {
-    it("Should allow purchasing a ticket", async function () {
-      // Approve token transfer first
-      await token1
-        .connect(attendee1)
-        .approve(await eventChain.getAddress(), ethers.parseEther("10"));
-
-      await expect(eventChain.connect(attendee1).buyTicket(0))
-        .to.emit(eventChain, "TicketPurchased")
-        .withArgs(
-          0,
-          attendee1.address,
-          ethers.parseEther("10"),
-          await token1.getAddress()
-        );
-
-      const [event, attendees] = await eventChain.getEventById(0);
-      expect(attendees.length).to.equal(1);
-      expect(attendees[0]).to.equal(attendee1.address);
-      expect(event.fundsHeld).to.equal(ethers.parseEther("10"));
-      expect(await eventChain.hasPurchasedTicket(0, attendee1.address)).to.be
-        .true;
-    });
-
-    it("Should fail when purchasing multiple tickets for same event", async function () {
-      await token1
-        .connect(attendee1)
-        .approve(await eventChain.getAddress(), ethers.parseEther("10"));
-      await expect(
-        eventChain.connect(attendee1).buyTicket(0)
-      ).to.be.revertedWith("Already purchased");
-    });
-
-    it("Should fail with insufficient allowance", async function () {
-      await expect(
-        eventChain.connect(attendee2).buyTicket(0)
-      ).to.be.revertedWith("Insufficient allowance");
-    });
-
-    it("Should fail when event is at capacity", async function () {
-      // Create a new event with max attendees = 5 for testing
-      const startDate = Math.floor(Date.now() / 1000) + 86400;
-
-      await eventChain
-        .connect(owner)
-        .createEvent(
-          "Small Event",
-          "https://example.com/image.jpg",
-          "Small capacity event",
-          startDate,
-          startDate + 86400,
-          3600,
-          7200,
-          "Virtual",
-          ethers.parseEther("1"),
-          await token1.getAddress()
-        );
-
-      // Buy tickets until capacity is reached
-      for (let i = 0; i < 5; i++) {
-        const attendee = await ethers.getSigner(i + 2); // Skip owner and attendee1
-        await token1
-          .connect(attendee)
-          .approve(await eventChain.getAddress(), ethers.parseEther("1"));
-        await eventChain.connect(attendee).buyTicket(1);
-      }
-
-      // Next purchase should fail
-      const newAttendee = await ethers.getSigner(7);
-      await token1
-        .connect(newAttendee)
-        .approve(await eventChain.getAddress(), ethers.parseEther("1"));
-      await expect(
-        eventChain.connect(newAttendee).buyTicket(1)
-      ).to.be.revertedWith("Event at capacity");
-    });
-  });
-
-  describe("Refunds", function () {
-    it("Should allow refund before event starts", async function () {
-      await token1
-        .connect(attendee1)
-        .approve(await eventChain.getAddress(), ethers.parseEther("10"));
-      await eventChain.connect(attendee1).buyTicket(0);
-
-      const initialBalance = await token1.balanceOf(attendee1.address);
-
-      await expect(eventChain.connect(attendee1).requestRefund(0))
-        .to.emit(eventChain, "RefundIssued")
-        .withArgs(0, attendee1.address, ethers.parseEther("10"));
-
-      const finalBalance = await token1.balanceOf(attendee1.address);
-      expect(finalBalance - initialBalance).to.equal(ethers.parseEther("10"));
-
-      const [event, attendees] = await eventChain.getEventById(0);
-      expect(attendees.length).to.equal(0);
-      expect(event.fundsHeld).to.equal(0);
-      expect(await eventChain.hasPurchasedTicket(0, attendee1.address)).to.be
-        .false;
-    });
-
-    it("Should allow refund for canceled event", async function () {
-      // Create a new event
-      const startDate = Math.floor(Date.now() / 1000) + 86400;
-
-      await eventChain
-        .connect(owner)
-        .createEvent(
-          "Cancelable Event",
-          "https://example.com/image.jpg",
-          "Event to be canceled",
-          startDate,
-          startDate + 86400,
-          3600,
-          7200,
-          "Virtual",
-          ethers.parseEther("5"),
-          await token1.getAddress()
-        );
-
-      // Purchase ticket
-      await token1
-        .connect(attendee2)
-        .approve(await eventChain.getAddress(), ethers.parseEther("5"));
-      await eventChain.connect(attendee2).buyTicket(2);
-
-      // Cancel event
-      await eventChain.connect(owner).cancelEvent(2);
-
-      // Request refund
-      const initialBalance = await token1.balanceOf(attendee2.address);
-      await expect(eventChain.connect(attendee2).requestRefund(2)).to.emit(
-        eventChain,
-        "RefundIssued"
+  describe("Ticket Purchasing with CELO", function () {
+    it("Should allow ticket purchase with CELO", async function () {
+      const { eventChain, user1, futureTime, endTime } = await loadFixture(
+        deployEventChainFixture
       );
 
-      const finalBalance = await token1.balanceOf(attendee2.address);
-      expect(finalBalance - initialBalance).to.equal(ethers.parseEther("5"));
+      const ticketPrice = ethers.parseEther("1");
+
+      // Create event with CELO payment
+      await eventChain.createEvent(
+        "CELO Event",
+        "https://example.com/image.jpg",
+        "CELO payment event",
+        futureTime,
+        endTime,
+        1200,
+        1600,
+        "Virtual Location",
+        ticketPrice,
+        18,
+        ethers.ZeroAddress // CELO
+      );
+
+      const initialBalance = await ethers.provider.getBalance(user1.address);
+
+      const tx = await eventChain
+        .connect(user1)
+        .buyTicket(0, { value: ticketPrice });
+      const receipt = await tx.wait();
+      const gasUsed = receipt.gasUsed * receipt.gasPrice;
+
+      await expect(tx)
+        // .to.emit(eventChain, "TicketPurchased")
+        .to.emit(eventChain, "TicketPurchased(uint256,address,uint256,address)")
+        .withArgs(0, user1.address, ticketPrice, ethers.ZeroAddress);
+
+      // Verify ticket purchase state
+      expect(await eventChain.hasPurchasedTicket(0, user1.address)).to.be.true;
+
+      // Verify CELO balance change (account for gas)
+      const finalBalance = await ethers.provider.getBalance(user1.address);
+      const expectedBalance = initialBalance - ticketPrice - gasUsed;
+      expect(finalBalance).to.equal(expectedBalance);
+
+      // Verify contract holds CELO funds
+      expect(await eventChain.celoFundsHeld(0)).to.equal(ticketPrice);
     });
 
-    it("Should fail refund after refund period", async function () {
-      // Create an event starting soon
-      const startDate = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+    it("Should reject incorrect CELO amount", async function () {
+      const { eventChain, user1, futureTime, endTime } = await loadFixture(
+        deployEventChainFixture
+      );
 
-      await eventChain
-        .connect(owner)
-        .createEvent(
-          "Imminent Event",
-          "https://example.com/image.jpg",
-          "Event starting soon",
-          startDate,
-          startDate + 3600,
-          3600,
-          7200,
-          "Virtual",
-          ethers.parseEther("3"),
-          await token1.getAddress()
-        );
+      const ticketPrice = ethers.parseEther("1");
 
-      // Purchase ticket
-      await token1
-        .connect(attendee3)
-        .approve(await eventChain.getAddress(), ethers.parseEther("3"));
-      await eventChain.connect(attendee3).buyTicket(3);
+      await eventChain.createEvent(
+        "CELO Event",
+        "url",
+        "details",
+        futureTime,
+        endTime,
+        1200,
+        1600,
+        "location",
+        ticketPrice,
+        18,
+        ethers.ZeroAddress
+      );
 
-      // Try to refund - should fail because we're within refund buffer
       await expect(
-        eventChain.connect(attendee3).requestRefund(3)
-      ).to.be.revertedWith("Refund period ended");
+        eventChain
+          .connect(user1)
+          .buyTicket(0, { value: ethers.parseEther("0.5") })
+      ).to.be.revertedWith("Incorrect CELO amount");
     });
   });
 
-  describe("Funds Release", function () {
-    it("Should release funds to event owner after event ends", async function () {
-      // Create an event that's already ended
-      const startDate = Math.floor(Date.now() / 1000) - 86400; // 1 day ago
-      const endDate = startDate + 3600; // Ended 23 hours ago
+  describe("Ticket Purchasing with ERC20 Tokens", function () {
+    it("Should allow ticket purchase with cUSD", async function () {
+      const { eventChain, mockCUSD, user1, futureTime, endTime } =
+        await loadFixture(deployEventChainFixture);
 
-      await eventChain
-        .connect(owner)
-        .createEvent(
-          "Past Event",
-          "https://example.com/image.jpg",
-          "Event that has ended",
-          startDate,
-          endDate,
-          3600,
-          7200,
-          "Virtual",
-          ethers.parseEther("7"),
-          await token1.getAddress()
-        );
+      const ticketPrice = ethers.parseEther("10");
+
+      await eventChain.createEvent(
+        "cUSD Event",
+        "url",
+        "details",
+        futureTime,
+        endTime,
+        1200,
+        1600,
+        "location",
+        ticketPrice,
+        18,
+        mockCUSD.target
+      );
+
+      // Approve tokens
+      await mockCUSD.connect(user1).approve(eventChain.target, ticketPrice);
+
+      const initialBalance = await mockCUSD.balanceOf(user1.address);
+
+      const tx = await eventChain.connect(user1).buyTicket(0);
+
+      await expect(tx)
+        // .to.emit(eventChain, "TicketPurchased")
+        .to.emit(eventChain, "TicketPurchased(uint256,address,uint256,address)")
+        .withArgs(0, user1.address, ticketPrice, mockCUSD.target);
+
+      // Verify token transfer
+      const finalBalance = await mockCUSD.balanceOf(user1.address);
+      expect(finalBalance).to.equal(initialBalance - ticketPrice);
+
+      // Verify event funds
+      const event = await eventChain.events(0);
+      expect(event.fundsHeld).to.equal(ticketPrice);
+    });
+
+    it("Should handle USDT with correct decimals", async function () {
+      const { eventChain, mockUSDT, user1, futureTime, endTime } =
+        await loadFixture(deployEventChainFixture);
+
+      const ticketPrice = ethers.parseEther("10"); // 10 in 18 decimals
+      const usdtPrice = ethers.parseUnits("10", 6); // 10 in 6 decimals
+
+      await eventChain.createEvent(
+        "USDT Event",
+        "url",
+        "details",
+        futureTime,
+        endTime,
+        1200,
+        1600,
+        "location",
+        ticketPrice,
+        6,
+        mockUSDT.target
+      );
+
+      await mockUSDT.connect(user1).approve(eventChain.target, usdtPrice);
+
+      const initialBalance = await mockUSDT.balanceOf(user1.address);
+
+      await eventChain.connect(user1).buyTicket(0);
+
+      // Verify USDT transfer (6 decimals)
+      const finalBalance = await mockUSDT.balanceOf(user1.address);
+      expect(finalBalance).to.equal(initialBalance - usdtPrice);
+
+      // Verify event funds (stored in 6 decimals)
+      const event = await eventChain.events(0);
+      expect(event.fundsHeld).to.equal(usdtPrice);
+    });
+
+    it("Should reject purchase without sufficient allowance", async function () {
+      const { eventChain, mockCUSD, user1, futureTime, endTime } =
+        await loadFixture(deployEventChainFixture);
+
+      const ticketPrice = ethers.parseEther("10");
+
+      await eventChain.createEvent(
+        "Test Event",
+        "url",
+        "details",
+        futureTime,
+        endTime,
+        1200,
+        1600,
+        "location",
+        ticketPrice,
+        18,
+        mockCUSD.target
+      );
+
+      // Don't approve tokens
+      await expect(eventChain.connect(user1).buyTicket(0)).to.be.revertedWith(
+        "Insufficient allowance"
+      );
+    });
+  });
+
+  describe("Event Validation and Edge Cases", function () {
+    it("Should prevent double ticket purchase", async function () {
+      const { eventChain, mockCUSD, user1, futureTime, endTime } =
+        await loadFixture(deployEventChainFixture);
+
+      const ticketPrice = ethers.parseEther("10");
+
+      await eventChain.createEvent(
+        "Test Event",
+        "url",
+        "details",
+        futureTime,
+        endTime,
+        1200,
+        1600,
+        "location",
+        ticketPrice,
+        18,
+        mockCUSD.target
+      );
+
+      await mockCUSD
+        .connect(user1)
+        .approve(eventChain.target, ticketPrice * 2n);
+
+      // First purchase should succeed
+      await eventChain.connect(user1).buyTicket(0);
+
+      // Second purchase should fail
+      await expect(eventChain.connect(user1).buyTicket(0)).to.be.revertedWith(
+        "Already purchased"
+      );
+    });
+
+    it("Should reject purchase for expired event", async function () {
+      const { eventChain, mockCUSD, user1, currentTime } = await loadFixture(
+        deployEventChainFixture
+      );
+
+      const pastTime = currentTime - 1000;
+
+      const futureTime = currentTime + 86400; // 24 hours from now (START)
+      const endTime = futureTime + 7200; // 2 hours after start (END)
+      const ticketPrice = ethers.parseEther("10");
+
+      await eventChain.createEvent(
+        "Past Event",
+        "url",
+        "details",
+        futureTime,
+        endTime,
+        1200,
+        1600,
+        "location",
+        ticketPrice,
+        18,
+        mockCUSD.target
+      );
+
+      // Time travel PAST the event end time to make it expired
+      await time.increaseTo(endTime + 1);
+
+      await mockCUSD.connect(user1).approve(eventChain.target, ticketPrice);
+
+      await expect(eventChain.connect(user1).buyTicket(0)).to.be.revertedWith(
+        "Event expired"
+      );
+    });
+
+    it("Should reject purchase for inactive event", async function () {
+      const { eventChain, mockCUSD, user1, owner, futureTime, endTime } =
+        await loadFixture(deployEventChainFixture);
+
+      const ticketPrice = ethers.parseEther("10");
+
+      await eventChain.createEvent(
+        "Test Event",
+        "url",
+        "details",
+        futureTime,
+        endTime,
+        1200,
+        1600,
+        "location",
+        ticketPrice,
+        18,
+        mockCUSD.target
+      );
+
+      // Cancel event
+      await eventChain.connect(owner).cancelEvent(0);
+
+      await mockCUSD.connect(user1).approve(eventChain.target, ticketPrice);
+
+      await expect(eventChain.connect(user1).buyTicket(0)).to.be.revertedWith(
+        "Event inactive"
+      );
+    });
+  });
+
+  describe("Refund Functionality", function () {
+    it("Should allow refund for canceled event", async function () {
+      const { eventChain, mockCUSD, user1, owner, futureTime, endTime } =
+        await loadFixture(deployEventChainFixture);
+
+      const ticketPrice = ethers.parseEther("10");
+
+      await eventChain.createEvent(
+        "Test Event",
+        "url",
+        "details",
+        futureTime,
+        endTime,
+        1200,
+        1600,
+        "location",
+        ticketPrice,
+        18,
+        mockCUSD.target
+      );
 
       // Purchase ticket
-      await token1
-        .connect(attendee1)
-        .approve(await eventChain.getAddress(), ethers.parseEther("7"));
-      await eventChain.connect(attendee1).buyTicket(4);
+      await mockCUSD.connect(user1).approve(eventChain.target, ticketPrice);
+      await eventChain.connect(user1).buyTicket(0);
 
-      const initialBalance = await token1.balanceOf(owner.address);
+      const balanceAfterPurchase = await mockCUSD.balanceOf(user1.address);
 
-      await expect(eventChain.connect(owner).releaseFunds(4))
+      // Cancel event
+      await eventChain.connect(owner).cancelEvent(0);
+
+      // Request refund
+      const tx = await eventChain.connect(user1).requestRefund(0);
+
+      await expect(tx)
+        .to.emit(eventChain, "RefundIssued")
+        .withArgs(0, user1.address, ticketPrice);
+
+      // Verify refund
+      const finalBalance = await mockCUSD.balanceOf(user1.address);
+      expect(finalBalance).to.equal(balanceAfterPurchase + ticketPrice);
+
+      // Verify ticket status
+      expect(await eventChain.hasPurchasedTicket(0, user1.address)).to.be.false;
+    });
+
+    it("Should allow refund before refund buffer period", async function () {
+      const { eventChain, mockCUSD, user1, futureTime, endTime } =
+        await loadFixture(deployEventChainFixture);
+
+      // Event starts in 24 hours, refund buffer is 5 hours
+      const ticketPrice = ethers.parseEther("10");
+
+      await eventChain.createEvent(
+        "Test Event",
+        "url",
+        "details",
+        futureTime,
+        endTime,
+        1200,
+        1600,
+        "location",
+        ticketPrice,
+        18,
+        mockCUSD.target
+      );
+
+      await mockCUSD.connect(user1).approve(eventChain.target, ticketPrice);
+      await eventChain.connect(user1).buyTicket(0);
+
+      const balanceAfterPurchase = await mockCUSD.balanceOf(user1.address);
+
+      // Advance time but still within refund window (18 hours before event)
+      await time.increase(3600); // 1 hour
+
+      await eventChain.connect(user1).requestRefund(0);
+
+      const finalBalance = await mockCUSD.balanceOf(user1.address);
+      expect(finalBalance).to.equal(balanceAfterPurchase + ticketPrice);
+    });
+
+    it("Should reject refund after buffer period", async function () {
+      const { eventChain, mockCUSD, user1, futureTime, endTime } =
+        await loadFixture(deployEventChainFixture);
+
+      const ticketPrice = ethers.parseEther("10");
+
+      await eventChain.createEvent(
+        "Test Event",
+        "url",
+        "details",
+        futureTime,
+        endTime,
+        1200,
+        1600,
+        "location",
+        ticketPrice,
+        18,
+        mockCUSD.target
+      );
+
+      await mockCUSD.connect(user1).approve(eventChain.target, ticketPrice);
+      await eventChain.connect(user1).buyTicket(0);
+
+      // Advance time past refund buffer (event starts in 24h, buffer is 5h)
+      await time.increase(86400 - 18000 + 1); // Just past the buffer
+
+      await expect(
+        eventChain.connect(user1).requestRefund(0)
+      ).to.be.revertedWith("Refund period ended");
+    });
+
+    it("Should handle CELO refunds correctly", async function () {
+      const { eventChain, user1, futureTime, endTime } = await loadFixture(
+        deployEventChainFixture
+      );
+
+      const ticketPrice = ethers.parseEther("1");
+
+      await eventChain.createEvent(
+        "CELO Event",
+        "url",
+        "details",
+        futureTime,
+        endTime,
+        1200,
+        1600,
+        "location",
+        ticketPrice,
+        18,
+        ethers.ZeroAddress
+      );
+
+      // Purchase ticket with CELO
+      await eventChain.connect(user1).buyTicket(0, { value: ticketPrice });
+
+      const balanceAfterPurchase = await ethers.provider.getBalance(
+        user1.address
+      );
+
+      // Cancel event for refund
+      await eventChain.cancelEvent(0);
+
+      // Request refund
+      const tx = await eventChain.connect(user1).requestRefund(0);
+      const receipt = await tx.wait();
+      const gasUsed = receipt.gasUsed * receipt.gasPrice;
+
+      // Verify CELO refund (account for gas costs)
+      const finalBalance = await ethers.provider.getBalance(user1.address);
+      const expectedBalance = balanceAfterPurchase + ticketPrice - gasUsed;
+      expect(finalBalance).to.equal(expectedBalance);
+    });
+  });
+
+  describe("Fund Release", function () {
+    it("Should release funds to event owner after event ends", async function () {
+      const { eventChain, mockCUSD, user1, owner, futureTime, endTime } =
+        await loadFixture(deployEventChainFixture);
+
+      const ticketPrice = ethers.parseEther("10");
+
+      await eventChain.createEvent(
+        "Test Event",
+        "url",
+        "details",
+        futureTime,
+        endTime,
+        1200,
+        1600,
+        "location",
+        ticketPrice,
+        18,
+        mockCUSD.target
+      );
+
+      // User purchases ticket
+      await mockCUSD.connect(user1).approve(eventChain.target, ticketPrice);
+      await eventChain.connect(user1).buyTicket(0);
+
+      const ownerInitialBalance = await mockCUSD.balanceOf(owner.address);
+
+      // Advance time past event end
+      await time.increaseTo(endTime + 1);
+
+      // Release funds
+      const tx = await eventChain.connect(owner).releaseFunds(0);
+
+      await expect(tx)
         .to.emit(eventChain, "FundsReleased")
-        .withArgs(4, ethers.parseEther("7"));
+        .withArgs(0, ticketPrice);
 
-      const finalBalance = await token1.balanceOf(owner.address);
-      expect(finalBalance - initialBalance).to.equal(ethers.parseEther("7"));
+      // Verify fund transfer
+      const ownerFinalBalance = await mockCUSD.balanceOf(owner.address);
+      expect(ownerFinalBalance).to.equal(ownerInitialBalance + ticketPrice);
 
-      const [event] = await eventChain.getEventById(4);
-      expect(event.fundsHeld).to.equal(0);
+      // Verify funds released flag
+      const event = await eventChain.events(0);
       expect(event.fundsReleased).to.be.true;
     });
 
-    it("Should fail to release funds before event ends", async function () {
+    it("Should reject fund release before event ends", async function () {
+      const { eventChain, mockCUSD, user1, owner, futureTime, endTime } =
+        await loadFixture(deployEventChainFixture);
+
+      const ticketPrice = ethers.parseEther("10");
+
+      await eventChain.createEvent(
+        "Test Event",
+        "url",
+        "details",
+        futureTime,
+        endTime,
+        1200,
+        1600,
+        "location",
+        ticketPrice,
+        18,
+        mockCUSD.target
+      );
+
+      await mockCUSD.connect(user1).approve(eventChain.target, ticketPrice);
+      await eventChain.connect(user1).buyTicket(0);
+
       await expect(
         eventChain.connect(owner).releaseFunds(0)
       ).to.be.revertedWith("Event has not ended yet");
     });
 
-    it("Should fail to release funds for canceled event", async function () {
-      await eventChain.connect(owner).cancelEvent(0);
+    it("Should reject fund release by non-owner", async function () {
+      const { eventChain, mockCUSD, user1, user2, futureTime, endTime } =
+        await loadFixture(deployEventChainFixture);
+
+      const ticketPrice = ethers.parseEther("10");
+
+      await eventChain.createEvent(
+        "Test Event",
+        "url",
+        "details",
+        futureTime,
+        endTime,
+        1200,
+        1600,
+        "location",
+        ticketPrice,
+        18,
+        mockCUSD.target
+      );
+
+      await mockCUSD.connect(user1).approve(eventChain.target, ticketPrice);
+      await eventChain.connect(user1).buyTicket(0);
+
+      await time.increaseTo(endTime + 1);
+
       await expect(
-        eventChain.connect(owner).releaseFunds(0)
-      ).to.be.revertedWith("Cannot release funds for a canceled event");
+        eventChain.connect(user2).releaseFunds(0)
+      ).to.be.revertedWith("Not event owner");
     });
   });
 
   describe("View Functions", function () {
-    it("Should return events by creator", async function () {
-      const events = await eventChain
-        .connect(owner)
-        .getEventsByCreator(owner.address);
-      expect(events.length).to.be.greaterThan(0);
+    it("Should return correct event details", async function () {
+      const { eventChain, mockCUSD, user1, owner, futureTime, endTime } =
+        await loadFixture(deployEventChainFixture);
+
+      const ticketPrice = ethers.parseEther("10");
+      const eventName = "Test Event";
+
+      await eventChain.createEvent(
+        eventName,
+        "url",
+        "details",
+        futureTime,
+        endTime,
+        1200,
+        1600,
+        "location",
+        ticketPrice,
+        18,
+        mockCUSD.target
+      );
+
+      // Purchase ticket to test attendees
+      await mockCUSD.connect(user1).approve(eventChain.target, ticketPrice);
+      await eventChain.connect(user1).buyTicket(0);
+
+      const [eventDetails, attendees, creatorEvents] =
+        await eventChain.getEventById(0);
+
+      expect(eventDetails.owner).to.equal(owner.address);
+      expect(eventDetails.eventName).to.equal(eventName);
+      expect(eventDetails.ticketPrice).to.equal(ticketPrice);
+      expect(attendees).to.deep.equal([user1.address]);
+      expect(creatorEvents.length).to.equal(1);
     });
 
-    it("Should return user's purchased events", async function () {
-      // Create a new event and purchase ticket
-      const startDate = Math.floor(Date.now() / 1000) + 86400;
+    it("Should return correct user events", async function () {
+      const { eventChain, mockCUSD, user1, futureTime, endTime } =
+        await loadFixture(deployEventChainFixture);
 
-      await eventChain
-        .connect(owner)
-        .createEvent(
-          "User Event",
-          "https://example.com/image.jpg",
-          "Event for user testing",
-          startDate,
-          startDate + 86400,
-          3600,
-          7200,
-          "Virtual",
-          ethers.parseEther("2"),
-          await token1.getAddress()
-        );
+      const ticketPrice = ethers.parseEther("10");
 
-      await token1
-        .connect(attendee1)
-        .approve(await eventChain.getAddress(), ethers.parseEther("2"));
-      await eventChain.connect(attendee1).buyTicket(5);
+      // Create two events
+      await eventChain.createEvent(
+        "Event 1",
+        "url",
+        "details",
+        futureTime,
+        endTime,
+        1200,
+        1600,
+        "location",
+        ticketPrice,
+        18,
+        mockCUSD.target
+      );
+      await eventChain.createEvent(
+        "Event 2",
+        "url",
+        "details",
+        futureTime,
+        endTime,
+        1200,
+        1600,
+        "location",
+        ticketPrice,
+        18,
+        mockCUSD.target
+      );
 
-      const [ids, events] = await eventChain.connect(attendee1).getUserEvents();
-      expect(ids.length).to.equal(1);
-      expect(events[0].eventName).to.equal("User Event");
+      // User purchases ticket for first event only
+      await mockCUSD.connect(user1).approve(eventChain.target, ticketPrice);
+      await eventChain.connect(user1).buyTicket(0);
+
+      const [eventIds, userEvents] = await eventChain
+        .connect(user1)
+        .getUserEvents();
+
+      expect(eventIds.length).to.equal(1n);
+      expect(eventIds[0]).to.equal(0);
+      expect(userEvents[0].eventName).to.equal("Event 1");
     });
 
-    it("Should return active events", async function () {
-      const [ids, events] = await eventChain.getAllEvents();
-      expect(ids.length).to.be.greaterThan(0);
-      expect(events[0].isActive).to.be.true;
-    });
+    it("Should return correct active events", async function () {
+      const { eventChain, mockCUSD, owner, futureTime, endTime } =
+        await loadFixture(deployEventChainFixture);
 
-    it("Should return active events by creator", async function () {
-      const [ids, events] = await eventChain
-        .connect(owner)
-        .getActiveEventsByCreator();
-      expect(ids.length).to.be.greaterThan(0);
-      expect(events[0].owner).to.equal(owner.address);
-      expect(events[0].isActive).to.be.true;
+      const ticketPrice = ethers.parseEther("10");
+
+      // Create two events
+      await eventChain.createEvent(
+        "Event 1",
+        "url",
+        "details",
+        futureTime,
+        endTime,
+        1200,
+        1600,
+        "location",
+        ticketPrice,
+        18,
+        mockCUSD.target
+      );
+      await eventChain.createEvent(
+        "Event 2",
+        "url",
+        "details",
+        futureTime,
+        endTime,
+        1200,
+        1600,
+        "location",
+        ticketPrice,
+        18,
+        mockCUSD.target
+      );
+
+      // Cancel first event
+      await eventChain.connect(owner).cancelEvent(0);
+
+      const [eventIds, activeEvents] = await eventChain.getAllEvents();
+
+      expect(eventIds.length).to.equal(1);
+      expect(eventIds[0]).to.equal(1n);
+      expect(activeEvents[0].eventName).to.equal("Event 2");
     });
   });
 });
