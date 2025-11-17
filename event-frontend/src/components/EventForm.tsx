@@ -11,8 +11,6 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
   useWalletClient,
-  useChainId,
-  useSwitchChain,
 } from "wagmi";
 import { getReferralTag, submitReferral } from "@divvi/referral-sdk";
 import contractABI from "../contract/abi.json";
@@ -54,6 +52,54 @@ export interface Token {
 
 const CONTRACT_ADDRESS = "0x43247E2EFAe25a3bBc22b255147001BadcDecfc4";
 
+// Enhanced toast configurations for better UX
+const toastConfig = {
+  success: {
+    duration: 4000,
+    icon: "✅",
+    style: {
+      background: "#10b981",
+      color: "#fff",
+      fontWeight: "500",
+    },
+  },
+  error: {
+    duration: 5000,
+    icon: "❌",
+    style: {
+      background: "#ef4444",
+      color: "#fff",
+      fontWeight: "500",
+    },
+  },
+  loading: {
+    icon: "⏳",
+    style: {
+      background: "#3b82f6",
+      color: "#fff",
+      fontWeight: "500",
+    },
+  },
+  warning: {
+    duration: 4000,
+    icon: "⚠️",
+    style: {
+      background: "#f59e0b",
+      color: "#fff",
+      fontWeight: "500",
+    },
+  },
+  info: {
+    duration: 3000,
+    icon: "ℹ️",
+    style: {
+      background: "#6366f1",
+      color: "#fff",
+      fontWeight: "500",
+    },
+  },
+};
+
 const EventForm = () => {
   const router = useRouter();
   const [eventData, setEventData] = useState<EventData>({
@@ -80,40 +126,139 @@ const EventForm = () => {
     user: address as `0x${string}`,
     consumer: "0x5e23d5Be257d9140d4C5b12654111a4D4E18D9B2" as `0x${string}`,
   };
+
   const [ticketCount, setTicketCount] = useState("");
   const [refundAddress, setRefundAddress] = useState("");
   const { writeContractAsync } = useWriteContract();
 
+  // Show wallet connection prompt
+  const showWalletPrompt = () => {
+    toast.error("Please connect your wallet to continue", {
+      ...toastConfig.error,
+      icon: "🔌",
+    });
+  };
+
   const handleBuy = async () => {
-    if (!address) return toast.error("Connect your wallet");
-    const priceInUSDT = parseUnits(ticketCount, 6); // 6 decimals for USDT
+    if (!address) {
+      showWalletPrompt();
+      return;
+    }
+
+    if (!ticketCount || parseFloat(ticketCount) <= 0) {
+      toast.error("Please enter a valid ticket count", toastConfig.error);
+      return;
+    }
+
+    const buyToastId = toast.loading(
+      `Purchasing ${ticketCount} ticket(s)...`,
+      toastConfig.loading
+    );
 
     try {
-      await writeContractAsync({
+      const tx = await writeContractAsync({
         address: CONTRACT_ADDRESS,
         abi: contractABI.abi,
         functionName: "buyTicket",
         args: [BigInt(ticketCount)],
       });
-      toast.success(`Purchased ${ticketCount} ticket(s)!`);
+
+      toast.success(`🎉 Successfully purchased ${ticketCount} ticket(s)!`, {
+        ...toastConfig.success,
+        id: buyToastId,
+      });
+
+      // Reset ticket count
+      setTicketCount("");
     } catch (err: any) {
-      toast.error(err.shortMessage || "Purchase failed");
+      console.error("Ticket purchase error:", err);
+
+      const errorMessage = err.shortMessage || err.message || "Purchase failed";
+
+      // Enhanced error messages
+      if (errorMessage.includes("insufficient")) {
+        toast.error("Insufficient balance to purchase tickets", {
+          ...toastConfig.error,
+          id: buyToastId,
+        });
+      } else if (errorMessage.includes("rejected")) {
+        toast.error("Transaction rejected by user", {
+          ...toastConfig.warning,
+          id: buyToastId,
+        });
+      } else {
+        toast.error(`Purchase failed: ${errorMessage}`, {
+          ...toastConfig.error,
+          id: buyToastId,
+        });
+      }
     }
   };
 
   const handleRefund = async () => {
+    if (!address) {
+      showWalletPrompt();
+      return;
+    }
+
+    if (!refundAddress || !refundAddress.startsWith("0x")) {
+      toast.error("Please enter a valid wallet address", toastConfig.error);
+      return;
+    }
+
+    const refundToastId = toast.loading(
+      `Processing refund to ${refundAddress.slice(
+        0,
+        6
+      )}...${refundAddress.slice(-4)}`,
+      toastConfig.loading
+    );
+
     try {
-      await writeContractAsync({
+      const tx = await writeContractAsync({
         address: CONTRACT_ADDRESS,
         abi: contractABI.abi,
         functionName: "refund",
         args: [refundAddress],
       });
-      toast.success(`Refund sent to ${refundAddress}`);
+
+      toast.success(
+        `💰 Refund successfully sent to ${refundAddress.slice(
+          0,
+          6
+        )}...${refundAddress.slice(-4)}`,
+        {
+          ...toastConfig.success,
+          id: refundToastId,
+        }
+      );
+
+      // Reset refund address
+      setRefundAddress("");
     } catch (err: any) {
-      toast.error(err.shortMessage || "Refund failed");
+      console.error("Refund error:", err);
+
+      const errorMessage = err.shortMessage || err.message || "Refund failed";
+
+      if (errorMessage.includes("No tickets")) {
+        toast.error("This address has no tickets to refund", {
+          ...toastConfig.error,
+          id: refundToastId,
+        });
+      } else if (errorMessage.includes("rejected")) {
+        toast.error("Transaction rejected by user", {
+          ...toastConfig.warning,
+          id: refundToastId,
+        });
+      } else {
+        toast.error(`Refund failed: ${errorMessage}`, {
+          ...toastConfig.error,
+          id: refundToastId,
+        });
+      }
     }
   };
+
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -124,6 +269,7 @@ const EventForm = () => {
 
   const validateForm = () => {
     try {
+      // Check required fields
       if (
         !eventData.eventName ||
         !eventData.eventDetails ||
@@ -137,6 +283,12 @@ const EventForm = () => {
         throw new Error("Please fill in all required fields");
       }
 
+      // Check if image is uploaded
+      if (!file) {
+        throw new Error("Please upload an event image");
+      }
+
+      // Validate dates
       const startDateTime = new Date(
         `${eventData.startDate}T${eventData.startTime}`
       );
@@ -150,17 +302,21 @@ const EventForm = () => {
         throw new Error("End date/time must be after start date/time");
       }
 
+      // Validate price
       const price = parseFloat(eventData.eventPrice);
       if (isNaN(price))
         throw new Error("Please enter a valid number for price");
       if (price <= 0) throw new Error("Price must be greater than 0");
+      if (price > 1000000) throw new Error("Price seems unusually high");
 
+      // Validate token
       if (
         !tokenOptions.some((token) => token.address === eventData.paymentToken)
       ) {
         throw new Error("Selected payment token is not supported");
       }
 
+      // Validate age
       const minAge = parseInt(eventData.minimumAge);
       if (isNaN(minAge) || minAge < 0 || minAge > 120) {
         throw new Error("Please enter a valid minimum age (0-120)");
@@ -168,13 +324,25 @@ const EventForm = () => {
 
       return true;
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.message, {
+        ...toastConfig.error,
+        icon: "⚠️",
+      });
       return false;
     }
   };
 
   const handleTokenChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setEventData({ ...eventData, paymentToken: e.target.value });
+    const newToken = e.target.value;
+    setEventData({ ...eventData, paymentToken: newToken });
+
+    const token = getTokenByAddress(newToken);
+    if (token) {
+      toast.success(`Payment token changed to ${token.symbol}`, {
+        ...toastConfig.info,
+        duration: 2000,
+      });
+    }
   };
 
   const handleFileChange = (
@@ -191,18 +359,30 @@ const EventForm = () => {
 
     if (!selectedFile) return;
 
-    // Rest of your validation logic...
+    // Validate file type
     if (!selectedFile.type.startsWith("image/")) {
-      setError("Only image files are allowed");
+      const errorMsg = "Only image files are allowed (JPG, PNG, GIF, etc.)";
+      setError(errorMsg);
+      toast.error(errorMsg, toastConfig.error);
       return;
     }
 
+    // Validate file size
     if (selectedFile.size > 10 * 1024 * 1024) {
-      setError("File size must be less than 10MB");
+      const errorMsg = "File size must be less than 10MB";
+      setError(errorMsg);
+      toast.error(errorMsg, toastConfig.error);
       return;
     }
 
     setFile(selectedFile);
+
+    // Show success message
+    toast.success(`Image "${selectedFile.name}" selected successfully`, {
+      ...toastConfig.success,
+      duration: 2000,
+      icon: "🖼️",
+    });
 
     // Create preview
     const reader = new FileReader();
@@ -211,29 +391,52 @@ const EventForm = () => {
   };
 
   const uploadToIPFS = async (file: File): Promise<string> => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append(
-      "pinataMetadata",
-      JSON.stringify({ name: `event-image-${Date.now()}` })
+    const uploadToastId = toast.loading(
+      "Uploading image to IPFS...",
+      toastConfig.loading
     );
 
-    const response = await axios.post(
-      "https://api.pinata.cloud/pinning/pinFileToIPFS",
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`,
-        },
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append(
+        "pinataMetadata",
+        JSON.stringify({ name: `event-image-${Date.now()}` })
+      );
+
+      const response = await axios.post(
+        "https://api.pinata.cloud/pinning/pinFileToIPFS",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`,
+          },
+        }
+      );
+
+      if (response.status !== 200) {
+        throw new Error("Failed to upload image to IPFS");
       }
-    );
 
-    if (response.status !== 200) {
-      throw new Error("Failed to upload image");
+      const ipfsUrl = `https://gateway.pinata.cloud/ipfs/${response.data.IpfsHash}`;
+
+      toast.success("Image uploaded to IPFS successfully", {
+        ...toastConfig.success,
+        id: uploadToastId,
+      });
+
+      return ipfsUrl;
+    } catch (error: any) {
+      console.error("IPFS upload error:", error);
+
+      toast.error("Failed to upload image. Please try again.", {
+        ...toastConfig.error,
+        id: uploadToastId,
+      });
+
+      throw error;
     }
-
-    return `https://gateway.pinata.cloud/ipfs/${response.data.IpfsHash}`;
   };
 
   const handleDrop = useCallback(
@@ -254,22 +457,38 @@ const EventForm = () => {
   }, []);
 
   const createEvent = async () => {
+    // Validate form first
     if (!validateForm()) return;
 
+    // Check wallet connection
     if (!address || !walletClient) {
-      toast.error("Please connect your wallet");
+      showWalletPrompt();
       return;
     }
 
+    const mainToastId = toast.loading(
+      "Preparing your event...",
+      toastConfig.loading
+    );
+
     try {
       setLoading(true);
-      const toastId = toast.loading("Creating event...");
 
-      // Upload image to IPFS
+      // Step 1: Upload image to IPFS
+      toast.loading("📤 Uploading image to IPFS...", {
+        ...toastConfig.loading,
+        id: mainToastId,
+      });
+
       const imageUrl = await uploadToIPFS(file!);
       const ipfsHash = imageUrl.split("/").pop() || "";
 
-      // Prepare transaction data
+      // Step 2: Prepare transaction data
+      toast.loading("📝 Preparing transaction data...", {
+        ...toastConfig.loading,
+        id: mainToastId,
+      });
+
       const startDateTime = new Date(
         `${eventData.startDate}T${eventData.startTime}`
       );
@@ -286,18 +505,11 @@ const EventForm = () => {
       );
 
       const selectedToken = getTokenByAddress(eventData.paymentToken);
-
-      // Use correct decimals for the token
       const decimals = selectedToken?.decimals || 18;
       const priceInWei = parseUnits(eventData.eventPrice, decimals);
 
-      // const priceInWei = parseUnits(eventData.eventPrice, 18);
-
       // Get Divvi data suffix
       const divviSuffix = getReferralTag(DIVVI_CONFIG);
-
-      // const paymentTokenAddress = eventData.paymentToken;
-
       const normalizedPaymentToken = normalizeAddress(eventData.paymentToken);
 
       // Encode contract function call
@@ -332,7 +544,12 @@ const EventForm = () => {
           ? divviSuffix.slice(2)
           : divviSuffix)) as `0x${string}`;
 
-      // Send transaction with sufficient gas
+      // Step 3: Send transaction
+      toast.loading("🔐 Please confirm transaction in your wallet...", {
+        ...toastConfig.loading,
+        id: mainToastId,
+      });
+
       const hash = await walletClient.sendTransaction({
         account: address,
         to: CONTRACT_ADDRESS,
@@ -341,14 +558,32 @@ const EventForm = () => {
       });
 
       setTxHash(hash);
-      toast.loading("Processing transaction...", { id: toastId });
 
-      // Report to Divvi
+      // Step 4: Wait for confirmation
+      toast.loading("⏳ Waiting for blockchain confirmation...", {
+        ...toastConfig.loading,
+        id: mainToastId,
+      });
+
+      // Step 5: Report to Divvi
       await reportToDivvi(hash);
 
-      toast.success("Event created successfully!", { id: toastId });
+      // Success!
+      toast.success(`🎉 Event "${eventData.eventName}" created successfully!`, {
+        ...toastConfig.success,
+        id: mainToastId,
+        duration: 5000,
+      });
 
-      // Reset form and redirect
+      // Show additional info toast
+      setTimeout(() => {
+        toast.success("Redirecting to events page...", {
+          ...toastConfig.info,
+          duration: 2000,
+        });
+      }, 1000);
+
+      // Reset form
       setEventData({
         eventName: "",
         eventDetails: "",
@@ -361,13 +596,55 @@ const EventForm = () => {
         paymentToken: tokenOptions[0].address,
         minimumAge: "0",
       });
+      setFile(null);
+      setPreview(null);
 
-      router.push("/view_events");
+      // Redirect after delay
+      setTimeout(() => {
+        router.push("/view_events");
+      }, 2000);
     } catch (error: any) {
       console.error("Event creation failed:", error);
-      toast.error(
-        error.shortMessage || error.message || "Failed to create event"
-      );
+
+      let errorMessage = "Failed to create event";
+
+      // Parse different error types
+      if (error.message?.includes("User rejected")) {
+        errorMessage = "Transaction was rejected";
+        toast.error(errorMessage, {
+          ...toastConfig.warning,
+          id: mainToastId,
+        });
+      } else if (error.message?.includes("insufficient funds")) {
+        errorMessage = "Insufficient funds for gas fees";
+        toast.error(errorMessage, {
+          ...toastConfig.error,
+          id: mainToastId,
+        });
+      } else if (error.message?.includes("IPFS")) {
+        errorMessage = "Failed to upload image. Please try again.";
+        toast.error(errorMessage, {
+          ...toastConfig.error,
+          id: mainToastId,
+        });
+      } else {
+        errorMessage =
+          error.shortMessage || error.message || "Unknown error occurred";
+        toast.error(errorMessage, {
+          ...toastConfig.error,
+          id: mainToastId,
+        });
+      }
+
+      // Show support message for persistent errors
+      if (error.message && !error.message.includes("rejected")) {
+        setTimeout(() => {
+          toast.error("Need help? Contact support with your error details", {
+            ...toastConfig.info,
+            duration: 4000,
+          });
+        }, 1000);
+      }
     } finally {
       setLoading(false);
     }
@@ -380,12 +657,21 @@ const EventForm = () => {
       console.log("[DEBUG] Submitting to Divvi with chainId:", chainId);
       await submitReferral({ txHash, chainId });
       console.log("[DEBUG] Successfully reported to Divvi");
+
+      // Optional: Show success toast for Divvi reporting
+      // toast.success("Referral tracked successfully", {
+      //   ...toastConfig.info,
+      //   duration: 2000,
+      // });
     } catch (divviError) {
       console.error("[ERROR] Divvi reporting failed:", {
         error: divviError,
         txHash,
         timestamp: new Date().toISOString(),
       });
+
+      // Don't show error to user as Divvi is optional
+      // Just log it for debugging
     }
   };
 
@@ -413,52 +699,6 @@ const EventForm = () => {
           createEvent={createEvent}
           loading={loading}
         />
-        {/* 
-        <div className="max-w-md mx-auto mt-10 p-6 rounded-2xl shadow-lg border border-gray-200">
-          <h1 className="text-2xl font-bold mb-4 text-center">
-            🎟 EventChain — USDT Ticket
-          </h1>
-
-          {/* Buy Ticket */}
-
-        {/* <div className="mb-6">
-          <label className="block text-sm font-medium mb-1">Ticket Count</label>
-          <input
-            type="text"
-            value={ticketCount}
-            onChange={(e) => setTicketCount(e.target.value)}
-            className="w-full border rounded-md p-2"
-          />
-          <button
-            onClick={handleBuy}
-            className="mt-3 w-full bg-green-600 text-white py-2 rounded-md hover:bg-green-700"
-          >
-            Buy Ticket
-          </button>
-        </div> */}
-
-        {/* <hr className="my-4" /> */}
-
-        {/* Refund */}
-        {/* <div>
-          <label className="block text-sm font-medium mb-1">
-            Refund Address
-          </label>
-          <input
-            type="text"
-            placeholder="0x..."
-            value={refundAddress}
-            onChange={(e) => setRefundAddress(e.target.value)}
-            className="w-full border rounded-md p-2"
-          />
-          <button
-            onClick={handleRefund}
-            className="mt-3 w-full bg-red-600 text-white py-2 rounded-md hover:bg-red-700"
-          >
-            Refund User
-          </button>
-        </div> */}
-        {/* </div> */}
       </div>
     </>
   );

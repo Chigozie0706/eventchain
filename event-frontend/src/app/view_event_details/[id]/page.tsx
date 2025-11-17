@@ -47,7 +47,55 @@ export interface Event {
 
 const CONTRACT_ADDRESS = "0x43247E2EFAe25a3bBc22b255147001BadcDecfc4";
 const CELO_TOKEN_ADDRESS = "0x0000000000000000000000000000000000000000";
-const USDT_ADDRESS = "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e"; // Mainnet USDT
+const USDT_ADDRESS = "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e";
+
+// Enhanced toast configurations
+const toastConfig = {
+  success: {
+    duration: 4000,
+    icon: "✅",
+    style: {
+      background: "#10b981",
+      color: "#fff",
+      fontWeight: "500",
+    },
+  },
+  error: {
+    duration: 5000,
+    icon: "❌",
+    style: {
+      background: "#ef4444",
+      color: "#fff",
+      fontWeight: "500",
+    },
+  },
+  loading: {
+    icon: "⏳",
+    style: {
+      background: "#3b82f6",
+      color: "#fff",
+      fontWeight: "500",
+    },
+  },
+  warning: {
+    duration: 4000,
+    icon: "⚠️",
+    style: {
+      background: "#f59e0b",
+      color: "#fff",
+      fontWeight: "500",
+    },
+  },
+  info: {
+    duration: 3000,
+    icon: "ℹ️",
+    style: {
+      background: "#6366f1",
+      color: "#fff",
+      fontWeight: "500",
+    },
+  },
+};
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
@@ -121,7 +169,6 @@ export default function Home() {
         !!eventDetails?.event.paymentToken &&
         eventDetails.event.paymentToken !== CELO_TOKEN_ADDRESS,
     },
-    // query: { enabled: !!address && !!eventDetails?.event.paymentToken },
   });
 
   // Refund transaction handling
@@ -137,28 +184,34 @@ export default function Home() {
   // Create public client instance
   const publicClient = createPublicClient({
     chain: celo,
-    transport: http(), // Celo mainnet RPC
+    transport: http(),
   });
 
   // Refetch data after successful actions
   useEffect(() => {
     if (isConfirmed || isRefundConfirmed) {
-      // Refetch all relevant data
-      Promise.all([
-        refetchEvent(),
-        // refetchBalance?.(),
-        refetchAllowance?.(),
-      ]).catch(console.error);
+      const refreshToastId = toast.loading("Refreshing event data...", {
+        ...toastConfig.loading,
+        icon: "🔄",
+      });
+
+      Promise.all([refetchEvent(), refetchAllowance?.()])
+        .then(() => {
+          toast.success("Event data updated!", {
+            ...toastConfig.success,
+            id: refreshToastId,
+            duration: 2000,
+          });
+        })
+        .catch((error) => {
+          console.error("Failed to refresh data:", error);
+          toast.dismiss(refreshToastId);
+        });
     }
-  }, [
-    isConfirmed,
-    isRefundConfirmed,
-    refetchEvent,
-    // refetchBalance,
-    refetchAllowance,
-  ]);
+  }, [isConfirmed, isRefundConfirmed, refetchEvent, refetchAllowance]);
 
   console.log("eventDetails", eventDetails);
+
   useEffect(() => {
     if (rawData) {
       const [eventData, attendees, relatedEvents] = rawData as any;
@@ -187,42 +240,83 @@ export default function Home() {
     }
   }, [rawData]);
 
+  // Enhanced transaction status handling
   useEffect(() => {
     let toastId: string | undefined;
 
     if (isWriting) {
-      toastId = toast.loading("Confirming transaction...");
+      toastId = toast.loading(
+        "🔐 Please confirm the transaction in your wallet...",
+        toastConfig.loading
+      );
     } else if (isConfirming) {
-      toastId = toast.loading("Processing transaction...");
+      toastId = toast.loading(
+        "⏳ Waiting for blockchain confirmation...",
+        toastConfig.loading
+      );
     } else if (isConfirmed) {
-      toast.success("Ticket purchased successfully!");
+      toast.success("🎉 Ticket purchased successfully!", {
+        ...toastConfig.success,
+        duration: 5000,
+      });
+
+      // Show additional success info
+      setTimeout(() => {
+        toast.success("Check your wallet for the ticket!", {
+          ...toastConfig.info,
+          duration: 3000,
+        });
+      }, 1000);
     } else if (writeError) {
-      toast.error(writeError.message || "Transaction failed");
+      const errorMessage = parseErrorMessage(writeError.message);
+      toast.error(errorMessage, {
+        ...toastConfig.error,
+        duration: 6000,
+      });
     }
 
     return () => {
       if (toastId) toast.dismiss(toastId);
-      else toast.dismiss();
     };
   }, [isWriting, isConfirming, isConfirmed, writeError]);
 
-  // Refund status handling
+  // Enhanced refund status handling
   useEffect(() => {
     let toastId: string | undefined;
 
     if (isRefundWriting) {
-      toastId = toast.loading("Confirming refund...");
+      toastId = toast.loading(
+        "🔐 Confirming refund request...",
+        toastConfig.loading
+      );
     } else if (isRefundConfirming) {
-      toastId = toast.loading("Processing refund...");
+      toastId = toast.loading(
+        "⏳ Processing refund on blockchain...",
+        toastConfig.loading
+      );
     } else if (isRefundConfirmed) {
-      toast.success("Refund processed successfully!");
+      toast.success("💰 Refund processed successfully!", {
+        ...toastConfig.success,
+        duration: 5000,
+      });
+
+      // Show refund details
+      setTimeout(() => {
+        toast.success("Funds have been returned to your wallet", {
+          ...toastConfig.info,
+          duration: 3000,
+        });
+      }, 1000);
     } else if (refundWriteError) {
-      toast.error(refundWriteError.message || "Refund failed");
+      const errorMessage = parseErrorMessage(refundWriteError.message);
+      toast.error(errorMessage, {
+        ...toastConfig.error,
+        duration: 6000,
+      });
     }
 
     return () => {
       if (toastId) toast.dismiss(toastId);
-      else toast.dismiss();
     };
   }, [
     isRefundWriting,
@@ -231,39 +325,121 @@ export default function Home() {
     refundWriteError,
   ]);
 
+  // Helper function to parse error messages
+  const parseErrorMessage = (message: string): string => {
+    if (
+      message.includes("User rejected") ||
+      message.includes("user rejected")
+    ) {
+      return "Transaction was cancelled";
+    }
+    if (message.includes("insufficient funds")) {
+      return "Insufficient funds for gas fees";
+    }
+    if (message.includes("transfer amount exceeds balance")) {
+      return "Insufficient token balance";
+    }
+    if (message.includes("Already purchased")) {
+      return "You already own a ticket for this event";
+    }
+    if (message.includes("Event expired")) {
+      return "This event has already started or ended";
+    }
+    if (message.includes("Event inactive")) {
+      return "This event is no longer active";
+    }
+    if (message.includes("Event at capacity")) {
+      return "Sorry, this event is sold out";
+    }
+    if (message.includes("Refund period ended")) {
+      return "Refund period has expired for this event";
+    }
+    if (message.includes("No ticket purchased")) {
+      return "You don't have a ticket to refund";
+    }
+    if (message.includes("Insufficient allowance")) {
+      return "Token approval failed - please try again";
+    }
+
+    // Generic fallback
+    return message.length > 100
+      ? "Transaction failed - please try again"
+      : message;
+  };
+
   const reportToDivvi = async (txHash: `0x${string}`) => {
     console.log("[Divvi] Starting to report transaction:", txHash);
     try {
-      const chainId = 42220; // Celo mainnet
+      const chainId = 42220;
       console.log("[Divvi] Using chainId:", chainId);
       await submitReferral({ txHash, chainId });
       console.log("[Divvi] Successfully reported transaction");
     } catch (divviError) {
       console.error("[Divvi] Reporting failed:", divviError);
+      // Silent failure - don't notify user
     }
   };
 
   const buyTicket = useCallback(async () => {
     console.log("[Ticket] Starting ticket purchase process");
 
+    // Validation checks with user-friendly messages
     if (!isConnected) {
-      toast.error("Please connect your wallet first");
+      toast.error("Please connect your wallet to purchase tickets", {
+        ...toastConfig.error,
+        icon: "🔌",
+      });
       return;
     }
 
     if (!eventDetails || !address || !walletClient) {
-      toast.error("Wallet not properly connected");
+      toast.error("Wallet connection error - please reconnect", {
+        ...toastConfig.error,
+        icon: "🔌",
+      });
       return;
     }
 
     if (eventDetails.attendees.includes(address)) {
-      toast.error("You already have a ticket for this event");
+      toast.error("You already own a ticket for this event", {
+        ...toastConfig.warning,
+        duration: 4000,
+      });
+      return;
+    }
+
+    // Check if event is still valid
+    const now = Math.floor(Date.now() / 1000);
+    if (eventDetails.event.startDate < now) {
+      toast.error("This event has already started", {
+        ...toastConfig.warning,
+        duration: 4000,
+      });
+      return;
+    }
+
+    if (!eventDetails.event.isActive) {
+      toast.error("This event is no longer active", {
+        ...toastConfig.warning,
+        duration: 4000,
+      });
+      return;
+    }
+
+    if (eventDetails.event.isCanceled) {
+      toast.error("This event has been cancelled", {
+        ...toastConfig.warning,
+        duration: 4000,
+      });
       return;
     }
 
     try {
       setLoading(true);
-      const toastId = toast.loading("Preparing transaction...");
+      const mainToastId = toast.loading(
+        "🎟️ Preparing your ticket purchase...",
+        toastConfig.loading
+      );
 
       const requiredAmount = eventDetails.event.ticketPrice;
       const paymentToken = eventDetails.event.paymentToken;
@@ -286,11 +462,23 @@ export default function Home() {
         isGdollar,
       });
 
+      // Check balance for native CELO
       if (isCelo) {
-        // Check native CELO balance
+        toast.loading("💰 Checking your CELO balance...", { id: mainToastId });
+
         const balance = await publicClient.getBalance({ address });
         if (balance < requiredAmount) {
-          toast.error("Insufficient CELO balance");
+          toast.error(
+            `Insufficient CELO balance. Required: ${formatUnits(
+              requiredAmount,
+              18
+            )} CELO`,
+            {
+              ...toastConfig.error,
+              id: mainToastId,
+              duration: 6000,
+            }
+          );
           setLoading(false);
           return;
         }
@@ -302,7 +490,7 @@ export default function Home() {
 
       // G$ token flow
       if (isGdollar) {
-        toast.loading("Preparing G$ transfer...", { id: toastId });
+        toast.loading("💵 Preparing G$ token transfer...", { id: mainToastId });
 
         const eventIdData = encodeAbiParameters(
           [{ type: "uint256" }],
@@ -312,6 +500,10 @@ export default function Home() {
           (divviSuffix.startsWith("0x")
             ? divviSuffix.slice(2)
             : divviSuffix)) as `0x${string}`;
+
+        toast.loading("🔐 Confirm G$ transfer in your wallet...", {
+          id: mainToastId,
+        });
 
         hash = await walletClient.writeContract({
           address: paymentToken as `0x${string}`,
@@ -334,6 +526,8 @@ export default function Home() {
       }
       // CELO native token flow
       else if (isCelo) {
+        toast.loading("💎 Preparing CELO payment...", { id: mainToastId });
+
         const encodedFunction = encodeFunctionData({
           abi: contractABI.abi,
           functionName: "buyTicket",
@@ -344,6 +538,10 @@ export default function Home() {
           (divviSuffix.startsWith("0x")
             ? divviSuffix.slice(2)
             : divviSuffix)) as `0x${string}`;
+
+        toast.loading("🔐 Confirm CELO payment in your wallet...", {
+          id: mainToastId,
+        });
 
         hash = await walletClient.sendTransaction({
           account: address,
@@ -352,19 +550,45 @@ export default function Home() {
           value: requiredAmount,
         });
       }
-      // Standard ERC-20 flow
+      // Standard ERC-20 flow (including USDT)
       else {
         // Handle token approval if needed
         if (!tokenAllowance || tokenAllowance < requiredAmount) {
-          toast.loading("Approving token spend...", { id: toastId });
-          await write({
+          toast.loading(
+            `✅ Approving ${tokenInfo?.symbol || "token"} spend...`,
+            { id: mainToastId }
+          );
+
+          const approvalHash = await walletClient.writeContract({
             address: paymentToken as `0x${string}`,
             abi: erc20Abi,
             functionName: "approve",
             args: [CONTRACT_ADDRESS, requiredAmount],
-            gas: BigInt(100000),
           });
+
+          toast.loading("⏳ Waiting for approval confirmation...", {
+            id: mainToastId,
+          });
+
+          // Wait for approval to be mined
+          await publicClient.waitForTransactionReceipt({ hash: approvalHash });
+
+          toast.success(
+            `${tokenInfo?.symbol || "Token"} approved successfully!`,
+            {
+              ...toastConfig.success,
+              duration: 2000,
+            }
+          );
+
+          // Small delay before purchase
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
+
+        toast.loading(
+          `💳 Preparing ${tokenInfo?.symbol || "token"} payment...`,
+          { id: mainToastId }
+        );
 
         const encodedFunction = encodeFunctionData({
           abi: contractABI.abi,
@@ -377,7 +601,10 @@ export default function Home() {
             ? divviSuffix.slice(2)
             : divviSuffix)) as `0x${string}`;
 
-        toast.loading("Waiting for wallet confirmation...", { id: toastId });
+        toast.loading("🔐 Confirm purchase in your wallet...", {
+          id: mainToastId,
+        });
+
         hash = await walletClient.sendTransaction({
           account: address,
           to: CONTRACT_ADDRESS,
@@ -386,23 +613,77 @@ export default function Home() {
         });
       }
 
+      toast.loading("⏳ Processing transaction...", { id: mainToastId });
+
+      // Wait for transaction receipt
+      await publicClient.waitForTransactionReceipt({ hash });
+
       setLoading(false);
-      toast.success("Transaction submitted!", { id: toastId });
+
+      toast.success(
+        `🎉 Ticket purchased for ${eventDetails.event.eventName}!`,
+        {
+          ...toastConfig.success,
+          id: mainToastId,
+          duration: 5000,
+        }
+      );
+
+      // Show transaction hash
+      setTimeout(() => {
+        toast.success(`Transaction: ${hash.slice(0, 6)}...${hash.slice(-4)}`, {
+          ...toastConfig.info,
+          duration: 4000,
+        });
+      }, 1000);
+
+      // Report to Divvi silently
       await reportToDivvi(hash);
     } catch (error: any) {
       console.error("[Ticket] Transaction failed:", error);
-      let errorMessage =
-        error.shortMessage || error.message || "Transaction failed";
 
-      if (error.message.includes("transfer amount exceeds balance")) {
-        errorMessage = "Insufficient token balance";
-      } else if (error.message.includes("not enough allowance")) {
-        errorMessage = "Approval failed - please try again";
-      } else if (error.message.includes("execution reverted")) {
-        errorMessage = "Transaction reverted - check contract status";
+      let errorMessage = "Failed to purchase ticket";
+
+      if (
+        error.message?.includes("User rejected") ||
+        error.message?.includes("user rejected")
+      ) {
+        errorMessage = "Transaction cancelled by user";
+        toast.error(errorMessage, {
+          ...toastConfig.warning,
+        });
+      } else if (error.message?.includes("insufficient funds")) {
+        errorMessage = "Insufficient funds for transaction";
+        toast.error(errorMessage, {
+          ...toastConfig.error,
+        });
+      } else if (error.message?.includes("transfer amount exceeds balance")) {
+        errorMessage = `Insufficient token} balance`;
+        toast.error(errorMessage, {
+          ...toastConfig.error,
+        });
+      } else if (error.message?.includes("not enough allowance")) {
+        errorMessage = "Token approval failed - please try again";
+        toast.error(errorMessage, {
+          ...toastConfig.error,
+        });
+      } else if (error.message?.includes("Already purchased")) {
+        errorMessage = "You already own a ticket";
+        toast.error(errorMessage, {
+          ...toastConfig.warning,
+        });
+      } else if (error.message?.includes("Event at capacity")) {
+        errorMessage = "Event is sold out";
+        toast.error(errorMessage, {
+          ...toastConfig.warning,
+        });
+      } else {
+        errorMessage = error.shortMessage || error.message || errorMessage;
+        toast.error(errorMessage, {
+          ...toastConfig.error,
+        });
       }
 
-      toast.error(errorMessage);
       setLoading(false);
     }
   }, [
@@ -410,103 +691,194 @@ export default function Home() {
     eventDetails,
     address,
     eventId,
-    // write,
-    // tokenAllowance,
     walletClient,
-    // tokenBalance,
-
-    // refetchAllowance,
+    tokenAllowance,
+    publicClient,
   ]);
 
   const requestRefund = useCallback(async () => {
     console.log("[Refund] Starting refund process");
 
+    // Validation checks
     if (!isConnected) {
-      console.log("[Refund] Wallet not connected - aborting");
-      toast.error("Please connect your wallet first");
+      toast.error("Please connect your wallet to request a refund", {
+        ...toastConfig.error,
+        icon: "🔌",
+      });
       return;
     }
 
     if (!eventDetails || !address || !walletClient) {
-      console.log("[Refund] Missing required data - aborting", {
-        eventDetails: !!eventDetails,
-        address: !!address,
-        walletClient: !!walletClient,
+      toast.error("Wallet connection error - please reconnect", {
+        ...toastConfig.error,
+        icon: "🔌",
       });
-      toast.error("Wallet not properly connected");
       return;
     }
 
     if (!eventDetails.attendees.includes(address)) {
-      console.log("[Refund] User doesn't have ticket", { user: address });
-      toast.error("You don't have a ticket to refund");
+      toast.error("You don't have a ticket to refund", {
+        ...toastConfig.warning,
+        duration: 4000,
+      });
       return;
     }
 
     try {
       setLoading(true);
+      const mainToastId = toast.loading(
+        "💰 Preparing refund request...",
+        toastConfig.loading
+      );
+
+      const tokenInfo = getTokenByAddress(eventDetails.event.paymentToken);
+      const refundAmount = eventDetails.event.ticketPrice;
+
       console.log("[Refund] Starting transaction flow");
-      const toastId = toast.loading("Preparing refund...");
+
+      toast.loading("📝 Preparing refund transaction...", { id: mainToastId });
 
       // Get Divvi data suffix
       console.log("[Refund] Generating Divvi suffix");
       const divviSuffix = getReferralTag(DIVVI_CONFIG);
-      console.log("[Refund] Divvi suffix generated:", divviSuffix);
 
       // Encode the requestRefund function call
-      console.log("[Refund] Encoding requestRefund function");
       const encodedFunction = encodeFunctionData({
         abi: contractABI.abi,
         functionName: "requestRefund",
         args: [eventId],
       });
-      console.log("[Refund] Encoded function:", encodedFunction);
 
       // Combine with Divvi suffix
       const dataWithDivvi = (encodedFunction +
         (divviSuffix.startsWith("0x")
           ? divviSuffix.slice(2)
           : divviSuffix)) as `0x${string}`;
-      console.log("[Refund] Final transaction data:", dataWithDivvi);
 
-      toast.loading("Waiting for wallet confirmation...", { id: toastId });
+      toast.loading("🔐 Confirm refund request in your wallet...", {
+        id: mainToastId,
+      });
 
       // Send transaction with Divvi data
-      console.log("[Refund] Sending transaction to wallet");
       const hash = await walletClient.sendTransaction({
         account: address,
         to: CONTRACT_ADDRESS,
         data: dataWithDivvi,
       });
-      console.log("[Refund] Transaction submitted, hash:", hash);
+
+      toast.loading("⏳ Processing refund...", { id: mainToastId });
+
+      // Wait for transaction receipt
+      await publicClient.waitForTransactionReceipt({ hash });
 
       setLoading(false);
-      toast.success("Refund submitted!", { id: toastId });
+
+      // Calculate refund amount (99% for G$, 100% for others)
+      const isGdollar =
+        eventDetails.event.paymentToken.toLowerCase() ===
+        "0x62b8b11039fcfe5ab0c56e502b1c372a3d2a9c7a";
+
+      const displayAmount = isGdollar
+        ? formatUnits(
+            (refundAmount * BigInt(99)) / BigInt(100),
+            tokenInfo?.decimals || 18
+          )
+        : formatUnits(refundAmount, tokenInfo?.decimals || 18);
+
+      toast.success(
+        `💰 Refund of ${displayAmount} ${
+          tokenInfo?.symbol || "tokens"
+        } processed!`,
+        {
+          ...toastConfig.success,
+          id: mainToastId,
+          duration: 5000,
+        }
+      );
+
+      // Show additional info
+      setTimeout(() => {
+        toast.success("Funds have been returned to your wallet", {
+          ...toastConfig.info,
+          duration: 3000,
+        });
+      }, 1000);
 
       // Report to Divvi
-      console.log("[Refund] Reporting to Divvi");
       await reportToDivvi(hash);
-      console.log("[Refund] Refund process completed");
     } catch (error: any) {
-      console.error("[Refund] Transaction failed:", {
-        error: error.message,
-        stack: error.stack,
-      });
-      toast.error(error.message || "Refund failed");
+      console.error("[Refund] Transaction failed:", error);
+
+      let errorMessage = "Refund request failed";
+
+      if (
+        error.message?.includes("User rejected") ||
+        error.message?.includes("user rejected")
+      ) {
+        errorMessage = "Refund request cancelled";
+        toast.error(errorMessage, {
+          ...toastConfig.warning,
+        });
+      } else if (error.message?.includes("Refund period ended")) {
+        errorMessage = "Refund deadline has passed";
+        toast.error(errorMessage, {
+          ...toastConfig.warning,
+        });
+      } else if (error.message?.includes("No ticket purchased")) {
+        errorMessage = "No ticket found to refund";
+        toast.error(errorMessage, {
+          ...toastConfig.warning,
+        });
+      } else if (error.message?.includes("Insufficient funds")) {
+        errorMessage = "Contract has insufficient funds for refund";
+        toast.error(errorMessage, {
+          ...toastConfig.error,
+        });
+      } else {
+        errorMessage = error.shortMessage || error.message || errorMessage;
+        toast.error(errorMessage, {
+          ...toastConfig.error,
+        });
+      }
+
       setLoading(false);
     }
-  }, [isConnected, eventDetails, address, eventId, walletClient]);
+  }, [isConnected, eventDetails, address, eventId, walletClient, publicClient]);
 
+  // Loading and error states with better UX
   if (isEventError) {
+    const errorMsg = eventError?.message || "Failed to load event";
     return (
-      <div className="pt-16 text-red-500">
-        Error: {eventError?.message || "Failed to load event"}
+      <div className="pt-16 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">😕</div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            Unable to Load Event
+          </h2>
+          <p className="text-red-500 mb-4">{errorMsg}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
 
   if (!eventDetails) {
-    return <div className="pt-16">Loading event...</div>;
+    return (
+      <div className="pt-16 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          {/* <div className="animate-spin text-6xl mb-4">⏳</div> */}
+          <h2 className="text-2xl font-bold text-gray-800">
+            Loading Event Details...
+          </h2>
+          <p className="text-gray-600 mt-2">Please wait a moment</p>
+        </div>
+      </div>
+    );
   }
 
   return (
