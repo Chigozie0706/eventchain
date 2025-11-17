@@ -52,7 +52,7 @@ export interface Token {
   decimals: number;
 }
 
-const CONTRACT_ADDRESS = "0x73E04559f141f524EFd7b2743C510428c497cdb6";
+const CONTRACT_ADDRESS = "0x43247E2EFAe25a3bBc22b255147001BadcDecfc4";
 
 const EventForm = () => {
   const router = useRouter();

@@ -45,7 +45,7 @@ export interface Event {
   paymentToken: string;
 }
 
-const CONTRACT_ADDRESS = "0x73E04559f141f524EFd7b2743C510428c497cdb6";
+const CONTRACT_ADDRESS = "0x43247E2EFAe25a3bBc22b255147001BadcDecfc4";
 const CELO_TOKEN_ADDRESS = "0x0000000000000000000000000000000000000000";
 const USDT_ADDRESS = "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e"; // Mainnet USDT
 
@@ -243,15 +243,6 @@ export default function Home() {
     }
   };
 
-  // Helper function to get token symbol
-  const getTokenSymbol = (tokenAddress: string): string => {
-    const normalizedAddr = tokenAddress.toLowerCase();
-    const token = tokenOptions.find(
-      (t) => t.address.toLowerCase() === normalizedAddr
-    );
-    return token ? token.symbol : "Token";
-  };
-
   const buyTicket = useCallback(async () => {
     console.log("[Ticket] Starting ticket purchase process");
 
@@ -309,95 +300,8 @@ export default function Home() {
       const divviSuffix = getReferralTag(DIVVI_CONFIG);
       let hash: `0x${string}`;
 
-      if (isUSDT) {
-        toast.loading("Preparing USDT transaction...", { id: toastId });
-
-        try {
-          // Convert from 18 to 6 decimals for USDT
-          const requiredAmountUSDT = requiredAmount / BigInt(10 ** 12);
-
-          console.log("USDT amounts:", {
-            original: requiredAmount.toString(),
-            converted: requiredAmountUSDT.toString(),
-          });
-
-          // 1. Check USDT balance
-          const usdtBalance = await publicClient.readContract({
-            address: paymentToken as `0x${string}`,
-            abi: erc20Abi,
-            functionName: "balanceOf",
-            args: [address],
-          });
-
-          console.log("USDT balance:", usdtBalance.toString());
-
-          if (usdtBalance < requiredAmountUSDT) {
-            const formattedRequired = Number(requiredAmountUSDT) / 10 ** 6;
-            const formattedBalance = Number(usdtBalance) / 10 ** 6;
-            toast.error(
-              `Insufficient USDT balance. You need ${formattedRequired} USDT, but you have ${formattedBalance} USDT`
-            );
-            setLoading(false);
-            return;
-          }
-
-          // 2. Check current allowance
-          const currentAllowance = await publicClient.readContract({
-            address: paymentToken as `0x${string}`,
-            abi: erc20Abi,
-            functionName: "allowance",
-            args: [address, CONTRACT_ADDRESS],
-          });
-
-          console.log("Current allowance:", currentAllowance.toString());
-
-          // 3. Approve if needed - USE THE CONVERTED AMOUNT (6 decimals)
-          if (currentAllowance < requiredAmount) {
-            toast.loading("Approving USDT...", { id: toastId });
-            const approveHash = await walletClient.writeContract({
-              address: paymentToken as `0x${string}`,
-              abi: erc20Abi,
-              functionName: "approve",
-              args: [CONTRACT_ADDRESS, requiredAmount],
-            });
-
-            console.log("Approval transaction:", approveHash);
-            await publicClient.waitForTransactionReceipt({ hash: approveHash });
-            toast.loading("USDT approved, purchasing ticket...", {
-              id: toastId,
-            });
-          }
-
-          // 4. Execute purchase
-          const encodedFunction = encodeFunctionData({
-            abi: contractABI.abi,
-            functionName: "buyTicket",
-            args: [eventId],
-          });
-
-          const dataWithDivvi = (encodedFunction +
-            (divviSuffix.startsWith("0x")
-              ? divviSuffix.slice(2)
-              : divviSuffix)) as `0x${string}`;
-
-          hash = await walletClient.sendTransaction({
-            account: address,
-            to: CONTRACT_ADDRESS,
-            data: dataWithDivvi,
-            gas: BigInt(300000),
-          });
-
-          console.log("Purchase transaction:", hash);
-        } catch (usdtError: any) {
-          console.error("USDT transaction failed:", usdtError);
-          toast.error(usdtError.shortMessage || "USDT transaction failed");
-          setLoading(false);
-          return;
-        }
-      }
-
       // G$ token flow
-      else if (isGdollar) {
+      if (isGdollar) {
         toast.loading("Preparing G$ transfer...", { id: toastId });
 
         const eventIdData = encodeAbiParameters(
