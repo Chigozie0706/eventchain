@@ -237,6 +237,16 @@ export default function EventPage({
             <p className="text-gray-700 text-sm">{event.eventLocation}</p>
           </div>
 
+          <div className="mt-3 rounded-xl overflow-hidden h-48 border border-gray-200">
+            <iframe
+              src={`https://www.google.com/maps?q=${encodeURIComponent(
+                event.eventLocation
+              )}&output=embed`}
+              className="w-full h-full border-0"
+              loading="lazy"
+            ></iframe>
+          </div>
+
           {/* Ticket Price */}
           <div className="mt-6">
             <h3 className="text-md font-semibold flex items-center space-x-2 text-gray-800">
