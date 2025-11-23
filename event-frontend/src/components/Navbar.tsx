@@ -15,7 +15,6 @@ export default function Navbar() {
   const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
 
   const menuRef = useRef<HTMLDivElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const walletDropdownRef = useRef<HTMLDivElement>(null);
 
   // Wagmi
@@ -23,19 +22,13 @@ export default function Navbar() {
   const { disconnect: disconnectWagmi } = useDisconnect();
 
   // Privy
-  const { ready, user, authenticated, login, logout: logoutPrivy } = usePrivy();
+  const { user, authenticated, login, logout: logoutPrivy } = usePrivy();
 
   // Close menus on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false);
-      }
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
-        setEventsDropdownOpen(false);
       }
       if (
         walletDropdownRef.current &&
@@ -56,7 +49,7 @@ export default function Navbar() {
     setWalletDropdownOpen(false);
   }, [pathname]);
 
-  // Full logout
+  // Logout
   const handleLogout = async () => {
     if (isConnected) disconnectWagmi();
     logoutPrivy();
@@ -146,35 +139,6 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* Desktop My Events Dropdown */}
-        {authenticated && (
-          <div className="relative hidden md:block" ref={dropdownRef}>
-            <button
-              onClick={() => setEventsDropdownOpen(!eventsDropdownOpen)}
-              className="flex items-center gap-1 text-gray-700 hover:text-orange-600 text-xs"
-            >
-              My Events <ChevronDown size={16} />
-            </button>
-
-            {eventsDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-lg p-2 text-xs">
-                <Link
-                  href="/event_tickets"
-                  className="block px-4 py-2 hover:bg-gray-100 rounded"
-                >
-                  My Tickets
-                </Link>
-                <Link
-                  href="/view_created_events"
-                  className="block px-4 py-2 hover:bg-gray-100 rounded"
-                >
-                  Created Events
-                </Link>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Wallet Avatar + Dropdown */}
         {authenticated && (
           <div className="relative" ref={walletDropdownRef}>
@@ -193,6 +157,7 @@ export default function Navbar() {
 
             {walletDropdownOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-white border shadow-lg rounded-xl overflow-hidden text-sm z-50">
+                {/* My Events */}
                 <Link
                   href="/event_tickets"
                   className="block px-4 py-3 hover:bg-gray-100 transition"
@@ -207,6 +172,29 @@ export default function Navbar() {
                   Created Events
                 </Link>
 
+                {/* Mobile-only Main Links */}
+                <Link
+                  href="/"
+                  className="block px-4 py-3 hover:bg-gray-100 transition md:hidden"
+                >
+                  Home
+                </Link>
+
+                <Link
+                  href="/view_events"
+                  className="block px-4 py-3 hover:bg-gray-100 transition md:hidden"
+                >
+                  Events
+                </Link>
+
+                <Link
+                  href="/create_event"
+                  className="block px-4 py-3 hover:bg-gray-100 transition md:hidden"
+                >
+                  Create Event
+                </Link>
+
+                {/* Logout */}
                 <button
                   onClick={handleLogout}
                   className="w-full text-left px-4 py-3 hover:bg-red-50 text-red-600 transition"
