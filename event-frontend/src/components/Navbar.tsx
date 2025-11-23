@@ -77,14 +77,15 @@ export default function Navbar() {
       {/* Right section */}
       <div className="flex items-center gap-4">
         {/* Mobile menu button */}
-        <button
+        {/* <button
           onClick={() => setMenuOpen(!menuOpen)}
           className="md:hidden focus:outline-none"
         >
           {menuOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
+        </button> */}
 
         {/* Navigation Links */}
+
         <div
           ref={menuRef}
           className={`absolute md:static top-16 left-0 w-full md:w-auto bg-white shadow-md md:shadow-none px-6 py-4 md:p-0 transition-all duration-300 ${
