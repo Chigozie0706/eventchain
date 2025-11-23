@@ -1,36 +1,47 @@
 "use client";
+
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { useAccount, useDisconnect } from "wagmi";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { usePrivy } from "@privy-io/react-auth";
+import blockies from "ethereum-blockies";
 
 export default function Navbar() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [eventsDropdownOpen, setEventsDropdownOpen] = useState(false);
+  const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
+
   const menuRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const walletDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Wagmi hooks
+  // Wagmi
   const { address, isConnected } = useAccount();
   const { disconnect: disconnectWagmi } = useDisconnect();
 
-  // Privy hooks
+  // Privy
   const { ready, user, authenticated, login, logout: logoutPrivy } = usePrivy();
 
-  // Close menus when clicking outside
+  // Close menus on outside click
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false);
       }
       if (
         dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
+        !dropdownRef.current.contains(e.target as Node)
       ) {
         setEventsDropdownOpen(false);
+      }
+      if (
+        walletDropdownRef.current &&
+        !walletDropdownRef.current.contains(e.target as Node)
+      ) {
+        setWalletDropdownOpen(false);
       }
     };
 
@@ -38,36 +49,41 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Close dropdown when route changes
+  // Close menus on route change
   useEffect(() => {
-    setEventsDropdownOpen(false);
     setMenuOpen(false);
+    setEventsDropdownOpen(false);
+    setWalletDropdownOpen(false);
   }, [pathname]);
 
-  // Handle complete logout (both Privy and wagmi)
+  // Full logout
   const handleLogout = async () => {
-    // Disconnect from wagmi first
-    if (isConnected) {
-      disconnectWagmi();
-    }
-
-    // Then logout from Privy
+    if (isConnected) disconnectWagmi();
     logoutPrivy();
   };
 
-  // Get display address (prefer wagmi address, fallback to Privy)
+  // Display address
   const displayAddress = address || user?.wallet?.address;
+
+  // Avatar blockie
+  const avatar = blockies
+    .create({
+      seed: displayAddress?.toLowerCase() || "0x0",
+      size: 8,
+      scale: 4,
+    })
+    .toDataURL();
 
   return (
     <nav className="flex items-center justify-between bg-white px-6 py-4 shadow-md fixed w-full z-50">
       {/* Logo */}
-      <div className="text-orange-500 text-xl font-bold">
-        <Link href="/">EventChain</Link>
-      </div>
+      <Link href="/" className="text-orange-500 text-xl font-bold">
+        EventChain
+      </Link>
 
-      {/* Right Section */}
+      {/* Right section */}
       <div className="flex items-center gap-4">
-        {/* Mobile Menu Toggle */}
+        {/* Mobile menu button */}
         <button
           onClick={() => setMenuOpen(!menuOpen)}
           className="md:hidden focus:outline-none"
@@ -75,12 +91,12 @@ export default function Navbar() {
           {menuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
 
-        {/* Navigation Menu */}
+        {/* Navigation Links */}
         <div
           ref={menuRef}
           className={`absolute md:static top-16 left-0 w-full md:w-auto bg-white shadow-md md:shadow-none px-6 py-4 md:p-0 transition-all duration-300 ${
             menuOpen
-              ? "flex flex-col space-y-4 md:space-y-0 md:flex md:flex-row md:space-x-6"
+              ? "flex flex-col space-y-4 md:flex md:flex-row md:space-x-6"
               : "hidden md:flex gap-6"
           } text-xs items-center`}
         >
@@ -92,6 +108,7 @@ export default function Navbar() {
           >
             Home
           </Link>
+
           <Link
             href="/view_events"
             className={`text-gray-700 ${
@@ -100,6 +117,7 @@ export default function Navbar() {
           >
             Events
           </Link>
+
           <Link
             href="/create_event"
             className={`text-gray-700 ${
@@ -109,34 +127,26 @@ export default function Navbar() {
             Create Event
           </Link>
 
-          {/* Mobile View - Show My Events links directly */}
+          {/* Mobile-only My Events */}
           {authenticated && menuOpen && (
-            <div className="md:hidden flex flex-col space-y-4 w-full">
+            <>
               <Link
                 href="/event_tickets"
-                className={`text-gray-700 ${
-                  pathname === "/event_tickets"
-                    ? "text-orange-600 font-bold"
-                    : ""
-                }`}
+                className="text-gray-700 hover:text-orange-600"
               >
                 My Tickets
               </Link>
               <Link
                 href="/view_created_events"
-                className={`text-gray-700 ${
-                  pathname === "/view_created_events"
-                    ? "text-orange-600 font-bold"
-                    : ""
-                }`}
+                className="text-gray-700 hover:text-orange-600"
               >
                 Created Events
               </Link>
-            </div>
+            </>
           )}
         </div>
 
-        {/* Desktop View - My Events Dropdown */}
+        {/* Desktop My Events Dropdown */}
         {authenticated && (
           <div className="relative hidden md:block" ref={dropdownRef}>
             <button
@@ -165,33 +175,58 @@ export default function Navbar() {
           </div>
         )}
 
-        {/* Auth + Wallet Connect Section */}
-        <div>
-          {!authenticated ? (
+        {/* Wallet Avatar + Dropdown */}
+        {authenticated && (
+          <div className="relative" ref={walletDropdownRef}>
             <button
-              onClick={login}
-              className="bg-orange-500 text-white px-4 py-2 rounded-lg text-xs hover:bg-orange-600 transition"
+              onClick={() => setWalletDropdownOpen(!walletDropdownOpen)}
+              className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-xl text-xs font-medium text-gray-700 transition"
             >
-              Login with Privy
+              <img src={avatar} className="w-5 h-5 rounded-md" />
+
+              {displayAddress
+                ? `${displayAddress.slice(0, 6)}...${displayAddress.slice(-4)}`
+                : "Connected"}
+
+              <ChevronDown size={14} className="text-gray-600" />
             </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-gray-600 text-xs">
-                {displayAddress
-                  ? `${displayAddress.slice(0, 6)}...${displayAddress.slice(
-                      -4
-                    )}`
-                  : "Connected"}
-              </span>
-              <button
-                onClick={handleLogout}
-                className="bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-xs hover:bg-gray-300 transition"
-              >
-                Logout
-              </button>
-            </div>
-          )}
-        </div>
+
+            {walletDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-white border shadow-lg rounded-xl overflow-hidden text-sm z-50">
+                <Link
+                  href="/event_tickets"
+                  className="block px-4 py-3 hover:bg-gray-100 transition"
+                >
+                  My Tickets
+                </Link>
+
+                <Link
+                  href="/view_created_events"
+                  className="block px-4 py-3 hover:bg-gray-100 transition"
+                >
+                  Created Events
+                </Link>
+
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left px-4 py-3 hover:bg-red-50 text-red-600 transition"
+                >
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* If not logged in */}
+        {!authenticated && (
+          <button
+            onClick={login}
+            className="bg-orange-500 text-white px-4 py-2 rounded-lg text-xs hover:bg-orange-600 transition"
+          >
+            Login with Privy
+          </button>
+        )}
       </div>
     </nav>
   );
