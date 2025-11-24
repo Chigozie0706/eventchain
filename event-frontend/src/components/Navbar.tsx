@@ -7,15 +7,21 @@ import { Menu, X, ChevronDown } from "lucide-react";
 import { useAccount, useDisconnect } from "wagmi";
 import { usePrivy } from "@privy-io/react-auth";
 import blockies from "ethereum-blockies";
+import dynamic from "next/dynamic";
 
 export default function Navbar() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [eventsDropdownOpen, setEventsDropdownOpen] = useState(false);
   const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
+  const [avatar, setAvatar] = useState<string>("");
 
   const menuRef = useRef<HTMLDivElement>(null);
   const walletDropdownRef = useRef<HTMLDivElement>(null);
+
+  const Blockie = dynamic(() => import("./Blockie"), {
+    ssr: false,
+  });
 
   // Wagmi
   const { address, isConnected } = useAccount();
@@ -23,6 +29,23 @@ export default function Navbar() {
 
   // Privy
   const { user, authenticated, login, logout: logoutPrivy } = usePrivy();
+
+  // Display address
+  const displayAddress = address || user?.wallet?.address;
+
+  useEffect(() => {
+    if (displayAddress) {
+      import("ethereum-blockies").then((blockiesModule) => {
+        const blockies = blockiesModule.default;
+        const canvas = blockies.create({
+          seed: displayAddress.toLowerCase(),
+          size: 8,
+          scale: 4,
+        });
+        setAvatar(canvas.toDataURL());
+      });
+    }
+  }, [displayAddress]);
 
   // Close menus on outside click
   useEffect(() => {
@@ -55,17 +78,14 @@ export default function Navbar() {
     logoutPrivy();
   };
 
-  // Display address
-  const displayAddress = address || user?.wallet?.address;
-
   // Avatar blockie
-  const avatar = blockies
-    .create({
-      seed: displayAddress?.toLowerCase() || "0x0",
-      size: 8,
-      scale: 4,
-    })
-    .toDataURL();
+  // const avatar = blockies
+  //   .create({
+  //     seed: displayAddress?.toLowerCase() || "0x0",
+  //     size: 8,
+  //     scale: 4,
+  //   })
+  //   .toDataURL();
 
   return (
     <nav className="flex items-center justify-between bg-white px-6 py-4 shadow-md fixed w-full z-50">
