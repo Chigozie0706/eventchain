@@ -1,18 +1,12 @@
-import {
-  useLoadScript,
-  GoogleMap,
-  MarkerF,
-  CircleF,
-} from "@react-google-maps/api";
-import { useMemo, useState } from "react";
-import usePlacesAutocomplete, {
-  getGeocode,
-  getLatLng,
-} from "use-places-autocomplete";
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
 import { EventData } from "../components/eventCreation/types";
 import styles from "../styles/Home.module.css";
 
-interface GoogleMapWithSearchProps {
+interface MapboxMapWithSearchProps {
   width?: string;
   height?: string;
   zoom?: number;
@@ -20,143 +14,254 @@ interface GoogleMapWithSearchProps {
   setEventData: React.Dispatch<React.SetStateAction<EventData>>;
 }
 
-const GoogleMapWithSearch: React.FC<GoogleMapWithSearchProps> = ({
+interface Suggestion {
+  id: string;
+  place_name: string;
+  center: [number, number];
+  text: string;
+  place_type: string[];
+}
+
+const MapboxMapWithSearch: React.FC<MapboxMapWithSearchProps> = ({
   width = "100%",
-  height = "800px",
+  height = "400px",
   zoom = 14,
   eventData,
   setEventData,
 }) => {
-  const [lat, setLat] = useState(27.672932021393862);
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
+  const marker = useRef<mapboxgl.Marker | null>(null);
   const [lng, setLng] = useState(85.31184012689732);
+  const [lat, setLat] = useState(27.672932021393862);
+  const [searchValue, setSearchValue] = useState("");
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
-  const libraries = useMemo(() => ["places"], []);
-  const mapCenter = useMemo(() => ({ lat, lng }), [lat, lng]);
+  const updateMapLocation = (newLng: number, newLat: number) => {
+    setLng(newLng);
+    setLat(newLat);
 
-  const mapOptions = useMemo<google.maps.MapOptions>(
-    () => ({
-      disableDefaultUI: true,
-      clickableIcons: true,
-      scrollwheel: false,
-    }),
-    []
-  );
+    // Update marker position
+    marker.current?.setLngLat([newLng, newLat]);
 
-  const { isLoaded } = useLoadScript({
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY as string,
-    libraries: libraries as any,
-  });
+    // Update map center
+    map.current?.flyTo({ center: [newLng, newLat], zoom });
 
-  if (!isLoaded) return <p>Loading...</p>;
+    // Update circles
+    if (map.current?.getSource("circles")) {
+      (map.current.getSource("circles") as mapboxgl.GeoJSONSource).setData({
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            properties: { radius: 1000, color: "green" },
+            geometry: {
+              type: "Point",
+              coordinates: [newLng, newLat],
+            },
+          },
+          {
+            type: "Feature",
+            properties: { radius: 2500, color: "red" },
+            geometry: {
+              type: "Point",
+              coordinates: [newLng, newLat],
+            },
+          },
+        ],
+      });
+    }
+  };
+
+  const searchAddress = async (query: string) => {
+    if (!query.trim()) {
+      setSuggestions([]);
+      return;
+    }
+
+    const accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+
+    if (!accessToken) {
+      console.error("Mapbox token is missing");
+      return;
+    }
+    const endpoint = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
+      query,
+    )}.json?access_token=${accessToken}&autocomplete=true&limit=5`;
+
+    try {
+      const response = await fetch(endpoint);
+      const data = await response.json();
+      setSuggestions(data.features || []);
+      setShowSuggestions(true);
+    } catch (error) {
+      console.error("Error fetching suggestions:", error);
+      setSuggestions([]);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchValue(value);
+    setEventData({ ...eventData, eventLocation: value });
+    searchAddress(value);
+  };
+
+  const handleSuggestionClick = (suggestion: Suggestion) => {
+    const [newLng, newLat] = suggestion.center;
+    setSearchValue(suggestion.place_name);
+    setEventData({ ...eventData, eventLocation: suggestion.place_name });
+    setShowSuggestions(false);
+    setSuggestions([]);
+    updateMapLocation(newLng, newLat);
+  };
+
+  useEffect(() => {
+    if (!mapContainer.current) return;
+
+    // Get token from environment variable
+    const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+
+    if (!mapboxToken) {
+      console.error(
+        "Mapbox token is missing. Please add NEXT_PUBLIC_MAPBOX_TOKEN to your .env.local file",
+      );
+      return;
+    }
+
+    mapboxgl.accessToken = mapboxToken;
+
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: "mapbox://styles/mapbox/streets-v12",
+      center: [lng, lat],
+      zoom: zoom,
+    });
+
+    map.current.addControl(new mapboxgl.NavigationControl(), "top-right");
+
+    marker.current = new mapboxgl.Marker()
+      .setLngLat([lng, lat])
+      .addTo(map.current);
+
+    map.current.on("load", () => {
+      if (!map.current) return;
+
+      map.current.addSource("circles", {
+        type: "geojson",
+        data: {
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              properties: { radius: 1000, color: "green" },
+              geometry: {
+                type: "Point",
+                coordinates: [lng, lat],
+              },
+            },
+            {
+              type: "Feature",
+              properties: { radius: 2500, color: "red" },
+              geometry: {
+                type: "Point",
+                coordinates: [lng, lat],
+              },
+            },
+          ],
+        },
+      });
+
+      map.current.addLayer({
+        id: "circle-1000",
+        type: "circle",
+        source: "circles",
+        filter: ["==", ["get", "radius"], 1000],
+        paint: {
+          "circle-radius": {
+            stops: [
+              [0, 0],
+              [20, metersToPixelsAtMaxZoom(1000, lat)],
+            ],
+            base: 2,
+          },
+          "circle-color": "green",
+          "circle-opacity": 0.3,
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "green",
+          "circle-stroke-opacity": 0.8,
+        },
+      });
+
+      map.current.addLayer({
+        id: "circle-2500",
+        type: "circle",
+        source: "circles",
+        filter: ["==", ["get", "radius"], 2500],
+        paint: {
+          "circle-radius": {
+            stops: [
+              [0, 0],
+              [20, metersToPixelsAtMaxZoom(2500, lat)],
+            ],
+            base: 2,
+          },
+          "circle-color": "red",
+          "circle-opacity": 0.3,
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "red",
+          "circle-stroke-opacity": 0.8,
+        },
+      });
+    });
+
+    return () => {
+      map.current?.remove();
+    };
+  }, []);
+
+  function metersToPixelsAtMaxZoom(meters: number, latitude: number) {
+    return meters / 0.075 / Math.cos((latitude * Math.PI) / 180);
+  }
 
   return (
     <div className={styles.homeWrapper}>
       <div className={styles.sidebar}>
-        <PlacesAutocomplete
-          eventData={eventData}
-          setEventData={setEventData}
-          onAddressSelect={(address) => {
-            getGeocode({ address }).then((results) => {
-              const { lat, lng } = getLatLng(results[0]);
-              setLat(lat);
-              setLng(lng);
-              setEventData({ ...eventData, eventLocation: address });
-            });
-          }}
-        />
-      </div>
-
-      <GoogleMap
-        options={mapOptions}
-        zoom={zoom}
-        center={mapCenter}
-        mapTypeId={google.maps.MapTypeId.ROADMAP}
-        mapContainerStyle={{ width, height }}
-      >
-        {/* Marker */}
-        <MarkerF position={mapCenter} />
-
-        {/* Circles */}
-        {[1000, 2500].map((radius, idx) => (
-          <CircleF
-            key={idx}
-            center={mapCenter}
-            radius={radius}
-            options={{
-              fillColor: radius > 1000 ? "red" : "green",
-              strokeColor: radius > 1000 ? "red" : "green",
-              strokeOpacity: 0.8,
-            }}
+        <div className={styles.autocompleteWrapper}>
+          <input
+            className={styles.autocompleteInput}
+            value={searchValue || eventData.eventLocation || ""}
+            onChange={handleInputChange}
+            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+            placeholder="Enter an address"
+            name="eventLocation"
           />
-        ))}
-      </GoogleMap>
-    </div>
-  );
-};
 
-interface PlacesAutocompleteProps {
-  onAddressSelect?: (address: string) => void;
-  eventData: EventData;
-  setEventData: React.Dispatch<React.SetStateAction<EventData>>;
-}
-
-const PlacesAutocomplete: React.FC<PlacesAutocompleteProps> = ({
-  onAddressSelect,
-  eventData,
-  setEventData,
-}) => {
-  const {
-    ready,
-    value,
-    suggestions: { status, data },
-    setValue,
-    clearSuggestions,
-  } = usePlacesAutocomplete({
-    debounce: 300,
-    cache: 86400,
-  });
-
-  const renderSuggestions = () =>
-    data.map((suggestion) => {
-      const {
-        place_id,
-        structured_formatting: { main_text, secondary_text },
-        description,
-      } = suggestion;
-
-      return (
-        <li
-          key={place_id}
-          onClick={() => {
-            setValue(description, false);
-            clearSuggestions();
-            onAddressSelect?.(description);
-          }}
-        >
-          <strong>{main_text}</strong> <small>{secondary_text}</small>
-        </li>
-      );
-    });
-
-  return (
-    <div className={styles.autocompleteWrapper}>
-      <input
-        className={styles.autocompleteInput}
-        disabled={!ready}
-        value={eventData.eventLocation || value}
-        onChange={(e) => {
-          setValue(e.target.value);
-          setEventData({ ...eventData, eventLocation: e.target.value });
-        }}
-        placeholder="Enter an address"
-        name="eventLocation"
+          {showSuggestions && suggestions.length > 0 && (
+            <ul className={styles.suggestionWrapper}>
+              {suggestions.map((suggestion) => (
+                <li
+                  key={suggestion.id}
+                  onClick={() => handleSuggestionClick(suggestion)}
+                >
+                  <strong>{suggestion.text}</strong>{" "}
+                  <small>
+                    {suggestion.place_name.replace(suggestion.text + ", ", "")}
+                  </small>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+      <div
+        ref={mapContainer}
+        style={{ width, height }}
+        className={styles.mapContainer}
       />
-
-      {status === "OK" && (
-        <ul className={styles.suggestionWrapper}>{renderSuggestions()}</ul>
-      )}
     </div>
   );
 };
 
-export default GoogleMapWithSearch;
+export default MapboxMapWithSearch;

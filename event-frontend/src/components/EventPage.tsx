@@ -8,19 +8,15 @@ import {
   UsersRound,
   Check,
   Info,
+  Shield,
+  Sparkles,
+  ChevronDown,
+  Clock,
 } from "lucide-react";
-import { formatEventDate, formatEventTime, formatPrice } from "@/utils/format";
 import { useAccount } from "wagmi";
-import { useEffect, useState } from "react";
-import { countries, getUniversalLink } from "@selfxyz/core";
-import { formatUnits } from "ethers";
-import {
-  SelfQRcodeWrapper,
-  SelfAppBuilder,
-  type SelfApp,
-} from "@selfxyz/qrcode";
-import { useParams, useRouter } from "next/navigation";
-import { ethers, formatEther } from "ethers";
+import { useState } from "react";
+import { formatUnits } from "viem";
+import { getTokenByAddress } from "@/utils/tokens";
 
 export interface Event {
   owner: string;
@@ -34,16 +30,22 @@ export interface Event {
   eventLocation: string;
   isActive: boolean;
   ticketPrice: bigint;
+  fundsHeld: bigint;
   minimumAge: number;
+  maxCapacity: number;
+  isCanceled: boolean;
+  fundsReleased: boolean;
+  exists: boolean;
+  refundPolicy: number;
+  refundBufferHours: number;
   paymentToken: string;
 }
 
 export interface EventPageProps {
   event: Event;
   attendees: string[];
-  createdEvents: Event[];
-  buyTicket: () => Promise<void>;
-  requestRefund: () => Promise<void>;
+  buyTicket: () => void;
+  requestRefund: () => void;
   loading: boolean;
   registering: boolean;
   refunding: boolean;
@@ -53,7 +55,6 @@ export interface EventPageProps {
 export default function EventPage({
   event,
   attendees,
-  createdEvents,
   buyTicket,
   requestRefund,
   loading,
@@ -61,50 +62,54 @@ export default function EventPage({
   refunding,
   id,
 }: EventPageProps) {
-  const { address } = useAccount();
-  const router = useRouter();
-  const formattedStartDate = formatEventDate(event.startDate);
-  const formattedEndDate = formatEventDate(event.endDate);
-  const formattedStartTime = formatEventTime(Number(event.startTime));
-  const formattedEndTime = formatEventTime(Number(event.endTime));
-  const [selfApp, setSelfApp] = useState<SelfApp | null>(null);
+  const { address, isConnected } = useAccount();
   const [imgError, setImgError] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
-  const { id: eventId } = useParams<{ id: string }>();
-  const [showToast, setShowToast] = useState(false);
-  const [verificationComplete, setVerificationComplete] = useState(false);
-  const [universalLink, setUniversalLink] = useState("");
+  const [showRefundDetails, setShowRefundDetails] = useState(false);
 
-  const mentoTokens: Record<string, string> = {
-    "0x765de816845861e75a25fca122bb6898b8b1282a": "cUSD",
-    "0xd8763cba276a3738e6de85b4b3bf5fded6d6ca73": "cEUR",
-    "0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787": "cREAL",
-    "0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A": "G$",
-    "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e": "USDT",
-    "0x0000000000000000000000000000000000000000": "CELO",
+  // Format dates and times
+  const formatEventDate = (timestamp: number) => {
+    return new Date(timestamp * 1000).toLocaleDateString("en-US", {
+      weekday: "short",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   };
 
-  const isUSDT =
-    event.paymentToken.toLowerCase() ===
-    "0x48065fbbe25f71c9282ddf5e1cd6d6a887483d5e";
+  const formatEventTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const period = hours >= 12 ? "PM" : "AM";
+    const displayHours = hours % 12 || 12;
+    return `${displayHours}:${minutes.toString().padStart(2, "0")} ${period}`;
+  };
 
-  // Normalize by trimming and lowercasing both sides
-  const normalizedToken = event.paymentToken?.trim().toLowerCase();
-  const tokenName =
-    Object.entries(mentoTokens).find(
-      ([address]) => address.toLowerCase() === normalizedToken
-    )?.[1] || event.paymentToken;
+  const formattedStartDate = formatEventDate(Number(event.startDate));
+  const formattedEndDate = formatEventDate(Number(event.endDate));
+  const formattedStartTime = formatEventTime(Number(event.startTime));
+  const formattedEndTime = formatEventTime(Number(event.endTime));
 
-  // const formattedPrice = formatPrice(event.ticketPrice);
-  // In your EventPage component, update the formatPrice usage:
-  const formattedPrice1 = formatPrice(event.ticketPrice, event.paymentToken);
+  // Get token info and format price
+  const tokenInfo = getTokenByAddress(event.paymentToken);
+  const formattedPrice = formatUnits(
+    event.ticketPrice,
+    tokenInfo?.decimals || 18,
+  );
+  const tokenSymbol = tokenInfo?.symbol || "Unknown Token";
 
-  // CORRECT: Convert and format properly
-  const formattedPrice = isUSDT
-    ? (Number(event.ticketPrice) / 1e12 / 1e6).toFixed(6)
-    : formatEther(event.ticketPrice);
-  const minimumAge = event.minimumAge;
-  const requiresAgeVerification = minimumAge > 0;
+  // Get refund policy text
+  const getRefundPolicyText = () => {
+    switch (event.refundPolicy) {
+      case 0:
+        return "No refunds available for this event";
+      case 1:
+        return "Full refund available until event starts";
+      case 2:
+        return `Full refund available up to ${event.refundBufferHours} hours before event`;
+      default:
+        return "Refund policy not specified";
+    }
+  };
 
   const getImageUrl = () => {
     if (!event.eventCardImgUrl) return "/default-event.jpg";
@@ -112,340 +117,382 @@ export default function EventPage({
       ? event.eventCardImgUrl
       : `https://ipfs.io/ipfs/${event.eventCardImgUrl}`;
   };
-  const NGROK_URL = process.env.NEXT_PUBLIC_SELF_ENDPOINT;
 
-  const endpoint = `${NGROK_URL}/api/events/${eventId}/verify?minimumAge=${minimumAge}`;
-  const userId1 = `${address}`;
-  const [userId] = useState(ethers.ZeroAddress);
-
-  const getTokenDecimals = (tokenAddress: string) => {
-    const normalizedToken = tokenAddress.trim().toLowerCase();
-    if (normalizedToken === "0x48065fbbe25f71c9282ddf5e1cd6d6a887483d5e")
-      return 6; // USDT
-    return 18; // default
-  };
-
-  const formattedPrice2 = formatUnits(
-    event.ticketPrice,
-    getTokenDecimals(event.paymentToken)
-  );
-
-  useEffect(() => {
-    if (!address) return;
-    try {
-      const app = new SelfAppBuilder({
-        version: 2,
-        appName: process.env.NEXT_PUBLIC_SELF_APP_NAME || "Self Workshop",
-        scope: process.env.NEXT_PUBLIC_SELF_SCOPE || "self-workshop",
-        endpoint,
-        logoBase64: "https://i.postimg.cc/mrmVf9hm/self.png", // url of a png image, base64 is accepted but not recommended
-        userId: `${address}`,
-        endpointType: "staging_https",
-        userIdType: "hex", // use 'hex' for ethereum address or 'uuid' for uuidv4
-        userDefinedData: "Bonjour Cannes!",
-        disclosures: {
-          // // what you want to verify from users' identity
-          minimumAge: Number(minimumAge),
-          // ofac: false,
-          // excludedCountries: [countries.BELGIUM],
-          // //what you want users to reveal
-          // name: false,
-          // issuing_state: true,
-          nationality: true,
-          // date_of_birth: true,
-          // passport_number: false,
-          gender: true,
-          // expiry_date: false,
-        },
-      }).build();
-
-      setSelfApp(app);
-      setUniversalLink(getUniversalLink(app));
-    } catch (error) {
-      console.error("Failed to initialize Self app:", error);
+  const getLocationShort = (location: string) => {
+    const parts = location.split(",");
+    if (parts.length >= 2) {
+      return parts.slice(-2).join(",").trim();
     }
-  }, [address]);
-
-  console.log("isUSDT", formattedPrice2);
-  const displayToast = (message: string) => {
-    setToastMessage(message);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+    return location;
   };
 
-  const handleSuccessfulVerification = () => {
-    displayToast("Verification successful! You can now register.");
-    setVerificationComplete(true);
-  };
-
-  const handleSuccessfulVerification1 = () => {
-    displayToast("Verification successful! Redirecting...");
-    setTimeout(() => {
-      router.push("/verified");
-    }, 1500);
-  };
-
-  // Check if current user is registered
   const isRegistered = address && attendees.includes(address);
+  const requiresAgeVerification = event.minimumAge > 0;
 
   return (
-    <div className="container mx-auto px-6 md:px-12 lg:px-20 py-8">
-      {/* Banner Section */}
-      <div className="relative w-full flex justify-center mt-4 h-[300px] md:h-[400px] lg:h-[450px] overflow-hidden rounded-2xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-gray-900/40 via-gray-800/40 to-gray-900/40 backdrop-blur-md rounded-2xl"></div>
-        <div className="relative w-full max-w-5xl rounded-2xl overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-emerald-50">
+      {/* Hero Banner - Responsive */}
+      <div className="relative w-full h-[50vh] sm:h-[55vh] md:h-[60vh] overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-transparent z-10" />
+
+        <div className="absolute inset-0">
           <img
             src={imgError ? "/default-event.jpg" : getImageUrl()}
             alt="Event Banner"
-            width={1200}
-            height={500}
-            className="w-full h-full object-cover"
-            // className="rounded-2xl"
+            className="w-full h-full object-cover transform scale-105 hover:scale-100 transition-transform duration-[3000ms]"
+            onError={() => setImgError(true)}
           />
+        </div>
+
+        <div className="relative z-20 container mx-auto px-4 sm:px-6 h-full flex flex-col justify-end pb-8 sm:pb-12">
+          <div className="max-w-4xl">
+            <div className="flex flex-wrap items-center gap-2 mb-3 sm:mb-4">
+              <span className="px-3 py-1.5 sm:px-4 bg-emerald-500/90 backdrop-blur-sm text-white text-xs sm:text-sm font-semibold rounded-full flex items-center gap-2">
+                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
+                {event.isActive ? "Active Event" : "Event Ended"}
+              </span>
+              <span className="px-3 py-1.5 sm:px-4 bg-white/90 backdrop-blur-sm text-gray-800 text-xs sm:text-sm font-semibold rounded-full">
+                {attendees.length}/{Number(event.maxCapacity)} Spots
+              </span>
+              <span className="px-3 py-1.5 sm:px-4 bg-blue-500/90 backdrop-blur-sm text-white text-xs sm:text-sm font-semibold rounded-full">
+                {tokenSymbol}
+              </span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 drop-shadow-2xl leading-tight">
+              {event.eventName}
+            </h1>
+            <div className="flex flex-wrap gap-2 sm:gap-4 text-white/90">
+              <div className="flex items-center gap-2 bg-black/30 backdrop-blur-md px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg">
+                <CalendarDays className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="font-medium text-xs sm:text-sm">
+                  {formattedStartDate}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 bg-black/30 backdrop-blur-md px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg">
+                <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="font-medium text-xs sm:text-sm">
+                  {getLocationShort(event.eventLocation)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 bg-black/30 backdrop-blur-md px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg">
+                <Ticket className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="font-medium text-xs sm:text-sm">
+                  {formattedPrice} {tokenSymbol}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Event Details Section */}
-      <div className="flex flex-col md:flex-row md:justify-between md:space-x-8 mt-10">
-        {/* Left Side */}
-        <div className="max-w-4xl bg-white p-6 md:p-8">
-          <h2 className="text-3xl font-bold text-gray-900">
-            {event.eventName}
-          </h2>
-          <p className="text-gray-600 mt-3 text-base">{event.eventDetails}</p>
-
-          {/* Date and Time */}
-          <div className="mt-6">
-            <h3 className="text-md font-semibold flex items-center space-x-2 text-gray-800">
-              <CalendarDays className="w-5 h-5 text-gray-600" />
-              <span>Date & Time</span>
-            </h3>
-            <p className="text-gray-700 text-sm mb-3">
-              {formattedStartDate} - {formattedEndDate}
-            </p>
-            <p className="text-gray-700 text-sm">
-              {formattedStartTime} - {formattedEndTime}
-            </p>
-          </div>
-
-          {/* Location */}
-          <div className="mt-6">
-            <h3 className="text-md font-semibold flex items-center space-x-2 text-gray-800">
-              <MapPin className="w-5 h-5 text-gray-600" />
-              <span>Location</span>
-            </h3>
-            <p className="text-gray-700 text-sm">{event.eventLocation}</p>
-          </div>
-
-          <div className="mt-3 rounded-xl overflow-hidden h-48 border border-gray-200">
-            <iframe
-              src={`https://www.google.com/maps?q=${encodeURIComponent(
-                event.eventLocation
-              )}&output=embed`}
-              className="w-full h-full border-0"
-              loading="lazy"
-            ></iframe>
-          </div>
-
-          {/* Ticket Price */}
-          <div className="mt-6">
-            <h3 className="text-md font-semibold flex items-center space-x-2 text-gray-800">
-              <Ticket className="w-5 h-5 text-gray-600" />
-              <span>Ticket Price</span>
-            </h3>
-            <p className="text-green-600 text-sm font-bold">
-              {formattedPrice2} {tokenName}
-            </p>
-          </div>
-
-          {/* Age Restriction */}
-          <div className="mt-6">
-            <h3 className="text-md font-semibold flex items-center space-x-2 text-gray-800">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-gray-600"
-              >
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
-              </svg>
-              <span>Age Restriction</span>
-            </h3>
-            {requiresAgeVerification ? (
-              <p className="text-gray-700 text-sm">
-                This event is restricted to attendees aged{" "}
-                <span className="font-semibold">{minimumAge}+ years</span>.
-                You'll need to verify your age to register.
+      {/* Main Content - Responsive Grid */}
+      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 md:py-12">
+        <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
+          {/* Left Column - Event Details */}
+          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+            {/* About Section */}
+            <div className="bg-white rounded-xl sm:rounded-2xl shadow-xl p-5 sm:p-6 md:p-8 border border-gray-100 hover:shadow-2xl transition-shadow duration-300">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
+                <div className="w-1 h-6 sm:h-8 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full" />
+                About This Event
+              </h2>
+              <p className="text-gray-700 leading-relaxed text-sm sm:text-base md:text-lg">
+                {event.eventDetails}
               </p>
-            ) : (
-              <p className="text-gray-700 text-sm">
-                This event has{" "}
-                <span className="font-semibold">no age restrictions</span>. All
-                ages are welcome to attend.
+            </div>
+
+            {/* Date & Time Card */}
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl sm:rounded-2xl shadow-xl p-5 sm:p-6 md:p-8 border border-emerald-100">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center gap-3">
+                <div className="p-1.5 sm:p-2 bg-emerald-500 rounded-lg">
+                  <CalendarDays className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                </div>
+                Date & Time
+              </h3>
+              <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-2 sm:space-y-3">
+                  <p className="text-xs sm:text-sm text-gray-600 font-semibold uppercase tracking-wide">
+                    Start
+                  </p>
+                  <p className="text-base sm:text-lg font-bold text-gray-900">
+                    {formattedStartDate}
+                  </p>
+                  <p className="text-emerald-600 font-semibold flex items-center gap-2 text-sm sm:text-base">
+                    <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+                    {formattedStartTime}
+                  </p>
+                </div>
+                <div className="space-y-2 sm:space-y-3">
+                  <p className="text-xs sm:text-sm text-gray-600 font-semibold uppercase tracking-wide">
+                    End
+                  </p>
+                  <p className="text-base sm:text-lg font-bold text-gray-900">
+                    {formattedEndDate}
+                  </p>
+                  <p className="text-emerald-600 font-semibold flex items-center gap-2 text-sm sm:text-base">
+                    <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+                    {formattedEndTime}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Location Card */}
+            <div className="bg-white rounded-xl sm:rounded-2xl shadow-xl p-5 sm:p-6 md:p-8 border border-gray-100 hover:shadow-2xl transition-shadow duration-300">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center gap-3">
+                <div className="p-1.5 sm:p-2 bg-rose-500 rounded-lg">
+                  <MapPin className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                </div>
+                Location
+              </h3>
+              <p className="text-gray-700 text-sm sm:text-base md:text-lg mb-4">
+                {event.eventLocation}
               </p>
-            )}
-          </div>
-
-          {/* Attendee List */}
-          <div className="mt-6">
-            <h3 className="text-md font-semibold mb-4 flex items-center space-x-2 text-gray-800">
-              <UsersRound className="w-5 h-5 text-gray-600" />
-              <span>Attendees</span>
-            </h3>
-            <AttendeeList attendees={attendees} />
-          </div>
-
-          {/* Refund Policy */}
-          <div className="mt-6">
-            <h3 className="text-md font-semibold flex items-center space-x-2 text-gray-800">
-              <Handshake className="w-5 h-5 text-gray-600" />
-              <span>Refund Policy</span>
-            </h3>
-            <p className="text-gray-700 text-sm text-justify">
-              Refunds are available if the event is canceled or if requested at
-              least 5 hours before the event starts, provided funds are still in
-              escrow. Refunds are issued in the same token used for payment and
-              processed automatically. No refunds are available once the event
-              has started, if funds have been released to the organizer, or if
-              the request is made too late.
-              <br />
-              To request a refund, use the "Request Refund" button on the event
-              page. If you experience issues, contact the organizer.
-            </p>
-          </div>
-        </div>
-        {/* Right Side (Ticket Selection) */}
-        <div className="p-6 md:p-8 w-full md:w-1/3">
-          <div className="border p-6 rounded-lg flex flex-col items-center bg-gray-100 shadow-md">
-            <p className="font-semibold text-lg text-gray-900">
-              Reserve a Spot
-            </p>
-            <p className="text-gray-600 text-base mt-2">
-              Price:{" "}
-              <span className="font-semibold">
-                {formattedPrice2} {tokenName}
-              </span>
-            </p>
-          </div>
-
-          {!address ? (
-            <div className="w-full bg-gray-600 text-white mt-4 py-2 rounded-lg text-lg font-semibold text-center">
-              Connect Wallet to Verify
+              <div className="rounded-xl overflow-hidden h-48 sm:h-56 md:h-64 border-2 border-gray-200">
+                <iframe
+                  src={`https://www.google.com/maps?q=${encodeURIComponent(
+                    event.eventLocation,
+                  )}&output=embed`}
+                  className="w-full h-full border-0"
+                  loading="lazy"
+                  title="Event Location Map"
+                />
+              </div>
             </div>
-          ) : isRegistered ? (
-            <div className="w-full bg-green-600 text-white mt-4 py-2 rounded-lg text-lg font-semibold flex items-center justify-center gap-2">
-              <Check className="w-5 h-5" />
-              Registered
-            </div>
-          ) : (
-            <>
-              {/* Verification QR Code Section */}
-              {requiresAgeVerification && !verificationComplete && (
-                <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 w-full mt-4">
-                  <div className="flex justify-center mb-4">
-                    {selfApp ? (
-                      <SelfQRcodeWrapper
-                        selfApp={selfApp}
-                        onSuccess={handleSuccessfulVerification}
-                        onError={() => {
-                          displayToast("Error: Failed to verify identity");
-                        }}
-                      />
-                    ) : (
-                      <div className="w-[256px] h-[256px] bg-gray-200 animate-pulse flex items-center justify-center">
-                        <p className="text-gray-500 text-sm">
-                          Loading QR Code...
-                        </p>
-                      </div>
-                    )}
+
+            {/* Age Restriction Card */}
+            {requiresAgeVerification && (
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl sm:rounded-2xl shadow-xl p-5 sm:p-6 md:p-8 border border-amber-100">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 flex items-center gap-3">
+                  <div className="p-1.5 sm:p-2 bg-amber-500 rounded-lg">
+                    <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
-
-                  {/* Configuration Info */}
-                  <div className="border-t border-gray-200 pt-3">
-                    <h3 className="text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                      Verification Requirements:
-                    </h3>
-                    <ul className="text-xs sm:text-sm text-gray-600 space-y-1">
-                      <li className="flex items-center">
-                        <svg
-                          className="h-3 w-3 sm:h-4 sm:w-4 text-green-500 mr-2"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                        <span>
-                          Minimum Age:{" "}
-                          <span className="font-medium ml-1">
-                            {minimumAge}+ years
-                          </span>
-                        </span>
-                      </li>
-                    </ul>
+                  Age Restriction
+                </h3>
+                <div className="flex items-start gap-3">
+                  <Info className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm sm:text-base text-gray-700">
+                      This event requires attendees to be{" "}
+                      <span className="font-bold text-amber-700">
+                        {event.minimumAge}+ years old
+                      </span>
+                      . Age verification may be required.
+                    </p>
                   </div>
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Information message when no age verification is needed */}
-              {!requiresAgeVerification && !verificationComplete && (
-                <div className="bg-blue-50 rounded-xl shadow-lg p-4 sm:p-6 w-full mt-4">
-                  <div className="flex items-start gap-3">
-                    <Info className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+            {/* Attendees Card */}
+            <div className="bg-white rounded-xl sm:rounded-2xl shadow-xl p-5 sm:p-6 md:p-8 border border-gray-100 hover:shadow-2xl transition-shadow duration-300">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center gap-3">
+                <div className="p-1.5 sm:p-2 bg-indigo-500 rounded-lg">
+                  <UsersRound className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                </div>
+                Attendees ({attendees.length}/{Number(event.maxCapacity)})
+              </h3>
+              <AttendeeList
+                attendees={attendees}
+                maxCapacity={Number(event.maxCapacity)}
+              />
+            </div>
+
+            {/* Refund Policy Card */}
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl sm:rounded-2xl shadow-xl p-5 sm:p-6 md:p-8 border border-blue-100">
+              <button
+                onClick={() => setShowRefundDetails(!showRefundDetails)}
+                className="w-full flex items-center justify-between text-left"
+              >
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-3">
+                  <div className="p-1.5 sm:p-2 bg-blue-500 rounded-lg">
+                    <Handshake className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  Refund Policy
+                </h3>
+                <ChevronDown
+                  className={`w-5 h-5 sm:w-6 sm:h-6 text-gray-600 transition-transform duration-300 flex-shrink-0 ${
+                    showRefundDetails ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              <div
+                className={`overflow-hidden transition-all duration-300 ${
+                  showRefundDetails ? "max-h-96 mt-4 sm:mt-6" : "max-h-0"
+                }`}
+              >
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="flex items-start gap-3 p-3 sm:p-4 bg-white rounded-lg">
+                    <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 mt-0.5 flex-shrink-0" />
                     <div>
-                      <h3 className="text-sm font-medium text-blue-800 mb-1">
-                        No Age Restriction
-                      </h3>
-                      <p className="text-xs sm:text-sm text-blue-600">
-                        This event has no minimum age requirement. You can
-                        proceed directly to registration.
+                      <p className="font-semibold text-gray-900 mb-1 text-sm sm:text-base">
+                        {event.refundPolicy === 0
+                          ? "No Refunds"
+                          : "Refund Available"}
+                      </p>
+                      <p className="text-xs sm:text-sm text-gray-700">
+                        {getRefundPolicyText()}
+                      </p>
+                    </div>
+                  </div>
+                  {event.refundPolicy !== 0 && (
+                    <div className="flex items-start gap-3 p-3 sm:p-4 bg-white rounded-lg">
+                      <Info className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-semibold text-gray-900 mb-1 text-sm sm:text-base">
+                          Automatic Processing
+                        </p>
+                        <p className="text-xs sm:text-sm text-gray-700">
+                          Refunds are processed automatically and returned to
+                          your wallet in {tokenSymbol}.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - Ticket Purchase - Sticky on Desktop */}
+          <div className="lg:col-span-1">
+            <div className="lg:sticky lg:top-6 space-y-4">
+              {/* Ticket Card */}
+              <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden">
+                <div className="p-5 sm:p-6 md:p-8 text-white">
+                  <div className="flex items-center justify-between mb-4 sm:mb-6">
+                    <h3 className="text-xl sm:text-2xl font-bold">
+                      Get Your Ticket
+                    </h3>
+                    <Sparkles className="w-6 h-6 sm:w-8 sm:h-8" />
+                  </div>
+
+                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 sm:p-6 mb-4 sm:mb-6">
+                    <p className="text-white/80 text-xs sm:text-sm mb-2">
+                      Price per ticket
+                    </p>
+                    <p className="text-3xl sm:text-4xl font-bold break-all">
+                      {formattedPrice} {tokenSymbol}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
+                    <div className="flex items-center justify-between text-xs sm:text-sm">
+                      <span className="text-white/80">Available Spots</span>
+                      <span className="font-bold">
+                        {Number(event.maxCapacity) - attendees.length} /{" "}
+                        {Number(event.maxCapacity)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs sm:text-sm">
+                      <span className="text-white/80">Event Status</span>
+                      <span className="font-bold flex items-center gap-2">
+                        <div
+                          className={`w-2 h-2 rounded-full animate-pulse ${
+                            event.isActive ? "bg-green-400" : "bg-red-400"
+                          }`}
+                        />
+                        {event.isActive ? "Active" : "Ended"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs sm:text-sm">
+                      <span className="text-white/80">Payment Token</span>
+                      <span className="font-bold">{tokenSymbol}</span>
+                    </div>
+                  </div>
+
+                  {!isConnected ? (
+                    <button className="w-full bg-white text-emerald-600 py-3 sm:py-4 rounded-xl text-base sm:text-lg font-bold hover:bg-gray-100 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                      Connect Wallet
+                    </button>
+                  ) : isRegistered ? (
+                    <div className="space-y-3">
+                      <div className="bg-white text-emerald-600 py-3 sm:py-4 rounded-xl text-base sm:text-lg font-bold flex items-center justify-center gap-2 shadow-lg">
+                        <Check className="w-5 h-5 sm:w-6 sm:h-6" />
+                        You're Registered!
+                      </div>
+                      {event.refundPolicy !== 0 && (
+                        <button
+                          onClick={requestRefund}
+                          disabled={loading || refunding}
+                          className="w-full bg-red-500 text-white py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold hover:bg-red-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {refunding ? (
+                            <span className="flex items-center justify-center gap-2">
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              Processing...
+                            </span>
+                          ) : (
+                            "Request Refund"
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={buyTicket}
+                      disabled={
+                        loading ||
+                        registering ||
+                        !event.isActive ||
+                        attendees.length >= Number(event.maxCapacity)
+                      }
+                      className="w-full bg-white text-emerald-600 py-3 sm:py-4 rounded-xl text-base sm:text-lg font-bold hover:bg-gray-100 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {registering ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <div className="w-4 h-4 sm:w-5 sm:h-5 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                          Processing...
+                        </span>
+                      ) : attendees.length >= Number(event.maxCapacity) ? (
+                        "Sold Out"
+                      ) : !event.isActive ? (
+                        "Event Inactive"
+                      ) : (
+                        "Complete Registration"
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Info Cards */}
+              {!requiresAgeVerification && (
+                <div className="bg-blue-50 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-blue-100">
+                  <div className="flex items-start gap-3">
+                    <Info className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-semibold text-blue-900 mb-2">
+                        All Ages Welcome
+                      </h4>
+                      <p className="text-xs sm:text-sm text-blue-700">
+                        This event has no minimum age requirement. Everyone is
+                        welcome to attend!
                       </p>
                     </div>
                   </div>
                 </div>
               )}
-              {/* Show registration button if verification is complete OR no age verification is needed */}
-              {(verificationComplete || !requiresAgeVerification) && (
-                <button
-                  className="w-full bg-orange-600 text-white mt-4 py-2 rounded-lg text-lg font-semibold hover:bg-orange-700 transition"
-                  onClick={buyTicket}
-                  disabled={loading || registering}
-                >
-                  {registering ? "Processing..." : "Complete Registration"}
-                </button>
-              )}
-            </>
-          )}
 
-          {isRegistered && (
-            <button
-              onClick={requestRefund}
-              className="w-full bg-red-500 text-white mt-4 py-2 rounded-lg text-lg font-semibold hover:bg-red-600 transition"
-              disabled={loading || refunding}
-            >
-              {refunding ? "Processing..." : "Request Refund"}
-            </button>
-          )}
-
-          {/* Toast notification */}
-          {showToast && (
-            <div className="fixed bottom-4 right-4 bg-gray-800 text-white py-2 px-4 rounded shadow-lg animate-fade-in text-sm">
-              {toastMessage}
+              {/* Security Badge */}
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-purple-100">
+                <div className="flex items-start gap-3">
+                  <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-semibold text-purple-900 mb-2">
+                      Secure Blockchain Ticketing
+                    </h4>
+                    <p className="text-xs sm:text-sm text-purple-700">
+                      Your ticket is secured on the blockchain with transparent
+                      refund policies. Payments accepted in {tokenSymbol}.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
+          </div>
         </div>
-        ;
       </div>
     </div>
   );

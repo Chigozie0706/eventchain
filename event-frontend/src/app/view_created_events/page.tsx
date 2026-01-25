@@ -34,7 +34,7 @@ interface Event {
   paymentToken: string;
 }
 
-const CONTRACT_ADDRESS = "0x43247E2EFAe25a3bBc22b255147001BadcDecfc4";
+const CONTRACT_ADDRESS = "0x1b5F100B02f07E7A88f6C3A2B08152009d06685e";
 
 export default function MyEvents() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -236,7 +236,7 @@ export default function MyEvents() {
         setCancelingId(null);
       }
     },
-    [connectedAddress, walletClient, refetch]
+    [connectedAddress, walletClient, refetch],
   );
 
   const deleteEvent = async (eventId: number) => {
@@ -263,7 +263,7 @@ export default function MyEvents() {
 
       toast.dismiss(toastId);
       toast.error(
-        error instanceof Error ? error.message : "Failed to delete event"
+        error instanceof Error ? error.message : "Failed to delete event",
       );
     }
   };
@@ -315,7 +315,7 @@ export default function MyEvents() {
         setClaimingId(null);
       }
     },
-    [connectedAddress, walletClient, refetch]
+    [connectedAddress, walletClient, refetch],
   );
 
   if (loading) {

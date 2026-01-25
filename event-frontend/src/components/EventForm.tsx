@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { parseUnits } from "ethers";
 import axios from "axios";
+import { EventData } from "./eventCreation/types";
 import { MultiStep } from "./MultiStep";
 
 import {
@@ -21,36 +22,13 @@ import {
   getTokenByAddress,
 } from "@/utils/tokens";
 
-interface EventData {
-  eventName: string;
-  eventDetails: string;
-  startDate: string;
-  endDate: string;
-  startTime: string;
-  endTime: string;
-  eventLocation: string;
-  eventPrice: string;
-  minimumAge: string;
-  paymentToken: string;
-}
-
-interface Address {
-  streetAndNumber: string;
-  place: string;
-  region: string;
-  postcode: string;
-  country: string;
-  latitude: string | number;
-  longitude: string | number;
-}
-
 export interface Token {
   symbol: string;
   address: `0x${string}`;
   decimals: number;
 }
 
-const CONTRACT_ADDRESS = "0x43247E2EFAe25a3bBc22b255147001BadcDecfc4";
+const CONTRACT_ADDRESS = "0x1b5F100B02f07E7A88f6C3A2B08152009d06685e";
 
 // Enhanced toast configurations for better UX
 const toastConfig = {
@@ -113,6 +91,9 @@ const EventForm = () => {
     eventPrice: "",
     minimumAge: "0",
     paymentToken: tokenOptions[0].address,
+    maxCapacity: "",
+    refundPolicy: "1",
+    refundBufferHours: "",
   });
   const [loading, setLoading] = useState(false);
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
@@ -152,7 +133,7 @@ const EventForm = () => {
 
     const buyToastId = toast.loading(
       `Purchasing ${ticketCount} ticket(s)...`,
-      toastConfig.loading
+      toastConfig.loading,
     );
 
     try {
@@ -209,9 +190,9 @@ const EventForm = () => {
     const refundToastId = toast.loading(
       `Processing refund to ${refundAddress.slice(
         0,
-        6
+        6,
       )}...${refundAddress.slice(-4)}`,
-      toastConfig.loading
+      toastConfig.loading,
     );
 
     try {
@@ -225,12 +206,12 @@ const EventForm = () => {
       toast.success(
         `💰 Refund successfully sent to ${refundAddress.slice(
           0,
-          6
+          6,
         )}...${refundAddress.slice(-4)}`,
         {
           ...toastConfig.success,
           id: refundToastId,
-        }
+        },
       );
 
       // Reset refund address
@@ -259,10 +240,13 @@ const EventForm = () => {
     }
   };
 
+  console.log(eventData);
+  console.log(address);
+
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    >,
   ) => {
     setEventData({ ...eventData, [e.target.name]: e.target.value });
   };
@@ -290,7 +274,7 @@ const EventForm = () => {
 
       // Validate dates
       const startDateTime = new Date(
-        `${eventData.startDate}T${eventData.startTime}`
+        `${eventData.startDate}T${eventData.startTime}`,
       );
       const endDateTime = new Date(`${eventData.endDate}T${eventData.endTime}`);
 
@@ -346,7 +330,7 @@ const EventForm = () => {
   };
 
   const handleFileChange = (
-    fileOrEvent: File | React.ChangeEvent<HTMLInputElement>
+    fileOrEvent: File | React.ChangeEvent<HTMLInputElement>,
   ) => {
     setError(null);
     let selectedFile: File | null = null;
@@ -393,7 +377,7 @@ const EventForm = () => {
   const uploadToIPFS = async (file: File): Promise<string> => {
     const uploadToastId = toast.loading(
       "Uploading image to IPFS...",
-      toastConfig.loading
+      toastConfig.loading,
     );
 
     try {
@@ -401,7 +385,7 @@ const EventForm = () => {
       formData.append("file", file);
       formData.append(
         "pinataMetadata",
-        JSON.stringify({ name: `event-image-${Date.now()}` })
+        JSON.stringify({ name: `event-image-${Date.now()}` }),
       );
 
       const response = await axios.post(
@@ -412,7 +396,7 @@ const EventForm = () => {
             "Content-Type": "multipart/form-data",
             Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`,
           },
-        }
+        },
       );
 
       if (response.status !== 200) {
@@ -448,7 +432,7 @@ const EventForm = () => {
         handleFileChange(e.dataTransfer.files[0]);
       }
     },
-    [handleFileChange]
+    [handleFileChange],
   );
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -468,7 +452,7 @@ const EventForm = () => {
 
     const mainToastId = toast.loading(
       "Preparing your event...",
-      toastConfig.loading
+      toastConfig.loading,
     );
 
     try {
@@ -490,7 +474,7 @@ const EventForm = () => {
       });
 
       const startDateTime = new Date(
-        `${eventData.startDate}T${eventData.startTime}`
+        `${eventData.startDate}T${eventData.startTime}`,
       );
       const endDateTime = new Date(`${eventData.endDate}T${eventData.endTime}`);
 
@@ -498,10 +482,10 @@ const EventForm = () => {
       const startDate = BigInt(Math.floor(startDateTime.getTime() / 1000));
       const endDate = BigInt(Math.floor(endDateTime.getTime() / 1000));
       const startTime = BigInt(
-        startDateTime.getHours() * 3600 + startDateTime.getMinutes() * 60
+        startDateTime.getHours() * 3600 + startDateTime.getMinutes() * 60,
       );
       const endTime = BigInt(
-        endDateTime.getHours() * 3600 + endDateTime.getMinutes() * 60
+        endDateTime.getHours() * 3600 + endDateTime.getMinutes() * 60,
       );
 
       const selectedToken = getTokenByAddress(eventData.paymentToken);
@@ -511,6 +495,14 @@ const EventForm = () => {
       // Get Divvi data suffix
       const divviSuffix = getReferralTag(DIVVI_CONFIG);
       const normalizedPaymentToken = normalizeAddress(eventData.paymentToken);
+
+      const maxCapacity = BigInt(eventData.maxCapacity);
+      const refundPolicy = BigInt(eventData.refundPolicy || "1");
+
+      let refundBufferHours = BigInt(0);
+      if (eventData.refundPolicy === "2" && eventData.refundBufferHours) {
+        refundBufferHours = BigInt(eventData.refundBufferHours);
+      }
 
       // Encode contract function call
       const encodedFunction = encodeFunctionData({
@@ -527,6 +519,9 @@ const EventForm = () => {
           eventData.eventLocation,
           priceInWei,
           minimumAge,
+          maxCapacity,
+          refundPolicy,
+          refundBufferHours,
           normalizedPaymentToken,
         ],
       });
@@ -595,6 +590,9 @@ const EventForm = () => {
         eventPrice: "",
         paymentToken: tokenOptions[0].address,
         minimumAge: "0",
+        maxCapacity: "",
+        refundPolicy: "1",
+        refundBufferHours: "",
       });
       setFile(null);
       setPreview(null);
@@ -657,21 +655,12 @@ const EventForm = () => {
       console.log("[DEBUG] Submitting to Divvi with chainId:", chainId);
       await submitReferral({ txHash, chainId });
       console.log("[DEBUG] Successfully reported to Divvi");
-
-      // Optional: Show success toast for Divvi reporting
-      // toast.success("Referral tracked successfully", {
-      //   ...toastConfig.info,
-      //   duration: 2000,
-      // });
     } catch (divviError) {
       console.error("[ERROR] Divvi reporting failed:", {
         error: divviError,
         txHash,
         timestamp: new Date().toISOString(),
       });
-
-      // Don't show error to user as Divvi is optional
-      // Just log it for debugging
     }
   };
 

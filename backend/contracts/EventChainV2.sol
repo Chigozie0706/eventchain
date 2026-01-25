@@ -8,25 +8,38 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-interface IERC677 is IERC20 {
-    function transferAndCall(
-        address to,
-        uint value,
-        bytes calldata data
+/**
+ * @title IEngagementRewards
+ * @dev GoodDollar Engagement Rewards interface
+ */
+interface IEngagementRewards {
+    function appClaim(
+        address user,
+        address inviter,
+        uint256 validUntilBlock,
+        bytes memory signature
+    ) external returns (bool);
+
+    function appClaim(
+        address user,
+        address inviter,
+        uint256 validUntilBlock,
+        bytes memory signature,
+        uint8 userAndInviterPercentage,
+        uint8 userPercentage
     ) external returns (bool);
 }
 
 /**
- * @title EventChain - Upgradeable Version
- * @dev Decentralized event ticketing with multi-token support and advanced security
- * Features:
- * - Multi-token payments (CELO, Mento stablecoins, G$)
- * - Flexible refund policies
- * - Pull payment pattern for security
- * - Ticket transfers
- * - Emergency withdrawal mechanism
- * - Per-event capacity limits
- * - UPGRADEABLE via UUPS proxy pattern
+ * @title EventChain V2
+ * @dev Decentralized event ticketing with GoodDollar rewards integration
+ *
+ * CHANGELOG V2:
+ * - GoodDollar Engagement Rewards integration
+ * - Users earn G$ for purchasing tickets
+ * - NO REFERRAL SYSTEM (inviter always set to address(0))
+ * - BACKWARD COMPATIBLE - Old buyTicket() still works!
+ * - New buyTicketWithRewards() for GoodDollar features
  */
 contract EventChain is
     Initializable,
@@ -48,17 +61,15 @@ contract EventChain is
     uint256 public constant MAX_EVENT_DURATION = 365 days;
     uint256 public constant EMERGENCY_WITHDRAWAL_DELAY = 90 days;
     uint256 public constant MAX_AGE = 150;
-    uint256 public constant G_DOLLAR_FEE_BPS = 100; // 1% fee for G$ token
+    uint256 public constant G_DOLLAR_FEE_BPS = 100;
 
-    // State variables
+    // State variables (V1)
     bool public paused;
     uint256 public eventCount;
     address public ubiPool;
     address public constant CELO = address(0);
     address public constant G_DOLLAR =
         0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A;
-
-    // Token support
     mapping(address => bool) public supportedTokens;
 
     enum RefundPolicy {
@@ -90,7 +101,7 @@ contract EventChain is
         address paymentToken;
     }
 
-    // Storage
+    // Storage (V1)
     mapping(uint256 => Event) public events;
     mapping(uint256 => mapping(address => bool)) public isAttendee;
     mapping(uint256 => address[]) internal eventAttendeesList;
@@ -100,7 +111,11 @@ contract EventChain is
     mapping(uint256 => mapping(address => uint256)) internal attendeeIndex;
     mapping(address => mapping(address => uint256)) public pendingWithdrawals;
 
-    // Events
+    // NEW V2 State Variables (No referral mapping)
+    IEngagementRewards public engagementRewards;
+    bool public goodDollarEnabled;
+
+    // Events (V1)
     event EventCreated(
         uint256 indexed eventId,
         address indexed owner,
@@ -134,6 +149,15 @@ contract EventChain is
     event SupportedTokenAdded(address indexed token);
     event UbiPoolUpdated(address indexed newPool);
 
+    // NEW V2 Events
+    event GoodDollarRewardClaimed(
+        address indexed user,
+        uint256 indexed eventId,
+        bool success
+    );
+    event GoodDollarToggled(bool enabled);
+    event EngagementRewardsUpdated(address indexed newContract);
+
     modifier onlyEventOwner(uint256 _index) {
         require(events[_index].owner == msg.sender, "Not event owner");
         _;
@@ -155,16 +179,12 @@ contract EventChain is
         _disableInitializers();
     }
 
-    /**
-     * @dev Initializer replaces constructor for upgradeable contracts
-     * @param _supportedTokens Array of token addresses to support
-     */
     function initialize(address[] memory _supportedTokens) public initializer {
         __ReentrancyGuard_init();
         __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
 
-        supportedTokens[CELO] = true; // Native CELO
+        supportedTokens[CELO] = true;
         ubiPool = 0x43d72Ff17701B2DA814620735C39C620Ce0ea4A1;
 
         for (uint i = 0; i < _supportedTokens.length; i++) {
@@ -174,25 +194,42 @@ contract EventChain is
         }
     }
 
-    /**
-     * @dev Required by UUPS pattern - only owner can authorize upgrades
-     */
+    function initializeV2(address _engagementRewards) public reinitializer(2) {
+        require(
+            _engagementRewards != address(0),
+            "Invalid engagement rewards address"
+        );
+        engagementRewards = IEngagementRewards(_engagementRewards);
+        goodDollarEnabled = true;
+        emit EngagementRewardsUpdated(_engagementRewards);
+        emit GoodDollarToggled(true);
+    }
+
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyOwner {}
 
-    receive() external payable {
-        // Accept CELO for ticket purchases only through buyTicket
-    }
+    receive() external payable {}
 
     fallback() external payable {
         revert("Use buyTicket function");
     }
 
-    // Admin functions
-
     function togglePause() external onlyOwner {
         paused = !paused;
+    }
+
+    function toggleGoodDollar() external onlyOwner {
+        goodDollarEnabled = !goodDollarEnabled;
+        emit GoodDollarToggled(goodDollarEnabled);
+    }
+
+    function updateEngagementRewards(
+        address _engagementRewards
+    ) external onlyOwner {
+        require(_engagementRewards != address(0), "Invalid address");
+        engagementRewards = IEngagementRewards(_engagementRewards);
+        emit EngagementRewardsUpdated(_engagementRewards);
     }
 
     function addSupportedToken(address _token) external onlyOwner {
@@ -207,9 +244,6 @@ contract EventChain is
         emit UbiPoolUpdated(_newPool);
     }
 
-    /**
-     * @notice Create a new event with comprehensive validation
-     */
     function createEvent(
         string calldata _eventName,
         string calldata _eventCardImgUrl,
@@ -226,7 +260,6 @@ contract EventChain is
         uint256 _refundBufferHours,
         address _paymentToken
     ) public whenNotPaused {
-        // Input validation
         require(
             bytes(_eventName).length > 0 &&
                 bytes(_eventName).length <= MAX_NAME_LENGTH,
@@ -266,12 +299,11 @@ contract EventChain is
             "Invalid capacity"
         );
         require(supportedTokens[_paymentToken], "Unsupported payment token");
-
-        // Refund policy validation
         require(
             _refundPolicy <= RefundPolicy.CUSTOM_BUFFER,
             "Invalid refund policy"
         );
+
         if (_refundPolicy == RefundPolicy.CUSTOM_BUFFER) {
             require(
                 _refundBufferHours > 0 && _refundBufferHours <= 720,
@@ -315,9 +347,6 @@ contract EventChain is
         emit EventCreated(newEventId, msg.sender, _eventName);
     }
 
-    /**
-     * @notice Update event details
-     */
     function updateEvent(
         uint256 _index,
         string calldata _eventName,
@@ -333,7 +362,6 @@ contract EventChain is
 
         require(event_.isActive, "Event is not active");
         require(block.timestamp < event_.startDate, "Event already started");
-
         require(
             bytes(_eventName).length > 0 &&
                 bytes(_eventName).length <= MAX_NAME_LENGTH,
@@ -355,7 +383,6 @@ contract EventChain is
             "Invalid location length"
         );
 
-        // Can only change ticket price if no tickets sold
         if (_ticketPrice != event_.ticketPrice) {
             require(
                 attendeeCount[_index] == 0,
@@ -368,7 +395,6 @@ contract EventChain is
             event_.ticketPrice = _ticketPrice;
         }
 
-        // Can't reduce capacity below current attendee count
         if (_maxCapacity != event_.maxCapacity) {
             require(
                 _maxCapacity >= MIN_CAPACITY && _maxCapacity <= MAX_CAPACITY,
@@ -407,12 +433,25 @@ contract EventChain is
         emit EventUpdated(_index, msg.sender, _eventName);
     }
 
-    /**
-     * @notice Buy ticket with multi-token support
-     */
     function buyTicket(
         uint256 _index
     ) public payable nonReentrant validEvent(_index) whenNotPaused {
+        _processBuyTicket(_index, 0, new bytes(0));
+    }
+
+    function buyTicketWithRewards(
+        uint256 _index,
+        uint256 _validUntilBlock,
+        bytes memory _signature
+    ) public payable nonReentrant validEvent(_index) whenNotPaused {
+        _processBuyTicket(_index, _validUntilBlock, _signature);
+    }
+
+    function _processBuyTicket(
+        uint256 _index,
+        uint256 _validUntilBlock,
+        bytes memory _signature
+    ) internal {
         Event storage event_ = events[_index];
 
         require(
@@ -432,35 +471,23 @@ contract EventChain is
         uint256 price = event_.ticketPrice;
         address paymentToken = event_.paymentToken;
 
-        // Handle CELO payments
         if (paymentToken == CELO) {
             require(msg.value == price, "Incorrect CELO amount");
             event_.fundsHeld += price;
-        }
-        // Handle G$ token with ERC-677 and 1% fee
-        else if (paymentToken == G_DOLLAR) {
+        } else if (paymentToken == G_DOLLAR) {
             require(msg.value == 0, "Don't send CELO with G$ payment");
-
-            // Calculate fee
             uint256 fee = (price * G_DOLLAR_FEE_BPS) / 10000;
             uint256 netAmount = price - fee;
-
-            // Transfer tokens from buyer
             IERC20(paymentToken).safeTransferFrom(
                 msg.sender,
                 address(this),
                 price
             );
-
-            // Send fee to UBI pool
             if (fee > 0 && ubiPool != address(0)) {
                 IERC20(paymentToken).safeTransfer(ubiPool, fee);
             }
-
             event_.fundsHeld += netAmount;
-        }
-        // Handle other ERC20 tokens
-        else {
+        } else {
             require(msg.value == 0, "Don't send CELO with token payment");
             IERC20(paymentToken).safeTransferFrom(
                 msg.sender,
@@ -477,56 +504,41 @@ contract EventChain is
         attendeeCount[_index]++;
 
         emit TicketPurchased(_index, msg.sender, price, paymentToken);
-    }
 
-    /**
-     * @notice ERC-677 callback for G$ token transfers
-     */
-    function onTokenTransfer(
-        address from,
-        uint256 value,
-        bytes calldata data
-    ) external returns (bool) {
-        require(msg.sender == G_DOLLAR, "Only G$ token");
-
-        uint256 eventId = abi.decode(data, (uint256));
-        require(events[eventId].exists, "Event doesn't exist");
-
-        Event storage event_ = events[eventId];
-        require(event_.paymentToken == G_DOLLAR, "Event not using G$ token");
-        require(block.timestamp < event_.startDate, "Event has started");
-        require(event_.isActive, "Event not active");
-        require(!hasPurchasedTicket[eventId][from], "Already purchased");
-        require(
-            attendeeCount[eventId] < event_.maxCapacity,
-            "Event at capacity"
-        );
-        require(value == event_.ticketPrice, "Incorrect amount");
-
-        // Calculate fee
-        uint256 fee = (value * G_DOLLAR_FEE_BPS) / 10000;
-        uint256 netAmount = value - fee;
-
-        // Send fee to UBI pool
-        if (fee > 0 && ubiPool != address(0)) {
-            IERC20(G_DOLLAR).safeTransfer(ubiPool, fee);
+        if (
+            goodDollarEnabled &&
+            address(engagementRewards) != address(0) &&
+            (_validUntilBlock > 0 || _signature.length > 0)
+        ) {
+            _claimGoodDollarReward(
+                msg.sender,
+                _validUntilBlock,
+                _signature,
+                _index
+            );
         }
-
-        hasPurchasedTicket[eventId][from] = true;
-        isAttendee[eventId][from] = true;
-        attendeeIndex[eventId][from] = eventAttendeesList[eventId].length;
-        eventAttendeesList[eventId].push(from);
-        attendeeCount[eventId]++;
-        event_.fundsHeld += netAmount;
-
-        emit TicketPurchased(eventId, from, value, G_DOLLAR);
-
-        return true;
     }
 
-    /**
-     * @notice Transfer ticket to another address
-     */
+    function _claimGoodDollarReward(
+        address user,
+        uint256 validUntilBlock,
+        bytes memory signature,
+        uint256 eventId
+    ) internal {
+        try
+            engagementRewards.appClaim(
+                user,
+                address(0),
+                validUntilBlock,
+                signature
+            )
+        returns (bool success) {
+            emit GoodDollarRewardClaimed(user, eventId, success);
+        } catch {
+            emit GoodDollarRewardClaimed(user, eventId, false);
+        }
+    }
+
     function transferTicket(
         uint256 _index,
         address _to
@@ -559,9 +571,6 @@ contract EventChain is
         emit TicketTransferred(_index, msg.sender, _to);
     }
 
-    /**
-     * @notice Cancel event
-     */
     function cancelEvent(
         uint256 _index
     ) public onlyEventOwner(_index) validEvent(_index) whenNotPaused {
@@ -571,9 +580,6 @@ contract EventChain is
         emit EventCanceled(_index);
     }
 
-    /**
-     * @notice Request refund based on policy
-     */
     function requestRefund(
         uint256 _index
     ) public nonReentrant validEvent(_index) whenNotPaused {
@@ -582,7 +588,6 @@ contract EventChain is
         Event storage event_ = events[_index];
         uint256 refundAmount = event_.ticketPrice;
 
-        // Adjust refund for G$ token (99% refund, 1% fee stays)
         if (event_.paymentToken == G_DOLLAR) {
             refundAmount = (refundAmount * 99) / 100;
         }
@@ -592,7 +597,6 @@ contract EventChain is
             "Insufficient funds in contract"
         );
 
-        // Check refund eligibility
         if (!event_.isCanceled) {
             if (event_.refundPolicy == RefundPolicy.NO_REFUND) {
                 revert("Refunds not allowed for this event");
@@ -612,13 +616,11 @@ contract EventChain is
             }
         }
 
-        // Process refund
         hasPurchasedTicket[_index][msg.sender] = false;
         isAttendee[_index][msg.sender] = false;
         event_.fundsHeld -= refundAmount;
         attendeeCount[_index]--;
 
-        // O(1) removal from attendees list
         address[] storage attendees = eventAttendeesList[_index];
         uint256 indexToRemove = attendeeIndex[_index][msg.sender];
         uint256 lastIndex = attendees.length - 1;
@@ -638,9 +640,6 @@ contract EventChain is
         emit WithdrawalReady(msg.sender, refundAmount);
     }
 
-    /**
-     * @notice Release funds to event owner after event ends
-     */
     function releaseFunds(
         uint256 _index
     ) public onlyEventOwner(_index) nonReentrant {
@@ -663,9 +662,6 @@ contract EventChain is
         emit WithdrawalReady(msg.sender, amountToRelease);
     }
 
-    /**
-     * @notice Emergency withdrawal for stuck funds
-     */
     function emergencyWithdrawFunds(
         uint256 _index
     ) public onlyOwner nonReentrant {
@@ -691,9 +687,6 @@ contract EventChain is
         emit WithdrawalReady(event_.owner, amountToWithdraw);
     }
 
-    /**
-     * @notice Withdraw accumulated funds (pull payment pattern)
-     */
     function withdraw(address token) external nonReentrant {
         uint256 amount = pendingWithdrawals[msg.sender][token];
         require(amount > 0, "No funds to withdraw");
@@ -709,8 +702,6 @@ contract EventChain is
 
         emit WithdrawalReady(msg.sender, amount);
     }
-
-    // View functions
 
     function getPendingWithdrawal(
         address user,
@@ -846,10 +837,5 @@ contract EventChain is
         return (eventIds, activeEvents);
     }
 
-    /**
-     * @dev Storage gap for future versions
-     * This reserves storage slots that can be used in future upgrades
-     * to add new state variables without shifting storage layout
-     */
-    uint256[50] private __gap;
+    uint256[48] private __gap;
 }

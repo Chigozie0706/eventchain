@@ -10,4 +10,7 @@ export interface EventData {
   minimumAge: string;
   paymentToken: string;
   image?: string; // IPFS url
+  maxCapacity: string; 
+  refundPolicy: string; 
+  refundBufferHours: string; 
 }

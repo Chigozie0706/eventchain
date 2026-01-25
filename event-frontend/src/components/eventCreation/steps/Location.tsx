@@ -1,5 +1,8 @@
+"use client";
+
 import GoogleMapWithSearch from "@/components/AutoPlace";
 import { EventData } from "../types";
+import { FormInput } from "@/components/FormInput";
 
 interface Props {
   eventData: EventData;
@@ -8,22 +11,13 @@ interface Props {
 
 export default function Location({ eventData, setEventData }: Props) {
   return (
-    <div className="mb-4">
-      <label className="block text-gray-700 font-medium mb-2 text-sm">
-        Location *
-      </label>
-      {/* <input
-        type="text"
-        name="eventLocation"
-        value={eventData.eventLocation}
-        onChange={(e) =>
-          setEventData({ ...eventData, eventLocation: e.target.value })
-        }
-        placeholder="Enter event location"
-        className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
-      /> */}
-
-      <GoogleMapWithSearch eventData={eventData} setEventData={setEventData} />
-    </div>
+    <>
+      <FormInput label="Location" required>
+        <GoogleMapWithSearch
+          eventData={eventData}
+          setEventData={setEventData}
+        />
+      </FormInput>
+    </>
   );
 }
