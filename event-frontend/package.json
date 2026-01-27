@@ -12,6 +12,7 @@
     "@celo/contractkit": "^9.0.0",
     "@divvi/referral-sdk": "^2.2.0",
     "@goodsdks/citizen-sdk": "^1.2.0",
+    "@goodsdks/engagement-sdk": "^1.0.3",
     "@heroicons/react": "^2.2.0",
     "@pinata/sdk": "^2.1.0",
     "@privy-io/react-auth": "^3.4.1",

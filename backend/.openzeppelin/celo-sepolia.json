@@ -20,7 +20,7 @@
             "slot": "0",
             "type": "t_bool",
             "contract": "EventChain",
-            "src": "contracts/EventChain.sol:54"
+            "src": "contracts/legacy/EventChainV1.sol:54"
           },
           {
             "label": "eventCount",
@@ -28,7 +28,7 @@
             "slot": "1",
             "type": "t_uint256",
             "contract": "EventChain",
-            "src": "contracts/EventChain.sol:55"
+            "src": "contracts/legacy/EventChainV1.sol:55"
           },
           {
             "label": "ubiPool",
@@ -36,7 +36,7 @@
             "slot": "2",
             "type": "t_address",
             "contract": "EventChain",
-            "src": "contracts/EventChain.sol:56"
+            "src": "contracts/legacy/EventChainV1.sol:56"
           },
           {
             "label": "supportedTokens",
@@ -44,15 +44,15 @@
             "slot": "3",
             "type": "t_mapping(t_address,t_bool)",
             "contract": "EventChain",
-            "src": "contracts/EventChain.sol:62"
+            "src": "contracts/legacy/EventChainV1.sol:62"
           },
           {
             "label": "events",
             "offset": 0,
             "slot": "4",
-            "type": "t_mapping(t_uint256,t_struct(Event)3048_storage)",
+            "type": "t_mapping(t_uint256,t_struct(Event)5718_storage)",
             "contract": "EventChain",
-            "src": "contracts/EventChain.sol:94"
+            "src": "contracts/legacy/EventChainV1.sol:94"
           },
           {
             "label": "isAttendee",
@@ -60,7 +60,7 @@
             "slot": "5",
             "type": "t_mapping(t_uint256,t_mapping(t_address,t_bool))",
             "contract": "EventChain",
-            "src": "contracts/EventChain.sol:95"
+            "src": "contracts/legacy/EventChainV1.sol:95"
           },
           {
             "label": "eventAttendeesList",
@@ -68,7 +68,7 @@
             "slot": "6",
             "type": "t_mapping(t_uint256,t_array(t_address)dyn_storage)",
             "contract": "EventChain",
-            "src": "contracts/EventChain.sol:96"
+            "src": "contracts/legacy/EventChainV1.sol:96"
           },
           {
             "label": "attendeeCount",
@@ -76,7 +76,7 @@
             "slot": "7",
             "type": "t_mapping(t_uint256,t_uint256)",
             "contract": "EventChain",
-            "src": "contracts/EventChain.sol:97"
+            "src": "contracts/legacy/EventChainV1.sol:97"
           },
           {
             "label": "creatorEventIds",
@@ -84,7 +84,7 @@
             "slot": "8",
             "type": "t_mapping(t_address,t_array(t_uint256)dyn_storage)",
             "contract": "EventChain",
-            "src": "contracts/EventChain.sol:98"
+            "src": "contracts/legacy/EventChainV1.sol:98"
           },
           {
             "label": "hasPurchasedTicket",
@@ -92,7 +92,7 @@
             "slot": "9",
             "type": "t_mapping(t_uint256,t_mapping(t_address,t_bool))",
             "contract": "EventChain",
-            "src": "contracts/EventChain.sol:99"
+            "src": "contracts/legacy/EventChainV1.sol:99"
           },
           {
             "label": "attendeeIndex",
@@ -100,7 +100,7 @@
             "slot": "10",
             "type": "t_mapping(t_uint256,t_mapping(t_address,t_uint256))",
             "contract": "EventChain",
-            "src": "contracts/EventChain.sol:100"
+            "src": "contracts/legacy/EventChainV1.sol:100"
           },
           {
             "label": "pendingWithdrawals",
@@ -108,7 +108,7 @@
             "slot": "11",
             "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
             "contract": "EventChain",
-            "src": "contracts/EventChain.sol:101"
+            "src": "contracts/legacy/EventChainV1.sol:101"
           },
           {
             "label": "__gap",
@@ -116,7 +116,7 @@
             "slot": "12",
             "type": "t_array(t_uint256)50_storage",
             "contract": "EventChain",
-            "src": "contracts/EventChain.sol:854"
+            "src": "contracts/legacy/EventChainV1.sol:854"
           }
         ],
         "types": {
@@ -190,7 +190,7 @@
             "label": "uint256[]",
             "numberOfBytes": "32"
           },
-          "t_enum(RefundPolicy)3006": {
+          "t_enum(RefundPolicy)5676": {
             "label": "enum EventChain.RefundPolicy",
             "members": [
               "NO_REFUND",
@@ -227,7 +227,7 @@
             "label": "mapping(uint256 => mapping(address => uint256))",
             "numberOfBytes": "32"
           },
-          "t_mapping(t_uint256,t_struct(Event)3048_storage)": {
+          "t_mapping(t_uint256,t_struct(Event)5718_storage)": {
             "label": "mapping(uint256 => struct EventChain.Event)",
             "numberOfBytes": "32"
           },
@@ -239,7 +239,7 @@
             "label": "string",
             "numberOfBytes": "32"
           },
-          "t_struct(Event)3048_storage": {
+          "t_struct(Event)5718_storage": {
             "label": "struct EventChain.Event",
             "members": [
               {
@@ -346,7 +346,427 @@
               },
               {
                 "label": "refundPolicy",
-                "type": "t_enum(RefundPolicy)3006",
+                "type": "t_enum(RefundPolicy)5676",
+                "offset": 3,
+                "slot": "11"
+              },
+              {
+                "label": "refundBufferHours",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "12"
+              },
+              {
+                "label": "paymentToken",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "13"
+              }
+            ],
+            "numberOfBytes": "448"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:24",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.ReentrancyGuard": [
+            {
+              "contract": "ReentrancyGuardUpgradeable",
+              "label": "_status",
+              "type": "t_uint256",
+              "src": "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol:43",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    },
+    "dedde9c3f22ddc52adcd66f992dbb6a44d53794f35d5c4ebabeb185161209fb8": {
+      "address": "0xe962C5c97712f2e4f48f2aCFE7eeb4c782D63C4F",
+      "txHash": "0x5fac7233bf6321e47a16a1cbd97a73d2d672c2f1865242e23a66f6c54b580d13",
+      "layout": {
+        "solcVersion": "0.8.28",
+        "storage": [
+          {
+            "label": "paused",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "EventChainV2",
+            "src": "contracts/EventChainV2.sol:67"
+          },
+          {
+            "label": "eventCount",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_uint256",
+            "contract": "EventChainV2",
+            "src": "contracts/EventChainV2.sol:68"
+          },
+          {
+            "label": "ubiPool",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_address",
+            "contract": "EventChainV2",
+            "src": "contracts/EventChainV2.sol:69"
+          },
+          {
+            "label": "supportedTokens",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_mapping(t_address,t_bool)",
+            "contract": "EventChainV2",
+            "src": "contracts/EventChainV2.sol:73"
+          },
+          {
+            "label": "events",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_mapping(t_uint256,t_struct(Event)3066_storage)",
+            "contract": "EventChainV2",
+            "src": "contracts/EventChainV2.sol:105"
+          },
+          {
+            "label": "isAttendee",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_mapping(t_uint256,t_mapping(t_address,t_bool))",
+            "contract": "EventChainV2",
+            "src": "contracts/EventChainV2.sol:106"
+          },
+          {
+            "label": "eventAttendeesList",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_mapping(t_uint256,t_array(t_address)dyn_storage)",
+            "contract": "EventChainV2",
+            "src": "contracts/EventChainV2.sol:107"
+          },
+          {
+            "label": "attendeeCount",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_mapping(t_uint256,t_uint256)",
+            "contract": "EventChainV2",
+            "src": "contracts/EventChainV2.sol:108"
+          },
+          {
+            "label": "creatorEventIds",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_mapping(t_address,t_array(t_uint256)dyn_storage)",
+            "contract": "EventChainV2",
+            "src": "contracts/EventChainV2.sol:109"
+          },
+          {
+            "label": "hasPurchasedTicket",
+            "offset": 0,
+            "slot": "9",
+            "type": "t_mapping(t_uint256,t_mapping(t_address,t_bool))",
+            "contract": "EventChainV2",
+            "src": "contracts/EventChainV2.sol:110"
+          },
+          {
+            "label": "attendeeIndex",
+            "offset": 0,
+            "slot": "10",
+            "type": "t_mapping(t_uint256,t_mapping(t_address,t_uint256))",
+            "contract": "EventChainV2",
+            "src": "contracts/EventChainV2.sol:111"
+          },
+          {
+            "label": "pendingWithdrawals",
+            "offset": 0,
+            "slot": "11",
+            "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
+            "contract": "EventChainV2",
+            "src": "contracts/EventChainV2.sol:112"
+          },
+          {
+            "label": "engagementRewards",
+            "offset": 0,
+            "slot": "12",
+            "type": "t_contract(IEngagementRewards)2952",
+            "contract": "EventChainV2",
+            "src": "contracts/EventChainV2.sol:115"
+          },
+          {
+            "label": "goodDollarEnabled",
+            "offset": 20,
+            "slot": "12",
+            "type": "t_bool",
+            "contract": "EventChainV2",
+            "src": "contracts/EventChainV2.sol:116"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "13",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "EventChainV2",
+            "src": "contracts/EventChainV2.sol:840"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_struct(InitializableStorage)73_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OwnableStorage)13_storage": {
+            "label": "struct OwnableUpgradeable.OwnableStorage",
+            "members": [
+              {
+                "label": "_owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(ReentrancyGuardStorage)226_storage": {
+            "label": "struct ReentrancyGuardUpgradeable.ReentrancyGuardStorage",
+            "members": [
+              {
+                "label": "_status",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_array(t_address)dyn_storage": {
+            "label": "address[]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)dyn_storage": {
+            "label": "uint256[]",
+            "numberOfBytes": "32"
+          },
+          "t_contract(IEngagementRewards)2952": {
+            "label": "contract IEngagementRewards",
+            "numberOfBytes": "20"
+          },
+          "t_enum(RefundPolicy)3024": {
+            "label": "enum EventChainV2.RefundPolicy",
+            "members": [
+              "NO_REFUND",
+              "REFUND_BEFORE_START",
+              "CUSTOM_BUFFER"
+            ],
+            "numberOfBytes": "1"
+          },
+          "t_mapping(t_address,t_array(t_uint256)dyn_storage)": {
+            "label": "mapping(address => uint256[])",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+            "label": "mapping(address => mapping(address => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_array(t_address)dyn_storage)": {
+            "label": "mapping(uint256 => address[])",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_mapping(t_address,t_bool))": {
+            "label": "mapping(uint256 => mapping(address => bool))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_mapping(t_address,t_uint256))": {
+            "label": "mapping(uint256 => mapping(address => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_struct(Event)3066_storage)": {
+            "label": "mapping(uint256 => struct EventChainV2.Event)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_uint256)": {
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_string_storage": {
+            "label": "string",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Event)3066_storage": {
+            "label": "struct EventChainV2.Event",
+            "members": [
+              {
+                "label": "owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "eventName",
+                "type": "t_string_storage",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "eventCardImgUrl",
+                "type": "t_string_storage",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "eventDetails",
+                "type": "t_string_storage",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "startDate",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "4"
+              },
+              {
+                "label": "endDate",
+                "type": "t_uint64",
+                "offset": 8,
+                "slot": "4"
+              },
+              {
+                "label": "startTime",
+                "type": "t_uint64",
+                "offset": 16,
+                "slot": "4"
+              },
+              {
+                "label": "endTime",
+                "type": "t_uint64",
+                "offset": 24,
+                "slot": "4"
+              },
+              {
+                "label": "eventLocation",
+                "type": "t_string_storage",
+                "offset": 0,
+                "slot": "5"
+              },
+              {
+                "label": "isActive",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "6"
+              },
+              {
+                "label": "ticketPrice",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "7"
+              },
+              {
+                "label": "fundsHeld",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "8"
+              },
+              {
+                "label": "minimumAge",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "9"
+              },
+              {
+                "label": "maxCapacity",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "10"
+              },
+              {
+                "label": "isCanceled",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "11"
+              },
+              {
+                "label": "fundsReleased",
+                "type": "t_bool",
+                "offset": 1,
+                "slot": "11"
+              },
+              {
+                "label": "exists",
+                "type": "t_bool",
+                "offset": 2,
+                "slot": "11"
+              },
+              {
+                "label": "refundPolicy",
+                "type": "t_enum(RefundPolicy)3024",
                 "offset": 3,
                 "slot": "11"
               },

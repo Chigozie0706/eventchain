@@ -3,6 +3,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { toast, Toaster } from "react-hot-toast";
 import {
+  REWARDS_CONTRACT,
+  useEngagementRewards,
+} from "@goodsdks/engagement-sdk";
+import {
   formatUnits,
   parseUnits,
   encodeFunctionData,
@@ -45,7 +49,7 @@ export interface Event {
   paymentToken: string;
 }
 
-const CONTRACT_ADDRESS = "0x1b5F100B02f07E7A88f6C3A2B08152009d06685e";
+const CONTRACT_ADDRESS = "0x8ffaE966046d48e65A1c6B6f45fCa483C1838BA7";
 const CELO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const G_DOLLAR_ADDRESS = "0x62b8b11039fcfe5ab0c56e502b1c372a3d2a9c7a";
 
@@ -114,6 +118,10 @@ const toastConfig = {
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
+  const [isUserRegistered, setIsUserRegistered] = useState(false);
+  const [checkingRegistration, setCheckingRegistration] = useState(false);
+  const [useGoodDollar, setUseGoodDollar] = useState(true); // Toggle for GoodDollar
+
   const [eventDetails, setEventDetails] = useState<{
     event: Event;
     attendees: string[];
@@ -124,6 +132,8 @@ export default function Home() {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
+
+  const engagementRewards = useEngagementRewards(REWARDS_CONTRACT);
 
   // Contract reads
   const {
@@ -248,12 +258,14 @@ export default function Home() {
         duration: 5000,
       });
 
-      setTimeout(() => {
-        toast.success("Check your wallet for the ticket!", {
-          ...toastConfig.info,
-          duration: 3000,
-        });
-      }, 1000);
+      if (useGoodDollar) {
+        setTimeout(() => {
+          toast.success("💰 G$ rewards claimed! Check your wallet!", {
+            ...toastConfig.info,
+            duration: 3000,
+          });
+        }, 1000);
+      }
     } else if (writeError) {
       const errorMessage = parseErrorMessage(writeError.message);
       toast.error(errorMessage, {
@@ -265,7 +277,7 @@ export default function Home() {
     return () => {
       if (toastId) toast.dismiss(toastId);
     };
-  }, [isWriting, isConfirming, isConfirmed, writeError]);
+  }, [isWriting, isConfirming, isConfirmed, writeError, useGoodDollar]);
 
   // Refund notifications
   useEffect(() => {
@@ -358,7 +370,7 @@ export default function Home() {
       : message;
   };
 
-  // Buy ticket function
+  // Buy ticket function with GoodDollar integration
   const buyTicket = useCallback(async () => {
     if (!isConnected) {
       toast.error("Please connect your wallet to purchase tickets", {
@@ -374,6 +386,10 @@ export default function Home() {
         icon: "🔌",
       });
       return;
+    }
+
+    if (!engagementRewards) {
+      throw new Error("Engagement rewards SDK not initialized");
     }
 
     if (eventDetails.attendees.includes(address)) {
@@ -415,6 +431,73 @@ export default function Home() {
       const isGdollar =
         paymentToken.toLowerCase() === G_DOLLAR_ADDRESS.toLowerCase();
       const isCelo = paymentToken === CELO_ADDRESS;
+
+      // ========================================
+      // GOODDOLLAR INTEGRATION
+      // ========================================
+      let goodDollarData = {
+        inviter: "0x0000000000000000000000000000000000000000" as `0x${string}`,
+        validUntilBlock: BigInt(0),
+        signature: "0x" as `0x${string}`,
+      };
+
+      if (useGoodDollar) {
+        try {
+          toast.loading("💰 Preparing G$ rewards...", { id: mainToastId });
+
+          // Get current block for signature validity
+          const currentBlock = await engagementRewards.getCurrentBlockNumber();
+          const validUntilBlock = currentBlock + BigInt(600); // Valid for 600 blocks (~30 min)
+
+          // Always generate signature (SDK will handle registration check internally)
+          toast.loading("✍️ Generating reward signature...", {
+            id: mainToastId,
+          });
+
+          // Sign the claim - no inviter address needed (always address(0) in contract)
+          const signature = await engagementRewards.signClaim(
+            CONTRACT_ADDRESS,
+            "0x0000000000000000000000000000000000000000", // No referrer
+            validUntilBlock,
+          );
+
+          goodDollarData = {
+            inviter:
+              "0x0000000000000000000000000000000000000000" as `0x${string}`,
+            validUntilBlock,
+            signature,
+          };
+
+          toast.success("✅ G$ rewards ready!", {
+            ...toastConfig.info,
+            duration: 2000,
+          });
+
+          toast.loading("💰 You will earn G$ rewards with this purchase!", {
+            id: mainToastId,
+            duration: 2000,
+          });
+        } catch (goodDollarError) {
+          console.error("GoodDollar setup failed:", goodDollarError);
+
+          // Try to continue without signature (for returning users)
+          const currentBlock = await engagementRewards.getCurrentBlockNumber();
+          goodDollarData = {
+            inviter:
+              "0x0000000000000000000000000000000000000000" as `0x${string}`,
+            validUntilBlock: currentBlock + BigInt(600),
+            signature: "0x" as `0x${string}`, // Empty signature for returning users
+          };
+
+          toast.loading(
+            "⚠️ Continuing with empty signature (returning user)...",
+            {
+              id: mainToastId,
+              duration: 2000,
+            },
+          );
+        }
+      }
 
       // Check balance for CELO
       if (isCelo) {
@@ -477,13 +560,30 @@ export default function Home() {
           id: mainToastId,
         });
 
-        write({
-          address: CONTRACT_ADDRESS,
-          abi: contractABI.abi,
-          functionName: "buyTicket",
-          args: [eventId],
-          value: requiredAmount,
-        });
+        // Use buyTicketWithRewards if GoodDollar is enabled
+        if (useGoodDollar) {
+          write({
+            address: CONTRACT_ADDRESS,
+            abi: contractABI.abi,
+            functionName: "buyTicketWithRewards",
+            args: [
+              eventId,
+              goodDollarData.inviter,
+              goodDollarData.validUntilBlock,
+              goodDollarData.signature,
+            ],
+            value: requiredAmount,
+          });
+        } else {
+          // Fallback to old buyTicket for backward compatibility
+          write({
+            address: CONTRACT_ADDRESS,
+            abi: contractABI.abi,
+            functionName: "buyTicket",
+            args: [eventId],
+            value: requiredAmount,
+          });
+        }
 
         // Wait for the write to complete
         return;
@@ -530,12 +630,28 @@ export default function Home() {
           id: mainToastId,
         });
 
-        write({
-          address: CONTRACT_ADDRESS,
-          abi: contractABI.abi,
-          functionName: "buyTicket",
-          args: [eventId],
-        });
+        // Use buyTicketWithRewards if GoodDollar is enabled
+        if (useGoodDollar) {
+          write({
+            address: CONTRACT_ADDRESS,
+            abi: contractABI.abi,
+            functionName: "buyTicketWithRewards",
+            args: [
+              eventId,
+              goodDollarData.inviter,
+              goodDollarData.validUntilBlock,
+              goodDollarData.signature,
+            ],
+          });
+        } else {
+          // Fallback to old buyTicket
+          write({
+            address: CONTRACT_ADDRESS,
+            abi: contractABI.abi,
+            functionName: "buyTicket",
+            args: [eventId],
+          });
+        }
 
         // Wait for the write to complete
         return;
@@ -558,6 +674,15 @@ export default function Home() {
           },
         );
 
+        if (useGoodDollar) {
+          setTimeout(() => {
+            toast.success("💰 G$ rewards claimed!", {
+              ...toastConfig.info,
+              duration: 4000,
+            });
+          }, 1000);
+        }
+
         setTimeout(() => {
           toast.success(
             `Transaction: ${hash.slice(0, 6)}...${hash.slice(-4)}`,
@@ -566,7 +691,7 @@ export default function Home() {
               duration: 4000,
             },
           );
-        }, 1000);
+        }, 2000);
       }
     } catch (error: any) {
       console.error("[Ticket] Transaction failed:", error);
@@ -595,6 +720,8 @@ export default function Home() {
     tokenAllowance,
     publicClient,
     write,
+    useGoodDollar,
+    engagementRewards,
   ]);
 
   // Request refund function

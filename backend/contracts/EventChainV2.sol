@@ -41,7 +41,7 @@ interface IEngagementRewards {
  * - BACKWARD COMPATIBLE - Old buyTicket() still works!
  * - New buyTicketWithRewards() for GoodDollar features
  */
-contract EventChain is
+contract EventChainV2 is
     Initializable,
     ReentrancyGuardUpgradeable,
     OwnableUpgradeable,
@@ -837,5 +837,5 @@ contract EventChain is
         return (eventIds, activeEvents);
     }
 
-    uint256[48] private __gap;
+    uint256[49] private __gap;
 }

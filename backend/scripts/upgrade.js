@@ -55,7 +55,7 @@ async function main() {
   console.log("\n⏳ Preparing upgrade...\n");
 
   // Get the V2 contract factory
-  const EventChainV2 = await ethers.getContractFactory("EventChain");
+  const EventChainV2 = await ethers.getContractFactory("EventChainV2");
 
   // Validate upgrade safety
   console.log("🔍 Validating upgrade safety...");
