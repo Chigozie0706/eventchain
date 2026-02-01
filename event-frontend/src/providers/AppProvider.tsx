@@ -1,6 +1,6 @@
 "use client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { celo } from "wagmi/chains";
+import { celo, celoSepolia } from "wagmi/chains";
 import { config } from "./config";
 import { WagmiProvider } from "@privy-io/wagmi";
 import { useEffect } from "react";
@@ -19,8 +19,8 @@ const privyConfig: PrivyClientConfig = {
   appearance: {
     showWalletLoginFirst: true,
   },
-  defaultChain: celo,
-  supportedChains: [celo],
+  defaultChain: celoSepolia,
+  supportedChains: [celoSepolia],
 };
 
 const queryClient = new QueryClient({

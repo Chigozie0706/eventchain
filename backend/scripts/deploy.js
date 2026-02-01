@@ -1,13 +1,13 @@
 const { ethers, upgrades } = require("hardhat");
 
 /**
- * Deploy upgradeable EventChain contract
+ * Deploy upgradeable EventChainV2 contract
  * Run: npx hardhat run scripts/deploy.js --network celo_sepolia
  */
 
 async function main() {
   console.log("\n" + "=".repeat(60));
-  console.log("🚀 Deploying EventChain (Upgradeable)");
+  console.log("🚀 Deploying EventChainV2 (Upgradeable)");
   console.log("=".repeat(60) + "\n");
 
   const [deployer] = await ethers.getSigners();
@@ -50,11 +50,11 @@ async function main() {
 
   console.log("\n⏳ Deploying contracts...\n");
 
-  const EventChain = await ethers.getContractFactory("EventChain");
+  const EventChainV2 = await ethers.getContractFactory("EventChainV2");
 
   // Deploy with UUPS proxy
-  const eventChain = await upgrades.deployProxy(
-    EventChain,
+  const eventChainV2 = await upgrades.deployProxy(
+    EventChainV2,
     [supportedTokens],
     {
       kind: "uups",
@@ -62,9 +62,9 @@ async function main() {
     }
   );
 
-  await eventChain.waitForDeployment();
+  await eventChainV2.waitForDeployment();
 
-  const proxyAddress = await eventChain.getAddress();
+  const proxyAddress = await eventChainV2.getAddress();
   const implementationAddress = await upgrades.erc1967.getImplementationAddress(
     proxyAddress
   );
@@ -76,10 +76,10 @@ async function main() {
 
   // Verify configuration
   console.log("\n🔍 Verifying configuration...");
-  const owner = await eventChain.owner();
-  const ubiPool = await eventChain.ubiPool();
-  const celoSupported = await eventChain.supportedTokens(ethers.ZeroAddress);
-  const gDollarSupported = await eventChain.supportedTokens(
+  const owner = await eventChainV2.owner();
+  const ubiPool = await eventChainV2.ubiPool();
+  const celoSupported = await eventChainV2.supportedTokens(ethers.ZeroAddress);
+  const gDollarSupported = await eventChainV2.supportedTokens(
     "0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A"
   );
 
