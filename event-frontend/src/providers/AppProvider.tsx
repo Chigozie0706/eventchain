@@ -19,8 +19,8 @@ const privyConfig: PrivyClientConfig = {
   appearance: {
     showWalletLoginFirst: true,
   },
-  defaultChain: celoSepolia,
-  supportedChains: [celoSepolia],
+  defaultChain: celo,
+  supportedChains: [celo],
 };
 
 const queryClient = new QueryClient({

@@ -3,9 +3,9 @@ import { createConfig } from "@privy-io/wagmi";
 import { celo, celoSepolia } from "wagmi/chains";
 
 export const config = createConfig({
-  chains: [celoSepolia],
+  chains: [celo],
   transports: {
-    [celoSepolia.id]: http(),
+    [celo.id]: http(),
   },
   ssr: true,
 });
