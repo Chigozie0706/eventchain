@@ -8,19 +8,42 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-interface IERC677 is IERC20 {
-    function transferAndCall(
-        address to,
-        uint value,
-        bytes calldata data
-    ) external returns (bool);
+interface IEventTicketNFT {
+    function mintTicket(
+        address _to,
+        uint256 _eventId
+    ) external returns (uint256);
+
+    function burnTicket(uint256 _eventId, address _from) external;
+
+    function transferTicket(
+        uint256 _eventId,
+        address _from,
+        address _to
+    ) external;
+
+    function setTicketURI(
+        uint256 _eventId,
+        address _holder,
+        string calldata _tokenURI
+    ) external;
+
+    function holdsTicket(
+        uint256 _eventId,
+        address _holder
+    ) external view returns (bool);
+
+    function getTokenId(
+        uint256 _eventId,
+        address _holder
+    ) external view returns (uint256);
 }
 
 /**
  * @title EventChain - Upgradeable Version
  * @dev Decentralized event ticketing with multi-token support and advanced security
  * Features:
- * - Multi-token payments (CELO, Mento stablecoins, G$)
+ * - Multi-token payments (CELO, Mento stablecoins)
  * - Flexible refund policies
  * - Pull payment pattern for security
  * - Ticket transfers
@@ -48,15 +71,14 @@ contract EventChain is
     uint256 public constant MAX_EVENT_DURATION = 365 days;
     uint256 public constant EMERGENCY_WITHDRAWAL_DELAY = 90 days;
     uint256 public constant MAX_AGE = 150;
-    uint256 public constant G_DOLLAR_FEE_BPS = 100; // 1% fee for G$ token
 
     // State variables
     bool public paused;
     uint256 public eventCount;
-    address public ubiPool;
     address public constant CELO = address(0);
-    address public constant G_DOLLAR =
-        0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A;
+
+    /// @notice Optional NFT contract — if address(0), NFT minting is skipped
+    IEventTicketNFT public ticketNFT;
 
     // Token support
     mapping(address => bool) public supportedTokens;
@@ -65,6 +87,24 @@ contract EventChain is
         NO_REFUND,
         REFUND_BEFORE_START,
         CUSTOM_BUFFER
+    }
+
+    enum EventCategory {
+        RELIGIOUS_FAITH,
+        EDUCATION,
+        BUSINESS,
+        TECHNOLOGY,
+        COMMUNITY,
+        FAMILY_PERSONAL,
+        HEALTH_WELLNESS,
+        ARTS_CULTURE,
+        CHARITY_FUNDRAISING
+    }
+
+    enum ApprovalStatus {
+        PENDING,
+        APPROVED,
+        REJECTED
     }
 
     struct Event {
@@ -88,6 +128,9 @@ contract EventChain is
         RefundPolicy refundPolicy;
         uint256 refundBufferHours;
         address paymentToken;
+        EventCategory category;
+        ApprovalStatus approvalStatus;
+        string rejectionReason;
     }
 
     // Storage
@@ -131,8 +174,35 @@ contract EventChain is
         address indexed to
     );
     event WithdrawalReady(address indexed user, uint256 amount);
+    event PauseToggled(bool paused);
     event SupportedTokenAdded(address indexed token);
-    event UbiPoolUpdated(address indexed newPool);
+    event Withdrawn(
+        address indexed user,
+        address indexed token,
+        uint256 amount
+    );
+    event SupportedTokenRemoved(address indexed token);
+    event EventSubmittedForApproval(
+        uint256 indexed eventId,
+        address indexed owner
+    );
+    event EventApproved(uint256 indexed eventId, address indexed admin);
+    event EventRejected(
+        uint256 indexed eventId,
+        address indexed admin,
+        string reason
+    );
+    event TicketNFTContractUpdated(address indexed newContract);
+    event TicketNFTMinted(
+        uint256 indexed eventId,
+        address indexed buyer,
+        uint256 indexed tokenId
+    );
+    event TicketURISet(
+        uint256 indexed eventId,
+        address indexed holder,
+        string tokenURI
+    );
 
     modifier onlyEventOwner(uint256 _index) {
         require(events[_index].owner == msg.sender, "Not event owner");
@@ -164,8 +234,7 @@ contract EventChain is
         __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
 
-        supportedTokens[CELO] = true; // Native CELO
-        ubiPool = 0x43d72Ff17701B2DA814620735C39C620Ce0ea4A1;
+        supportedTokens[CELO] = true;
 
         for (uint i = 0; i < _supportedTokens.length; i++) {
             if (_supportedTokens[i] != address(0)) {
@@ -193,18 +262,79 @@ contract EventChain is
 
     function togglePause() external onlyOwner {
         paused = !paused;
+        emit PauseToggled(paused);
     }
 
     function addSupportedToken(address _token) external onlyOwner {
         require(_token != address(0), "Invalid token address");
+        require(!supportedTokens[_token], "Token already supported");
         supportedTokens[_token] = true;
         emit SupportedTokenAdded(_token);
     }
 
-    function updateUbiPool(address _newPool) external onlyOwner {
-        require(_newPool != address(0), "Invalid pool address");
-        ubiPool = _newPool;
-        emit UbiPoolUpdated(_newPool);
+    function removeSupportedToken(address _token) external onlyOwner {
+        require(_token != CELO, "Cannot remove CELO");
+        require(supportedTokens[_token], "Token not supported");
+        supportedTokens[_token] = false;
+        emit SupportedTokenRemoved(_token);
+    }
+
+    function setTicketNFT(address _ticketNFT) external onlyOwner {
+        ticketNFT = IEventTicketNFT(_ticketNFT);
+        emit TicketNFTContractUpdated(_ticketNFT);
+    }
+
+    function setTicketURI(
+        uint256 _eventId,
+        address _holder,
+        string calldata _tokenURI
+    ) external validEvent(_eventId) {
+        require(
+            msg.sender == events[_eventId].owner || msg.sender == owner(),
+            "Not authorized"
+        );
+        require(address(ticketNFT) != address(0), "NFT contract not set");
+        require(
+            ticketNFT.holdsTicket(_eventId, _holder),
+            "Holder has no ticket NFT"
+        );
+        require(bytes(_tokenURI).length > 0, "Empty URI");
+        ticketNFT.setTicketURI(_eventId, _holder, _tokenURI);
+        emit TicketURISet(_eventId, _holder, _tokenURI);
+    }
+
+    function approveEvent(
+        uint256 _index
+    ) external onlyOwner validEvent(_index) {
+        Event storage event_ = events[_index];
+        require(
+            event_.approvalStatus == ApprovalStatus.PENDING,
+            "Not pending approval"
+        );
+        require(!event_.isCanceled, "Event is canceled");
+
+        event_.approvalStatus = ApprovalStatus.APPROVED;
+        event_.isActive = true;
+
+        emit EventApproved(_index, msg.sender);
+    }
+
+    function rejectEvent(
+        uint256 _index,
+        string calldata _reason
+    ) external onlyOwner validEvent(_index) {
+        Event storage event_ = events[_index];
+        require(
+            event_.approvalStatus == ApprovalStatus.PENDING,
+            "Not pending approval"
+        );
+        require(bytes(_reason).length > 0, "Rejection reason required");
+
+        event_.approvalStatus = ApprovalStatus.REJECTED;
+        event_.isActive = false;
+        event_.rejectionReason = _reason;
+
+        emit EventRejected(_index, msg.sender, _reason);
     }
 
     /**
@@ -224,7 +354,8 @@ contract EventChain is
         uint256 _maxCapacity,
         RefundPolicy _refundPolicy,
         uint256 _refundBufferHours,
-        address _paymentToken
+        address _paymentToken,
+        EventCategory _category
     ) public whenNotPaused {
         // Input validation
         require(
@@ -297,7 +428,7 @@ contract EventChain is
             endTime: _endTime,
             eventLocation: _eventLocation,
             ticketPrice: _ticketPrice,
-            isActive: true,
+            isActive: false,
             fundsHeld: 0,
             isCanceled: false,
             minimumAge: _minimumAge,
@@ -306,13 +437,17 @@ contract EventChain is
             exists: true,
             refundPolicy: _refundPolicy,
             refundBufferHours: _refundBufferHours,
-            paymentToken: _paymentToken
+            paymentToken: _paymentToken,
+            category: _category,
+            approvalStatus: ApprovalStatus.PENDING,
+            rejectionReason: ""
         });
 
         creatorEventIds[msg.sender].push(newEventId);
         eventCount++;
 
         emit EventCreated(newEventId, msg.sender, _eventName);
+        emit EventSubmittedForApproval(newEventId, msg.sender);
     }
 
     /**
@@ -331,9 +466,12 @@ contract EventChain is
     ) public onlyEventOwner(_index) validEvent(_index) whenNotPaused {
         Event storage event_ = events[_index];
 
-        require(event_.isActive, "Event is not active");
-        require(block.timestamp < event_.startDate, "Event already started");
-
+        require(
+            event_.approvalStatus != ApprovalStatus.APPROVED ||
+                block.timestamp < event_.startDate,
+            "Approved event already started"
+        );
+        require(!event_.isCanceled, "Event is canceled");
         require(
             bytes(_eventName).length > 0 &&
                 bytes(_eventName).length <= MAX_NAME_LENGTH,
@@ -404,6 +542,12 @@ contract EventChain is
         event_.refundPolicy = _refundPolicy;
         event_.refundBufferHours = _refundBufferHours;
 
+        if (event_.approvalStatus == ApprovalStatus.REJECTED) {
+            event_.approvalStatus = ApprovalStatus.PENDING;
+            event_.rejectionReason = "";
+            emit EventSubmittedForApproval(_index, msg.sender);
+        }
+
         emit EventUpdated(_index, msg.sender, _eventName);
     }
 
@@ -418,6 +562,10 @@ contract EventChain is
         require(
             block.timestamp < event_.startDate,
             "Event has started or expired"
+        );
+        require(
+            event_.approvalStatus == ApprovalStatus.APPROVED,
+            "Event not approved"
         );
         require(event_.isActive, "Event is not active");
         require(
@@ -437,28 +585,7 @@ contract EventChain is
             require(msg.value == price, "Incorrect CELO amount");
             event_.fundsHeld += price;
         }
-        // Handle G$ token with ERC-677 and 1% fee
-        else if (paymentToken == G_DOLLAR) {
-            require(msg.value == 0, "Don't send CELO with G$ payment");
 
-            // Calculate fee
-            uint256 fee = (price * G_DOLLAR_FEE_BPS) / 10000;
-            uint256 netAmount = price - fee;
-
-            // Transfer tokens from buyer
-            IERC20(paymentToken).safeTransferFrom(
-                msg.sender,
-                address(this),
-                price
-            );
-
-            // Send fee to UBI pool
-            if (fee > 0 && ubiPool != address(0)) {
-                IERC20(paymentToken).safeTransfer(ubiPool, fee);
-            }
-
-            event_.fundsHeld += netAmount;
-        }
         // Handle other ERC20 tokens
         else {
             require(msg.value == 0, "Don't send CELO with token payment");
@@ -477,51 +604,17 @@ contract EventChain is
         attendeeCount[_index]++;
 
         emit TicketPurchased(_index, msg.sender, price, paymentToken);
-    }
 
-    /**
-     * @notice ERC-677 callback for G$ token transfers
-     */
-    function onTokenTransfer(
-        address from,
-        uint256 value,
-        bytes calldata data
-    ) external returns (bool) {
-        require(msg.sender == G_DOLLAR, "Only G$ token");
-
-        uint256 eventId = abi.decode(data, (uint256));
-        require(events[eventId].exists, "Event doesn't exist");
-
-        Event storage event_ = events[eventId];
-        require(event_.paymentToken == G_DOLLAR, "Event not using G$ token");
-        require(block.timestamp < event_.startDate, "Event has started");
-        require(event_.isActive, "Event not active");
-        require(!hasPurchasedTicket[eventId][from], "Already purchased");
-        require(
-            attendeeCount[eventId] < event_.maxCapacity,
-            "Event at capacity"
-        );
-        require(value == event_.ticketPrice, "Incorrect amount");
-
-        // Calculate fee
-        uint256 fee = (value * G_DOLLAR_FEE_BPS) / 10000;
-        uint256 netAmount = value - fee;
-
-        // Send fee to UBI pool
-        if (fee > 0 && ubiPool != address(0)) {
-            IERC20(G_DOLLAR).safeTransfer(ubiPool, fee);
+        // Mint NFT if contract is set — failure does NOT revert ticket purchase
+        if (address(ticketNFT) != address(0)) {
+            try ticketNFT.mintTicket(msg.sender, _index) returns (
+                uint256 tokenId
+            ) {
+                emit TicketNFTMinted(_index, msg.sender, tokenId);
+            } catch {
+                // NFT mint failed silently — ticket purchase still succeeds
+            }
         }
-
-        hasPurchasedTicket[eventId][from] = true;
-        isAttendee[eventId][from] = true;
-        attendeeIndex[eventId][from] = eventAttendeesList[eventId].length;
-        eventAttendeesList[eventId].push(from);
-        attendeeCount[eventId]++;
-        event_.fundsHeld += netAmount;
-
-        emit TicketPurchased(eventId, from, value, G_DOLLAR);
-
-        return true;
     }
 
     /**
@@ -557,6 +650,16 @@ contract EventChain is
         delete attendeeIndex[_index][msg.sender];
 
         emit TicketTransferred(_index, msg.sender, _to);
+
+        // Transfer NFT if contract is set
+        if (
+            address(ticketNFT) != address(0) &&
+            ticketNFT.holdsTicket(_index, msg.sender)
+        ) {
+            try ticketNFT.transferTicket(_index, msg.sender, _to) {} catch {
+                // NFT transfer failed silently — ticket transfer still succeeds
+            }
+        }
     }
 
     /**
@@ -565,7 +668,11 @@ contract EventChain is
     function cancelEvent(
         uint256 _index
     ) public onlyEventOwner(_index) validEvent(_index) whenNotPaused {
-        require(events[_index].isActive, "Event already inactive");
+        require(
+            events[_index].approvalStatus != ApprovalStatus.REJECTED,
+            "Cannot cancel rejected event"
+        );
+        require(!events[_index].isCanceled, "Already canceled");
         events[_index].isActive = false;
         events[_index].isCanceled = true;
         emit EventCanceled(_index);
@@ -581,11 +688,6 @@ contract EventChain is
 
         Event storage event_ = events[_index];
         uint256 refundAmount = event_.ticketPrice;
-
-        // Adjust refund for G$ token (99% refund, 1% fee stays)
-        if (event_.paymentToken == G_DOLLAR) {
-            refundAmount = (refundAmount * 99) / 100;
-        }
 
         require(
             event_.fundsHeld >= refundAmount,
@@ -636,6 +738,16 @@ contract EventChain is
 
         emit RefundIssued(_index, msg.sender, refundAmount);
         emit WithdrawalReady(msg.sender, refundAmount);
+
+        // Burn NFT if contract is set and user holds one
+        if (
+            address(ticketNFT) != address(0) &&
+            ticketNFT.holdsTicket(_index, msg.sender)
+        ) {
+            try ticketNFT.burnTicket(_index, msg.sender) {} catch {
+                // Burn failed silently — refund still succeeds
+            }
+        }
     }
 
     /**
@@ -707,7 +819,7 @@ contract EventChain is
             IERC20(token).safeTransfer(msg.sender, amount);
         }
 
-        emit WithdrawalReady(msg.sender, amount);
+        emit Withdrawn(msg.sender, token, amount);
     }
 
     // View functions
@@ -851,5 +963,5 @@ contract EventChain is
      * This reserves storage slots that can be used in future upgrades
      * to add new state variables without shifting storage layout
      */
-    uint256[50] private __gap;
+    uint256[49] private __gap;
 }

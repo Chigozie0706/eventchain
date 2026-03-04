@@ -15,9 +15,9 @@ const privyConfig: PrivyClientConfig = {
     // requireUserPasswordOnCreate: true,
     // noPromptOnSignature: false,
   },
-  loginMethods: ["wallet", "email", "sms"],
+  loginMethods: ["email", "google", "wallet"],
   appearance: {
-    showWalletLoginFirst: true,
+    showWalletLoginFirst: false,
   },
   defaultChain: celo,
   supportedChains: [celo],
