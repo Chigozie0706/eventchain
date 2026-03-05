@@ -27,7 +27,7 @@ export interface Token {
   decimals: number;
 }
 
-const CONTRACT_ADDRESS = "0x1EdD444EA19c1F5240D771af3BeC58561934f5bC";
+const CONTRACT_ADDRESS = "0xb9AD5b51fD436b0884A51259E351BA10f913Ef8d";
 
 // Enhanced toast configurations for better UX
 const toastConfig = {
@@ -93,6 +93,8 @@ const EventForm = () => {
     maxCapacity: "",
     refundPolicy: "1",
     refundBufferHours: "",
+    category: "0",
+    subcategory: "",
   });
   const [loading, setLoading] = useState(false);
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
@@ -300,6 +302,10 @@ const EventForm = () => {
         throw new Error("Please enter a valid minimum age (0-120)");
       }
 
+      if (!eventData.subcategory) {
+        throw new Error("Please select a subcategory for your event");
+      }
+
       return true;
     } catch (error: any) {
       toast.error(error.message, {
@@ -375,6 +381,7 @@ const EventForm = () => {
     );
 
     try {
+      // Upload image first
       const formData = new FormData();
       formData.append("file", file);
       formData.append(
@@ -382,7 +389,7 @@ const EventForm = () => {
         JSON.stringify({ name: `event-image-${Date.now()}` }),
       );
 
-      const response = await axios.post(
+      const imageRes = await axios.post(
         "https://api.pinata.cloud/pinning/pinFileToIPFS",
         formData,
         {
@@ -393,26 +400,39 @@ const EventForm = () => {
         },
       );
 
-      if (response.status !== 200) {
-        throw new Error("Failed to upload image to IPFS");
-      }
+      const imageUrl = `https://gateway.pinata.cloud/ipfs/${imageRes.data.IpfsHash}`;
 
-      const ipfsUrl = `https://gateway.pinata.cloud/ipfs/${response.data.IpfsHash}`;
+      // Pin metadata JSON with subcategory — only admin reads this
+      const metadata = {
+        image: imageUrl,
+        subcategory: eventData.subcategory, // ← admin approval filter
+        category: eventData.category,
+        createdAt: new Date().toISOString(),
+      };
 
-      toast.success("Image uploaded to IPFS successfully", {
+      const metaRes = await axios.post(
+        "https://api.pinata.cloud/pinning/pinJSONToIPFS",
+        metadata,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`,
+          },
+        },
+      );
+
+      toast.success("Image uploaded successfully", {
         ...toastConfig.success,
         id: uploadToastId,
       });
 
-      return ipfsUrl;
+      // Return metadata URL — this is stored on-chain as eventCardImgUrl
+      return `https://gateway.pinata.cloud/ipfs/${metaRes.data.IpfsHash}`;
     } catch (error: any) {
-      console.error("IPFS upload error:", error);
-
       toast.error("Failed to upload image. Please try again.", {
         ...toastConfig.error,
         id: uploadToastId,
       });
-
       throw error;
     }
   };
@@ -444,33 +464,6 @@ const EventForm = () => {
       return;
     }
 
-    // Check if on correct network
-
-    // if (chainId !== CELO_MAINNET_CHAIN_ID) {
-    //   toast.error("Please switch to Celo network", {
-    //     ...toastConfig.error,
-    //     icon: "🔗",
-    //   });
-
-    //   try {
-    //     // await switchChain({ chainId: CELO_MAINNET_CHAIN_ID });
-    //     toast.success("Switched to Celo network", {
-    //       ...toastConfig.success,
-    //       duration: 2000,
-    //     });
-    //   } catch (error) {
-    //     console.error("Failed to switch network:", error);
-    //     toast.error(
-    //       "Failed to switch to Celo. Please switch manually in your wallet.",
-    //       {
-    //         ...toastConfig.error,
-    //         duration: 5000,
-    //       },
-    //     );
-    //     return;
-    //   }
-    // }
-
     const mainToastId = toast.loading(
       "Preparing your event...",
       toastConfig.loading,
@@ -485,8 +478,10 @@ const EventForm = () => {
         id: mainToastId,
       });
 
+      // const imageUrl = await uploadToIPFS(file!);
+      // const ipfsHash = imageUrl.split("/").pop() || "";
+
       const imageUrl = await uploadToIPFS(file!);
-      const ipfsHash = imageUrl.split("/").pop() || "";
 
       // Step 2: Prepare transaction data
       toast.loading("📝 Preparing transaction data...", {
@@ -518,6 +513,11 @@ const EventForm = () => {
       const maxCapacity = BigInt(eventData.maxCapacity);
       const refundPolicy = BigInt(eventData.refundPolicy || "1");
 
+      const category = parseInt(eventData.category);
+      if (isNaN(category) || category < 0 || category > 8) {
+        throw new Error("Please select a valid event category");
+      }
+
       let refundBufferHours = BigInt(0);
       if (eventData.refundPolicy === "2" && eventData.refundBufferHours) {
         refundBufferHours = BigInt(eventData.refundBufferHours);
@@ -542,7 +542,7 @@ const EventForm = () => {
         functionName: "createEvent",
         args: [
           eventData.eventName,
-          ipfsHash,
+          imageUrl,
           eventData.eventDetails,
           startDate,
           endDate,
@@ -555,6 +555,7 @@ const EventForm = () => {
           refundPolicy,
           refundBufferHours,
           normalizedPaymentToken,
+          BigInt(eventData.category),
         ],
         gas: BigInt(1_000_000),
         // chainId: CELO_MAINNET_CHAIN_ID,
@@ -598,6 +599,8 @@ const EventForm = () => {
         maxCapacity: "",
         refundPolicy: "1",
         refundBufferHours: "",
+        category: "0",
+        subcategory: "",
       });
       setFile(null);
       setPreview(null);

@@ -49,9 +49,8 @@ export interface Event {
   paymentToken: string;
 }
 
-const CONTRACT_ADDRESS = "0x1EdD444EA19c1F5240D771af3BeC58561934f5bC";
+const CONTRACT_ADDRESS = "0xb9AD5b51fD436b0884A51259E351BA10f913Ef8d";
 const CELO_ADDRESS = "0x0000000000000000000000000000000000000000";
-const G_DOLLAR_ADDRESS = "0x62b8b11039fcfe5ab0c56e502b1c372a3d2a9c7a";
 
 // Toast configurations
 const toastConfig = {
@@ -118,9 +117,8 @@ const toastConfig = {
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
-  const [isUserRegistered, setIsUserRegistered] = useState(false);
-  const [checkingRegistration, setCheckingRegistration] = useState(false);
   const [useGoodDollar, setUseGoodDollar] = useState(true); // Toggle for GoodDollar
+  const [resolvedImgUrl, setResolvedImgUrl] = useState<string>("");
 
   const [eventDetails, setEventDetails] = useState<{
     event: Event;
@@ -214,6 +212,28 @@ export default function Home() {
       });
     }
   }, [rawData]);
+
+  useEffect(() => {
+    if (!eventDetails?.event.eventCardImgUrl) return;
+
+    const url = eventDetails.event.eventCardImgUrl;
+
+    fetch(url)
+      .then((r) => r.json())
+      .then((data) => {
+        // New events — metadata JSON with image field
+        if (data.image) {
+          setResolvedImgUrl(data.image);
+        } else {
+          // Old events — URL was stored directly, fetch failed to parse as JSON
+          setResolvedImgUrl(url);
+        }
+      })
+      .catch(() => {
+        // Not JSON — old event with direct image URL
+        setResolvedImgUrl(url);
+      });
+  }, [eventDetails?.event.eventCardImgUrl]);
 
   // Refetch data after successful transactions
   useEffect(() => {
@@ -427,77 +447,7 @@ export default function Home() {
       const requiredAmount = eventDetails.event.ticketPrice;
       const paymentToken = eventDetails.event.paymentToken;
       const tokenInfo = getTokenByAddress(paymentToken);
-
-      const isGdollar =
-        paymentToken.toLowerCase() === G_DOLLAR_ADDRESS.toLowerCase();
       const isCelo = paymentToken === CELO_ADDRESS;
-
-      // ========================================
-      // GOODDOLLAR INTEGRATION
-      // ========================================
-      let goodDollarData = {
-        inviter: "0x0000000000000000000000000000000000000000" as `0x${string}`,
-        validUntilBlock: BigInt(0),
-        signature: "0x" as `0x${string}`,
-      };
-
-      if (useGoodDollar) {
-        try {
-          toast.loading("💰 Preparing G$ rewards...", { id: mainToastId });
-
-          // Get current block for signature validity
-          const currentBlock = await engagementRewards.getCurrentBlockNumber();
-          const validUntilBlock = currentBlock + BigInt(600); // Valid for 600 blocks (~30 min)
-
-          // Always generate signature (SDK will handle registration check internally)
-          toast.loading("✍️ Generating reward signature...", {
-            id: mainToastId,
-          });
-
-          // Sign the claim - no inviter address needed (always address(0) in contract)
-          const signature = await engagementRewards.signClaim(
-            CONTRACT_ADDRESS,
-            "0x0000000000000000000000000000000000000000", // No referrer
-            validUntilBlock,
-          );
-
-          goodDollarData = {
-            inviter:
-              "0x0000000000000000000000000000000000000000" as `0x${string}`,
-            validUntilBlock,
-            signature,
-          };
-
-          toast.success("✅ G$ rewards ready!", {
-            ...toastConfig.info,
-            duration: 2000,
-          });
-
-          toast.loading("💰 You will earn G$ rewards with this purchase!", {
-            id: mainToastId,
-            duration: 2000,
-          });
-        } catch (goodDollarError) {
-          console.error("GoodDollar setup failed:", goodDollarError);
-
-          // Try to continue without signature (for returning users)
-          const currentBlock = await engagementRewards.getCurrentBlockNumber();
-          goodDollarData = {
-            inviter:
-              "0x0000000000000000000000000000000000000000" as `0x${string}`,
-            validUntilBlock: currentBlock + BigInt(600),
-            signature: "0x" as `0x${string}`, // Empty signature for returning users
-          };
-
-          toast.loading(
-            "⚠️ Continuing with empty signature (returning user)...",
-            {
-              id: mainToastId,
-              duration: 2000,
-            },
-          );
-        }
-      }
 
       // Check balance for CELO
       if (isCelo) {
@@ -520,70 +470,21 @@ export default function Home() {
 
       let hash: `0x${string}`;
 
-      // G$ token flow (ERC-677)
-      if (isGdollar) {
-        toast.loading("💵 Preparing G$ token transfer...", { id: mainToastId });
-
-        const eventIdData = encodeAbiParameters(
-          [{ type: "uint256" }],
-          [eventId],
-        );
-
-        toast.loading("🔐 Confirm G$ transfer in your wallet...", {
-          id: mainToastId,
-        });
-
-        hash = await walletClient.writeContract({
-          address: paymentToken as `0x${string}`,
-          abi: [
-            {
-              inputs: [
-                { name: "to", type: "address" },
-                { name: "value", type: "uint256" },
-                { name: "data", type: "bytes" },
-              ],
-              name: "transferAndCall",
-              outputs: [{ name: "", type: "bool" }],
-              stateMutability: "nonpayable",
-              type: "function",
-            },
-          ],
-          functionName: "transferAndCall",
-          args: [CONTRACT_ADDRESS, requiredAmount, eventIdData],
-        });
-      }
       // CELO native token flow
-      else if (isCelo) {
+      if (isCelo) {
         toast.loading("💎 Preparing CELO payment...", { id: mainToastId });
 
         toast.loading("🔐 Confirm CELO payment in your wallet...", {
           id: mainToastId,
         });
 
-        // Use buyTicketWithRewards if GoodDollar is enabled
-        if (useGoodDollar) {
-          write({
-            address: CONTRACT_ADDRESS,
-            abi: contractABI.abi,
-            functionName: "buyTicketWithRewards",
-            args: [
-              eventId,
-              goodDollarData.inviter,
-              goodDollarData.validUntilBlock,
-              goodDollarData.signature,
-            ],
-            value: requiredAmount,
-          });
-        } else {
-          // Fallback to old buyTicket for backward compatibility
-          write({
-            address: CONTRACT_ADDRESS,
-            abi: contractABI.abi,
-            functionName: "buyTicket",
-            args: [eventId],
-            value: requiredAmount,
-          });
-        }
+        write({
+          address: CONTRACT_ADDRESS,
+          abi: contractABI.abi,
+          functionName: "buyTicket",
+          args: [eventId],
+          value: requiredAmount,
+        });
 
         // Wait for the write to complete
         return;
@@ -630,68 +531,15 @@ export default function Home() {
           id: mainToastId,
         });
 
-        // Use buyTicketWithRewards if GoodDollar is enabled
-        if (useGoodDollar) {
-          write({
-            address: CONTRACT_ADDRESS,
-            abi: contractABI.abi,
-            functionName: "buyTicketWithRewards",
-            args: [
-              eventId,
-              goodDollarData.inviter,
-              goodDollarData.validUntilBlock,
-              goodDollarData.signature,
-            ],
-          });
-        } else {
-          // Fallback to old buyTicket
-          write({
-            address: CONTRACT_ADDRESS,
-            abi: contractABI.abi,
-            functionName: "buyTicket",
-            args: [eventId],
-          });
-        }
+        write({
+          address: CONTRACT_ADDRESS,
+          abi: contractABI.abi,
+          functionName: "buyTicket",
+          args: [eventId],
+        });
 
         // Wait for the write to complete
         return;
-      }
-
-      // For G$ only (CELO and ERC20 use write hook)
-      if (isGdollar) {
-        toast.loading("⏳ Processing transaction...", { id: mainToastId });
-
-        await publicClient.waitForTransactionReceipt({ hash });
-
-        setLoading(false);
-
-        toast.success(
-          `🎉 Ticket purchased for ${eventDetails.event.eventName}!`,
-          {
-            ...toastConfig.success,
-            id: mainToastId,
-            duration: 5000,
-          },
-        );
-
-        if (useGoodDollar) {
-          setTimeout(() => {
-            toast.success("💰 G$ rewards claimed!", {
-              ...toastConfig.info,
-              duration: 4000,
-            });
-          }, 1000);
-        }
-
-        setTimeout(() => {
-          toast.success(
-            `Transaction: ${hash.slice(0, 6)}...${hash.slice(-4)}`,
-            {
-              ...toastConfig.info,
-              duration: 4000,
-            },
-          );
-        }, 2000);
       }
     } catch (error: any) {
       console.error("[Ticket] Transaction failed:", error);
@@ -837,7 +685,10 @@ export default function Home() {
         }}
       />
       <EventPage
-        event={eventDetails.event}
+        event={{
+          ...eventDetails.event,
+          eventCardImgUrl: resolvedImgUrl || eventDetails.event.eventCardImgUrl,
+        }}
         attendees={eventDetails.attendees}
         buyTicket={buyTicket}
         id={id}

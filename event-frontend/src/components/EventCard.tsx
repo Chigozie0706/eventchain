@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { formatEventDate } from "../utils/format";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface Event {
   index: number;
@@ -23,6 +23,23 @@ export default function EventCard({ event }: { event: Event }) {
   const formattedDate = formatEventDate(event.startDate);
   const [imgError, setImgError] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [imgSrc, setImgSrc] = useState<string | null>(null);
+
+  // Fetch actual image URL from IPFS metadata JSON
+  useEffect(() => {
+    if (!event.eventCardImgUrl) return;
+
+    const url = event.eventCardImgUrl.startsWith("http")
+      ? event.eventCardImgUrl
+      : `https://ipfs.io/ipfs/${event.eventCardImgUrl}`;
+
+    fetch(url)
+      .then((r) => r.json())
+      .then((data) => setImgSrc(data.image ?? null))
+      .catch(() => setImgSrc(null));
+  }, [event.eventCardImgUrl]);
+
+  const displayImg = imgError || !imgSrc ? "/default-event.jpg" : imgSrc;
 
   const getImageUrl = () => {
     if (!event.eventCardImgUrl) return "/default-event.jpg";
@@ -49,7 +66,8 @@ export default function EventCard({ event }: { event: Event }) {
       {/* Image Container */}
       <div className="relative w-full h-56 overflow-hidden bg-gray-100">
         <img
-          src={imgError ? "/default-event.jpg" : getImageUrl()}
+          // src={imgError ? "/default-event.jpg" : getImageUrl()}
+          src={displayImg}
           alt={event.eventName}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           onError={() => setImgError(true)}

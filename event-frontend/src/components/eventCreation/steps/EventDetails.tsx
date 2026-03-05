@@ -17,6 +17,109 @@ interface Props {
   setError: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
+const CATEGORIES = [
+  { value: "0", label: "Religious & Faith" },
+  { value: "1", label: "Education" },
+  { value: "2", label: "Business" },
+  { value: "3", label: "Technology" },
+  { value: "4", label: "Community" },
+  { value: "5", label: "Family & Personal" },
+  { value: "6", label: "Health & Wellness" },
+  { value: "7", label: "Arts & Culture" },
+  { value: "8", label: "Charity & Fundraising" },
+];
+
+const SUBCATEGORIES: Record<string, string[]> = {
+  "0": [
+    "Sunday Service",
+    "Wedding",
+    "Crusade",
+    "Youth Program",
+    "Prayer Meeting",
+    "Bible Study",
+    "Baptism",
+    "Funeral Service",
+    "Church Anniversary",
+    "Revival",
+    "Choir Concert",
+    "Missions Trip",
+    "Thanksgiving Service",
+    "Naming Ceremony",
+  ],
+  "1": [
+    "Seminar",
+    "Workshop",
+    "Conference",
+    "Graduation",
+    "Lecture",
+    "Training",
+    "Tutoring Session",
+    "Debate",
+    "Career Fair",
+  ],
+  "2": [
+    "Networking",
+    "Product Launch",
+    "Corporate Meeting",
+    "Trade Fair",
+    "Pitch Event",
+    "Entrepreneurs Forum",
+    "Business Summit",
+  ],
+  "3": [
+    "Hackathon",
+    "Tech Talk",
+    "Demo Day",
+    "Developer Meetup",
+    "AI Workshop",
+    "Coding Bootcamp",
+    "Tech Exhibition",
+  ],
+  "4": [
+    "Town Hall",
+    "Cultural Festival",
+    "Sports Tournament",
+    "Clean-up Event",
+    "Church Outreach",
+    "Food Drive",
+    "Neighbourhood Meeting",
+  ],
+  "5": [
+    "Birthday",
+    "Baby Shower",
+    "House Warming",
+    "Naming Ceremony",
+    "Thanksgiving Service",
+    "Wedding Anniversary",
+    "Graduation Party",
+  ],
+  "6": [
+    "Fitness Class",
+    "Medical Outreach",
+    "Marathon",
+    "Health Screening",
+    "Sports Tournament",
+    "First Aid Training",
+  ],
+  "7": [
+    "Gospel Concert",
+    "Art Exhibition",
+    "Theatre",
+    "Poetry Night",
+    "Gospel Comedy Show",
+    "Film Screening",
+    "Photography Exhibition",
+  ],
+  "8": [
+    "Church Fundraiser",
+    "NGO Drive",
+    "Awareness Campaign",
+    "Charity Gala",
+    "Food Bank",
+    "Community Support Drive",
+  ],
+};
+
 export default function EventDetails({
   eventData,
   setEventData,
@@ -44,6 +147,54 @@ export default function EventDetails({
             className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition ${"border-gray-300"}`}
             placeholder="e.g., Tech Conference 2026"
           />
+        </FormInput>
+
+        <FormInput label="Event Category" required>
+          <select
+            name="category"
+            value={eventData.category}
+            onChange={(e) =>
+              setEventData({
+                ...eventData,
+                category: e.target.value,
+                subcategory: "", // reset subcategory when category changes
+              })
+            }
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition"
+          >
+            {CATEGORIES.map((cat) => (
+              <option key={cat.value} value={cat.value}>
+                {cat.label}
+              </option>
+            ))}
+          </select>
+        </FormInput>
+
+        <FormInput label="Event Subcategory" required>
+          <>
+            <select
+              name="subcategory"
+              value={eventData.subcategory}
+              onChange={(e) =>
+                setEventData({ ...eventData, subcategory: e.target.value })
+              }
+              disabled={!eventData.category}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <option value="" disabled>
+                Select a subcategory
+              </option>
+              {(SUBCATEGORIES[eventData.category] ?? []).map((sub) => (
+                <option key={sub} value={sub}>
+                  {sub}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              Used by our team to review and approve your event. Not shown
+              publicly.
+            </p>
+          </>
         </FormInput>
 
         <FormInput label="Event Image " required>

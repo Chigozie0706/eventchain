@@ -13,4 +13,6 @@ export interface EventData {
   maxCapacity: string; 
   refundPolicy: string; 
   refundBufferHours: string; 
+  category: string;
+  subcategory: string; 
 }

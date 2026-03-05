@@ -14,7 +14,7 @@ import {
   Clock,
 } from "lucide-react";
 import { useAccount } from "wagmi";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatUnits } from "viem";
 import { getTokenByAddress } from "@/utils/tokens";
 
@@ -63,8 +63,9 @@ export default function EventPage({
   id,
 }: EventPageProps) {
   const { address, isConnected } = useAccount();
-  const [imgError, setImgError] = useState(false);
   const [showRefundDetails, setShowRefundDetails] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const [resolvedImg, setResolvedImg] = useState<string>("/default-event.jpg");
 
   // Format dates and times
   const formatEventDate = (timestamp: number) => {
@@ -111,6 +112,26 @@ export default function EventPage({
     }
   };
 
+  useEffect(() => {
+    if (!event.eventCardImgUrl) return;
+
+    const url = event.eventCardImgUrl.startsWith("http")
+      ? event.eventCardImgUrl
+      : `https://ipfs.io/ipfs/${event.eventCardImgUrl}`;
+
+    fetch(url)
+      .then((r) => r.json())
+      .then((data) => {
+        // New events — metadata JSON with image field
+        if (data.image) setResolvedImg(data.image);
+        else setResolvedImg(url);
+      })
+      .catch(() => {
+        // Old events — URL was a direct image, not JSON
+        setResolvedImg(url);
+      });
+  }, [event.eventCardImgUrl]);
+
   const getImageUrl = () => {
     if (!event.eventCardImgUrl) return "/default-event.jpg";
     return event.eventCardImgUrl.startsWith("http")
@@ -137,7 +158,8 @@ export default function EventPage({
 
         <div className="absolute inset-0">
           <img
-            src={imgError ? "/default-event.jpg" : getImageUrl()}
+            // src={imgError ? "/default-event.jpg" : getImageUrl()}
+            src={imgError ? "/default-event.jpg" : resolvedImg}
             alt="Event Banner"
             className="w-full h-full object-cover transform scale-105 hover:scale-100 transition-transform duration-[3000ms]"
             onError={() => setImgError(true)}
