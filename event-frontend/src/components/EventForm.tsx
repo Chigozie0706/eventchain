@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { parseUnits } from "ethers";
@@ -10,7 +10,6 @@ import { MultiStep } from "./MultiStep";
 import {
   useAccount,
   useWriteContract,
-  useWaitForTransactionReceipt,
   useSwitchChain,
   useChainId,
 } from "wagmi";
@@ -29,50 +28,55 @@ export interface Token {
 
 const CONTRACT_ADDRESS = "0xb9AD5b51fD436b0884A51259E351BA10f913Ef8d";
 
-// Enhanced toast configurations for better UX
+// Toast styles aligned with Dark Emerald theme
 const toastConfig = {
   success: {
     duration: 4000,
     icon: "✅",
     style: {
-      background: "#10b981",
-      color: "#fff",
+      background: "#0C1A2E",
+      color: "#4DDBA0",
       fontWeight: "500",
+      border: "1px solid rgba(53,208,127,0.3)",
     },
   },
   error: {
     duration: 5000,
     icon: "❌",
     style: {
-      background: "#ef4444",
-      color: "#fff",
+      background: "#0C1A2E",
+      color: "#F87171",
       fontWeight: "500",
+      border: "1px solid rgba(248,113,113,0.3)",
     },
   },
   loading: {
     icon: "⏳",
     style: {
-      background: "#3b82f6",
-      color: "#fff",
+      background: "#0C1A2E",
+      color: "#F8FAFC",
       fontWeight: "500",
+      border: "1px solid rgba(53,208,127,0.15)",
     },
   },
   warning: {
     duration: 4000,
     icon: "⚠️",
     style: {
-      background: "#f59e0b",
-      color: "#fff",
+      background: "#0C1A2E",
+      color: "#FBBF24",
       fontWeight: "500",
+      border: "1px solid rgba(251,191,36,0.3)",
     },
   },
   info: {
     duration: 3000,
     icon: "ℹ️",
     style: {
-      background: "#6366f1",
-      color: "#fff",
+      background: "#0C1A2E",
+      color: "#67E8F9",
       fontWeight: "500",
+      border: "1px solid rgba(34,211,238,0.25)",
     },
   },
 };
@@ -96,160 +100,24 @@ const EventForm = () => {
     category: "0",
     subcategory: "",
   });
+
   const [loading, setLoading] = useState(false);
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
   const { address } = useAccount();
-  const chainId = useChainId();
-  const { switchChain } = useSwitchChain();
-
-  const CELO_MAINNET_CHAIN_ID = 42220;
-
-  const [ticketCount, setTicketCount] = useState("");
-  const [refundAddress, setRefundAddress] = useState("");
   const { writeContractAsync } = useWriteContract();
 
-  // Show wallet connection prompt
-  const showWalletPrompt = () => {
+  const showWalletPrompt = () =>
     toast.error("Please connect your wallet to continue", {
       ...toastConfig.error,
       icon: "🔌",
     });
-  };
-
-  const handleBuy = async () => {
-    if (!address) {
-      showWalletPrompt();
-      return;
-    }
-
-    if (!ticketCount || parseFloat(ticketCount) <= 0) {
-      toast.error("Please enter a valid ticket count", toastConfig.error);
-      return;
-    }
-
-    const buyToastId = toast.loading(
-      `Purchasing ${ticketCount} ticket(s)...`,
-      toastConfig.loading,
-    );
-
-    try {
-      const tx = await writeContractAsync({
-        address: CONTRACT_ADDRESS,
-        abi: contractABI.abi,
-        functionName: "buyTicket",
-        args: [BigInt(ticketCount)],
-      });
-
-      toast.success(`🎉 Successfully purchased ${ticketCount} ticket(s)!`, {
-        ...toastConfig.success,
-        id: buyToastId,
-      });
-
-      // Reset ticket count
-      setTicketCount("");
-    } catch (err: any) {
-      console.error("Ticket purchase error:", err);
-
-      const errorMessage = err.shortMessage || err.message || "Purchase failed";
-
-      // Enhanced error messages
-      if (errorMessage.includes("insufficient")) {
-        toast.error("Insufficient balance to purchase tickets", {
-          ...toastConfig.error,
-          id: buyToastId,
-        });
-      } else if (errorMessage.includes("rejected")) {
-        toast.error("Transaction rejected by user", {
-          ...toastConfig.warning,
-          id: buyToastId,
-        });
-      } else {
-        toast.error(`Purchase failed: ${errorMessage}`, {
-          ...toastConfig.error,
-          id: buyToastId,
-        });
-      }
-    }
-  };
-
-  const handleRefund = async () => {
-    if (!address) {
-      showWalletPrompt();
-      return;
-    }
-
-    if (!refundAddress || !refundAddress.startsWith("0x")) {
-      toast.error("Please enter a valid wallet address", toastConfig.error);
-      return;
-    }
-
-    const refundToastId = toast.loading(
-      `Processing refund to ${refundAddress.slice(
-        0,
-        6,
-      )}...${refundAddress.slice(-4)}`,
-      toastConfig.loading,
-    );
-
-    try {
-      const tx = await writeContractAsync({
-        address: CONTRACT_ADDRESS,
-        abi: contractABI.abi,
-        functionName: "refund",
-        args: [refundAddress],
-      });
-
-      toast.success(
-        `💰 Refund successfully sent to ${refundAddress.slice(
-          0,
-          6,
-        )}...${refundAddress.slice(-4)}`,
-        {
-          ...toastConfig.success,
-          id: refundToastId,
-        },
-      );
-
-      // Reset refund address
-      setRefundAddress("");
-    } catch (err: any) {
-      console.error("Refund error:", err);
-
-      const errorMessage = err.shortMessage || err.message || "Refund failed";
-
-      if (errorMessage.includes("No tickets")) {
-        toast.error("This address has no tickets to refund", {
-          ...toastConfig.error,
-          id: refundToastId,
-        });
-      } else if (errorMessage.includes("rejected")) {
-        toast.error("Transaction rejected by user", {
-          ...toastConfig.warning,
-          id: refundToastId,
-        });
-      } else {
-        toast.error(`Refund failed: ${errorMessage}`, {
-          ...toastConfig.error,
-          id: refundToastId,
-        });
-      }
-    }
-  };
-
-  const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >,
-  ) => {
-    setEventData({ ...eventData, [e.target.name]: e.target.value });
-  };
 
   const validateForm = () => {
     try {
-      // Check required fields
       if (
         !eventData.eventName ||
         !eventData.eventDetails ||
@@ -259,59 +127,37 @@ const EventForm = () => {
         !eventData.endTime ||
         !eventData.eventLocation ||
         !eventData.eventPrice
-      ) {
+      )
         throw new Error("Please fill in all required fields");
-      }
 
-      // Check if image is uploaded
-      if (!file) {
-        throw new Error("Please upload an event image");
-      }
+      if (!file) throw new Error("Please upload an event image");
 
-      // Validate dates
-      const startDateTime = new Date(
-        `${eventData.startDate}T${eventData.startTime}`,
-      );
-      const endDateTime = new Date(`${eventData.endDate}T${eventData.endTime}`);
+      const start = new Date(`${eventData.startDate}T${eventData.startTime}`);
+      const end = new Date(`${eventData.endDate}T${eventData.endTime}`);
 
-      if (startDateTime.getTime() < Date.now()) {
+      if (start.getTime() < Date.now())
         throw new Error("The event must start in the future");
-      }
+      if (end.getTime() <= start.getTime())
+        throw new Error("End date/time must be after start");
 
-      if (endDateTime.getTime() <= startDateTime.getTime()) {
-        throw new Error("End date/time must be after start date/time");
-      }
-
-      // Validate price
       const price = parseFloat(eventData.eventPrice);
-      if (isNaN(price))
-        throw new Error("Please enter a valid number for price");
+      if (isNaN(price)) throw new Error("Please enter a valid price");
       if (price <= 0) throw new Error("Price must be greater than 0");
       if (price > 1000000) throw new Error("Price seems unusually high");
 
-      // Validate token
-      if (
-        !tokenOptions.some((token) => token.address === eventData.paymentToken)
-      ) {
+      if (!tokenOptions.some((t) => t.address === eventData.paymentToken))
         throw new Error("Selected payment token is not supported");
-      }
 
-      // Validate age
       const minAge = parseInt(eventData.minimumAge);
-      if (isNaN(minAge) || minAge < 0 || minAge > 120) {
-        throw new Error("Please enter a valid minimum age (0-120)");
-      }
+      if (isNaN(minAge) || minAge < 0 || minAge > 120)
+        throw new Error("Please enter a valid minimum age (0–120)");
 
-      if (!eventData.subcategory) {
+      if (!eventData.subcategory)
         throw new Error("Please select a subcategory for your event");
-      }
 
       return true;
-    } catch (error: any) {
-      toast.error(error.message, {
-        ...toastConfig.error,
-        icon: "⚠️",
-      });
+    } catch (err: any) {
+      toast.error(err.message, { ...toastConfig.error, icon: "⚠️" });
       return false;
     }
   };
@@ -319,14 +165,12 @@ const EventForm = () => {
   const handleTokenChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newToken = e.target.value;
     setEventData({ ...eventData, paymentToken: newToken });
-
     const token = getTokenByAddress(newToken);
-    if (token) {
-      toast.success(`Payment token changed to ${token.symbol}`, {
+    if (token)
+      toast.success(`Payment token → ${token.symbol}`, {
         ...toastConfig.info,
         duration: 2000,
       });
-    }
   };
 
   const handleFileChange = (
@@ -335,53 +179,39 @@ const EventForm = () => {
     setError(null);
     let selectedFile: File | null = null;
 
-    if (fileOrEvent instanceof File) {
-      selectedFile = fileOrEvent;
-    } else if (fileOrEvent.target.files?.[0]) {
+    if (fileOrEvent instanceof File) selectedFile = fileOrEvent;
+    else if (fileOrEvent.target.files?.[0])
       selectedFile = fileOrEvent.target.files[0];
-    }
-
     if (!selectedFile) return;
 
-    // Validate file type
     if (!selectedFile.type.startsWith("image/")) {
-      const errorMsg = "Only image files are allowed (JPG, PNG, GIF, etc.)";
-      setError(errorMsg);
-      toast.error(errorMsg, toastConfig.error);
+      const msg = "Only image files are allowed (JPG, PNG, GIF, etc.)";
+      setError(msg);
+      toast.error(msg, toastConfig.error);
       return;
     }
-
-    // Validate file size
     if (selectedFile.size > 10 * 1024 * 1024) {
-      const errorMsg = "File size must be less than 10MB";
-      setError(errorMsg);
-      toast.error(errorMsg, toastConfig.error);
+      const msg = "File size must be less than 10MB";
+      setError(msg);
+      toast.error(msg, toastConfig.error);
       return;
     }
 
     setFile(selectedFile);
-
-    // Show success message
-    toast.success(`Image "${selectedFile.name}" selected successfully`, {
+    toast.success(`Image "${selectedFile.name}" selected`, {
       ...toastConfig.success,
       duration: 2000,
       icon: "🖼️",
     });
 
-    // Create preview
     const reader = new FileReader();
     reader.onload = () => setPreview(reader.result as string);
     reader.readAsDataURL(selectedFile);
   };
 
   const uploadToIPFS = async (file: File): Promise<string> => {
-    const uploadToastId = toast.loading(
-      "Uploading image to IPFS...",
-      toastConfig.loading,
-    );
-
+    const id = toast.loading("Uploading image to IPFS…", toastConfig.loading);
     try {
-      // Upload image first
       const formData = new FormData();
       formData.append("file", file);
       formData.append(
@@ -389,7 +219,7 @@ const EventForm = () => {
         JSON.stringify({ name: `event-image-${Date.now()}` }),
       );
 
-      const imageRes = await axios.post(
+      const imgRes = await axios.post(
         "https://api.pinata.cloud/pinning/pinFileToIPFS",
         formData,
         {
@@ -399,20 +229,16 @@ const EventForm = () => {
           },
         },
       );
-
-      const imageUrl = `https://gateway.pinata.cloud/ipfs/${imageRes.data.IpfsHash}`;
-
-      // Pin metadata JSON with subcategory — only admin reads this
-      const metadata = {
-        image: imageUrl,
-        subcategory: eventData.subcategory, // ← admin approval filter
-        category: eventData.category,
-        createdAt: new Date().toISOString(),
-      };
+      const imageUrl = `https://gateway.pinata.cloud/ipfs/${imgRes.data.IpfsHash}`;
 
       const metaRes = await axios.post(
         "https://api.pinata.cloud/pinning/pinJSONToIPFS",
-        metadata,
+        {
+          image: imageUrl,
+          subcategory: eventData.subcategory,
+          category: eventData.category,
+          createdAt: new Date().toISOString(),
+        },
         {
           headers: {
             "Content-Type": "application/json",
@@ -423,17 +249,15 @@ const EventForm = () => {
 
       toast.success("Image uploaded successfully", {
         ...toastConfig.success,
-        id: uploadToastId,
+        id,
       });
-
-      // Return metadata URL — this is stored on-chain as eventCardImgUrl
       return `https://gateway.pinata.cloud/ipfs/${metaRes.data.IpfsHash}`;
-    } catch (error: any) {
+    } catch (err: any) {
       toast.error("Failed to upload image. Please try again.", {
         ...toastConfig.error,
-        id: uploadToastId,
+        id,
       });
-      throw error;
+      throw err;
     }
   };
 
@@ -441,10 +265,7 @@ const EventForm = () => {
     (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       e.stopPropagation();
-
-      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-        handleFileChange(e.dataTransfer.files[0]);
-      }
+      if (e.dataTransfer.files?.[0]) handleFileChange(e.dataTransfer.files[0]);
     },
     [handleFileChange],
   );
@@ -455,85 +276,43 @@ const EventForm = () => {
   }, []);
 
   const createEvent = async () => {
-    // Validate form first
     if (!validateForm()) return;
-
-    // Check wallet connection
     if (!address) {
       showWalletPrompt();
       return;
     }
 
-    const mainToastId = toast.loading(
-      "Preparing your event...",
-      toastConfig.loading,
-    );
-
+    const mainId = toast.loading("Preparing your event…", toastConfig.loading);
     try {
       setLoading(true);
 
-      // Step 1: Upload image to IPFS
-      toast.loading("📤 Uploading image to IPFS...", {
+      toast.loading("📤 Uploading image to IPFS…", {
         ...toastConfig.loading,
-        id: mainToastId,
+        id: mainId,
       });
-
-      // const imageUrl = await uploadToIPFS(file!);
-      // const ipfsHash = imageUrl.split("/").pop() || "";
-
       const imageUrl = await uploadToIPFS(file!);
 
-      // Step 2: Prepare transaction data
-      toast.loading("📝 Preparing transaction data...", {
+      toast.loading("📝 Preparing transaction…", {
         ...toastConfig.loading,
-        id: mainToastId,
+        id: mainId,
       });
 
-      const startDateTime = new Date(
-        `${eventData.startDate}T${eventData.startTime}`,
-      );
-      const endDateTime = new Date(`${eventData.endDate}T${eventData.endTime}`);
-
-      const minimumAge = BigInt(eventData.minimumAge);
-      const startDate = BigInt(Math.floor(startDateTime.getTime() / 1000));
-      const endDate = BigInt(Math.floor(endDateTime.getTime() / 1000));
-      const startTime = BigInt(
-        startDateTime.getHours() * 3600 + startDateTime.getMinutes() * 60,
-      );
-      const endTime = BigInt(
-        endDateTime.getHours() * 3600 + endDateTime.getMinutes() * 60,
-      );
-
-      const selectedToken = getTokenByAddress(eventData.paymentToken);
-      const decimals = selectedToken?.decimals || 18;
-      const priceInWei = parseUnits(eventData.eventPrice, decimals);
-
-      const normalizedPaymentToken = normalizeAddress(eventData.paymentToken);
-
-      const maxCapacity = BigInt(eventData.maxCapacity);
-      const refundPolicy = BigInt(eventData.refundPolicy || "1");
+      const start = new Date(`${eventData.startDate}T${eventData.startTime}`);
+      const end = new Date(`${eventData.endDate}T${eventData.endTime}`);
+      const token = getTokenByAddress(eventData.paymentToken);
+      const decimals = token?.decimals || 18;
 
       const category = parseInt(eventData.category);
-      if (isNaN(category) || category < 0 || category > 8) {
+      if (isNaN(category) || category < 0 || category > 8)
         throw new Error("Please select a valid event category");
-      }
 
       let refundBufferHours = BigInt(0);
-      if (eventData.refundPolicy === "2" && eventData.refundBufferHours) {
+      if (eventData.refundPolicy === "2" && eventData.refundBufferHours)
         refundBufferHours = BigInt(eventData.refundBufferHours);
-      }
 
-      console.log("Creating event with:", {
-        token: selectedToken?.symbol,
-        decimals: decimals,
-        price: eventData.eventPrice,
-        priceInWei: priceInWei.toString(),
-      });
-
-      // Step 3: Send transaction
-      toast.loading("🔐 Please confirm transaction in your wallet...", {
+      toast.loading("🔐 Please confirm in your wallet…", {
         ...toastConfig.loading,
-        id: mainToastId,
+        id: mainId,
       });
 
       const hash = await writeContractAsync({
@@ -544,47 +323,44 @@ const EventForm = () => {
           eventData.eventName,
           imageUrl,
           eventData.eventDetails,
-          startDate,
-          endDate,
-          startTime,
-          endTime,
+          BigInt(Math.floor(start.getTime() / 1000)),
+          BigInt(Math.floor(end.getTime() / 1000)),
+          BigInt(start.getHours() * 3600 + start.getMinutes() * 60),
+          BigInt(end.getHours() * 3600 + end.getMinutes() * 60),
           eventData.eventLocation,
-          priceInWei,
-          minimumAge,
-          maxCapacity,
-          refundPolicy,
+          parseUnits(eventData.eventPrice, decimals),
+          BigInt(eventData.minimumAge),
+          BigInt(eventData.maxCapacity),
+          BigInt(eventData.refundPolicy || "1"),
           refundBufferHours,
-          normalizedPaymentToken,
+          normalizeAddress(eventData.paymentToken),
           BigInt(eventData.category),
         ],
         gas: BigInt(1_000_000),
-        // chainId: CELO_MAINNET_CHAIN_ID,
       });
 
       setTxHash(hash);
 
-      // Step 4: Wait for confirmation
-      toast.loading("⏳ Waiting for blockchain confirmation...", {
+      toast.loading("⏳ Waiting for confirmation…", {
         ...toastConfig.loading,
-        id: mainToastId,
+        id: mainId,
       });
-
-      // Success!
-      toast.success(`🎉 Event "${eventData.eventName}" created successfully!`, {
+      toast.success(`🎉 "${eventData.eventName}" created!`, {
         ...toastConfig.success,
-        id: mainToastId,
+        id: mainId,
         duration: 5000,
       });
 
-      // Show additional info toast
-      setTimeout(() => {
-        toast.success("Redirecting to events page...", {
-          ...toastConfig.info,
-          duration: 2000,
-        });
-      }, 1000);
+      setTimeout(
+        () =>
+          toast.success("Redirecting…", {
+            ...toastConfig.info,
+            duration: 2000,
+          }),
+        1000,
+      );
 
-      // Reset form
+      // Reset
       setEventData({
         eventName: "",
         eventDetails: "",
@@ -604,84 +380,57 @@ const EventForm = () => {
       });
       setFile(null);
       setPreview(null);
+      setTimeout(() => router.push("/view_events"), 2000);
+    } catch (err: any) {
+      console.error("Event creation failed:", err);
+      const msg = err.message?.includes("User rejected")
+        ? "Transaction was rejected"
+        : err.message?.includes("insufficient funds")
+          ? "Insufficient funds for gas"
+          : err.message?.includes("IPFS")
+            ? "Failed to upload image. Please try again."
+            : err.shortMessage || err.message || "Unknown error occurred";
 
-      // Redirect after delay
-      setTimeout(() => {
-        router.push("/view_events");
-      }, 2000);
-    } catch (error: any) {
-      console.error("Event creation failed:", error);
+      const isRejection = err.message?.includes("rejected");
+      toast.error(msg, {
+        ...(isRejection ? toastConfig.warning : toastConfig.error),
+        id: mainId,
+      });
 
-      let errorMessage = "Failed to create event";
-
-      // Parse different error types
-      if (error.message?.includes("User rejected")) {
-        errorMessage = "Transaction was rejected";
-        toast.error(errorMessage, {
-          ...toastConfig.warning,
-          id: mainToastId,
-        });
-      } else if (error.message?.includes("insufficient funds")) {
-        errorMessage = "Insufficient funds for gas fees";
-        toast.error(errorMessage, {
-          ...toastConfig.error,
-          id: mainToastId,
-        });
-      } else if (error.message?.includes("IPFS")) {
-        errorMessage = "Failed to upload image. Please try again.";
-        toast.error(errorMessage, {
-          ...toastConfig.error,
-          id: mainToastId,
-        });
-      } else {
-        errorMessage =
-          error.shortMessage || error.message || "Unknown error occurred";
-        toast.error(errorMessage, {
-          ...toastConfig.error,
-          id: mainToastId,
-        });
-      }
-
-      // Show support message for persistent errors
-      if (error.message && !error.message.includes("rejected")) {
-        setTimeout(() => {
-          toast.error("Need help? Contact support with your error details", {
-            ...toastConfig.info,
-            duration: 4000,
-          });
-        }, 1000);
+      if (!isRejection) {
+        setTimeout(
+          () =>
+            toast.error("Need help? Contact support with your error details", {
+              ...toastConfig.info,
+              duration: 4000,
+            }),
+          1000,
+        );
       }
     } finally {
       setLoading(false);
     }
   };
 
+  // EventForm is now just a passthrough — MultiStep owns the full page layout
   return (
-    <>
-      <div className="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-lg my-20">
-        <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">
-          Create Your Event
-        </h2>
-
-        <MultiStep
-          eventData={eventData}
-          setEventData={setEventData}
-          file={file}
-          setFile={setFile}
-          preview={preview}
-          setPreview={setPreview}
-          error={error}
-          setError={setError}
-          handleFileChange={handleFileChange}
-          handleDrop={handleDrop}
-          handleDragOver={handleDragOver}
-          handleTokenChange={handleTokenChange}
-          tokenOptions={tokenOptions}
-          createEvent={createEvent}
-          loading={loading}
-        />
-      </div>
-    </>
+    <MultiStep
+      eventData={eventData}
+      setEventData={setEventData}
+      file={file}
+      setFile={setFile}
+      preview={preview}
+      setPreview={setPreview}
+      error={error}
+      setError={setError}
+      handleFileChange={handleFileChange}
+      handleDrop={handleDrop}
+      handleDragOver={handleDragOver}
+      handleTokenChange={handleTokenChange}
+      tokenOptions={tokenOptions}
+      createEvent={createEvent}
+      loading={loading}
+    />
   );
 };
 

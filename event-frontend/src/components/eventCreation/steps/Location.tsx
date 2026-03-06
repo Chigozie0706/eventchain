@@ -1,8 +1,7 @@
 "use client";
 
-import GoogleMapWithSearch from "@/components/AutoPlace";
+import MapboxMapWithSearch from "@/components/AutoPlace";
 import { EventData } from "../types";
-import { FormInput } from "@/components/FormInput";
 
 interface Props {
   eventData: EventData;
@@ -11,13 +10,6 @@ interface Props {
 
 export default function Location({ eventData, setEventData }: Props) {
   return (
-    <>
-      <FormInput label="Location" required>
-        <GoogleMapWithSearch
-          eventData={eventData}
-          setEventData={setEventData}
-        />
-      </FormInput>
-    </>
+    <MapboxMapWithSearch eventData={eventData} setEventData={setEventData} />
   );
 }

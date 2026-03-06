@@ -1,0 +1,448 @@
+/*
+ * ╔══════════════════════════════════════════════════════════════════╗
+ * ║           EventChain — Definitive Design Token System           ║
+ * ╚══════════════════════════════════════════════════════════════════╝
+ *
+ *  THE PROBLEM (before this file):
+ *  ─────────────────────────────────────────────────────────────────
+ *  19 different raw rgba(53,208,127, x) opacity values scattered
+ *  across 8 components. 0.02, 0.025, 0.04, 0.05, 0.06, 0.07, 0.08,
+ *  0.1, 0.12, 0.15, 0.18, 0.2, 0.22, 0.25, 0.28, 0.3, 0.35, 0.4, 0.5
+ *  — none of them named, none of them intentional.
+ *
+ *  THE FIX:
+ *  ─────────────────────────────────────────────────────────────────
+ *  Every color is named by PURPOSE. 5 green levels. 2 cyan levels.
+ *  One file. No more guessing which 0.0x to use.
+ *
+ *  USAGE:
+ *  ─────────────────────────────────────────────────────────────────
+ *  1. import "@/styles/tokens.css"  in app/layout.tsx
+ *  2. Delete all @import font lines from individual components
+ *  3. Replace raw values with tokens (migration map at bottom)
+ */
+
+/* ── Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=general-sans@700,800&display=swap');
+
+:root {
+
+  /* ══════════════════════════════════════════════════
+     FONTS
+     ══════════════════════════════════════════════════ */
+  --ec-font-display : 'General Sans', 'DM Sans', sans-serif;
+  --ec-font-body    : 'DM Sans', sans-serif;
+  --ec-font-mono    : 'DM Mono', 'Fira Code', monospace;
+
+
+  /* ══════════════════════════════════════════════════
+     BACKGROUNDS  — 4 levels, each has a clear purpose
+     ══════════════════════════════════════════════════ */
+  --ec-bg          : #020617;   /* Page root. Deepest layer.              */
+  --ec-surface     : #0C1A2E;   /* Cards, panels, modals.                 */
+  --ec-surface-2   : #132035;   /* Inputs, hovered rows, raised elements. */
+  --ec-surface-3   : #1A2B44;   /* Dropdowns, tooltips, overlays.         */
+
+  /*
+   * WHY we changed #0F172A → #0C1A2E and #1E293B → #132035:
+   * The original surfaces were Tailwind's slate-900/800 — pure blue-grey,
+   * no warmth. The new values shift slightly toward navy, which makes the
+   * emerald green pop more against the background (higher chroma contrast)
+   * and feels more cohesive with the Celo brand.
+   */
+
+
+  /* ══════════════════════════════════════════════════
+     BRAND COLORS
+     Rule: --ec-action (green) = DO something
+           --ec-info   (cyan)  = KNOW something
+     ══════════════════════════════════════════════════ */
+
+  /* Green — primary action color */
+  --ec-action      : #35D07F;   /* CTAs, live badges, active nav, progress */
+  --ec-action-dark : #28B86D;   /* Gradient end, pressed state             */
+  --ec-action-text : #4DDBA0;   /* Green text on dark bg — more legible    */
+
+  /* Cyan — information / metadata color */
+  --ec-info        : #22D3EE;   /* Dates, times, network badge, links      */
+  --ec-info-text   : #67E8F9;   /* Cyan text on dark bg                    */
+
+  /*
+   * WHY keep both green AND cyan:
+   * Monochrome green-only palettes feel flat at this scale. The cyan
+   * creates visual rhythm — your eye learns: green = act, cyan = read.
+   * This is the same split used by Linear, Vercel, and Rainbow Wallet.
+   */
+
+
+  /* ══════════════════════════════════════════════════
+     SEMANTIC STATE COLORS
+     ══════════════════════════════════════════════════ */
+  --ec-success     : #34D399;   /* Registered, confirmed, completed        */
+  --ec-warning     : #FBBF24;   /* Age restriction, caution notices        */
+  --ec-danger      : #F87171;   /* Errors, canceled events, refund         */
+  --ec-neutral     : #A78BFA;   /* Capacity, misc accent (used sparingly)  */
+
+
+  /* ══════════════════════════════════════════════════
+     TEXT HIERARCHY  — 4 levels
+     ══════════════════════════════════════════════════ */
+  --ec-text-hi     : #F8FAFC;                    /* Headings, prices, key values  */
+  --ec-text-body   : rgba(248, 250, 252, 0.70);  /* Body copy, descriptions       */
+  --ec-text-muted  : rgba(248, 250, 252, 0.45);  /* Meta labels, secondary info   */
+  --ec-text-subtle : rgba(248, 250, 252, 0.22);  /* Placeholders, disabled, hints */
+
+  /*
+   * WHY 4 levels not 3 or 5:
+   * 3 is too coarse — muted and subtle are doing very different jobs.
+   * 5 creates indistinguishable steps. 4 maps cleanly to:
+   *   hi = headings, body = paragraphs, muted = labels, subtle = placeholders.
+   */
+
+
+  /* ══════════════════════════════════════════════════
+     BORDERS  — 4 levels, named by visual weight
+     (Replaces 19 raw green opacities with 4 intentional ones)
+     ══════════════════════════════════════════════════ */
+  --ec-border-faint  : rgba(53, 208, 127, 0.07);  /* Dividers, section separators  */
+  --ec-border-subtle : rgba(53, 208, 127, 0.13);  /* Default card / input borders  */
+  --ec-border-active : rgba(53, 208, 127, 0.32);  /* Hover cards, focused inputs   */
+  --ec-border-strong : rgba(53, 208, 127, 0.55);  /* Active badge outlines         */
+
+  /* State borders — one per semantic color */
+  --ec-border-info    : rgba(34,  211, 238, 0.28);
+  --ec-border-warning : rgba(251, 191, 36,  0.28);
+  --ec-border-danger  : rgba(248, 113, 113, 0.28);
+  --ec-border-success : rgba(52,  211, 153, 0.28);
+
+
+  /* ══════════════════════════════════════════════════
+     TINTS  — translucent fills for icon wells, badge
+     backgrounds, strip backgrounds, row hovers.
+     (Replaces 19 raw green opacities with 6 named slots)
+     ══════════════════════════════════════════════════ */
+  --ec-tint-action  : rgba(53,  208, 127, 0.09);  /* Icon bg, badge fill, strip bg */
+  --ec-tint-hover   : rgba(53,  208, 127, 0.14);  /* Row hover, card hover fill    */
+  --ec-tint-info    : rgba(34,  211, 238, 0.09);  /* Info icon bg, info strip bg   */
+  --ec-tint-warning : rgba(251, 191, 36,  0.09);  /* Warning icon bg               */
+  --ec-tint-danger  : rgba(248, 113, 113, 0.09);  /* Error/cancel icon bg          */
+  --ec-tint-success : rgba(52,  211, 153, 0.09);  /* Success icon bg               */
+  --ec-tint-neutral : rgba(167, 139, 250, 0.09);  /* Neutral/capacity icon bg      */
+
+  /* Generic UI tints — no semantic color attached */
+  --ec-ui-hover     : rgba(248, 250, 252, 0.05);  /* Nav link hover, dropdown row  */
+  --ec-ui-active    : rgba(53,  208, 127, 0.10);  /* Selected nav link, active row */
+
+
+  /* ══════════════════════════════════════════════════
+     GLOWS & SHADOWS
+     (Replaces scattered raw rgba shadow values)
+     ══════════════════════════════════════════════════ */
+  --ec-glow-ambient : rgba(53, 208, 127, 0.07);  /* Page background radial glow   */
+  --ec-glow-card    : rgba(53, 208, 127, 0.05);  /* Card hover ambient glow       */
+  --ec-glow-action  : rgba(53, 208, 127, 0.30);  /* CTA button drop shadow        */
+
+  --ec-shadow-card  : 0 4px 24px rgba(0, 0, 0, 0.35);
+  --ec-shadow-hover : 0 20px 48px rgba(0, 0, 0, 0.50),
+                      0 0 0 1px var(--ec-border-active),
+                      0 0 60px var(--ec-glow-card);
+  --ec-shadow-cta   : 0 8px 28px var(--ec-glow-action);
+  --ec-shadow-modal : 0 32px 80px rgba(0, 0, 0, 0.70),
+                      0 0 0 1px var(--ec-border-subtle);
+
+
+  /* ══════════════════════════════════════════════════
+     SHAPE
+     ══════════════════════════════════════════════════ */
+  --ec-r-xs   : 6px;
+  --ec-r-sm   : 8px;
+  --ec-r-md   : 12px;
+  --ec-r-lg   : 16px;
+  --ec-r-xl   : 20px;
+  --ec-r-2xl  : 24px;
+  --ec-r-pill : 100px;
+
+
+  /* ══════════════════════════════════════════════════
+     MOTION
+     ══════════════════════════════════════════════════ */
+  --ec-ease        : cubic-bezier(0.16, 1, 0.3, 1);
+  --ec-ease-out    : cubic-bezier(0, 0, 0.2, 1);
+  --ec-t-fast      : 0.15s;
+  --ec-t-base      : 0.25s;
+  --ec-t-slow      : 0.45s;
+  --ec-transition  : all var(--ec-t-base) var(--ec-ease);
+}
+
+
+/* ══════════════════════════════════════════════════════
+   BASE RESETS
+   ══════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  -webkit-font-smoothing : antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering         : optimizeLegibility;
+  font-feature-settings  : "kern" 1, "liga" 1, "calt" 1;
+}
+
+body {
+  font-family: var(--ec-font-body);
+  background : var(--ec-bg);
+  color      : var(--ec-text-hi);
+  font-size  : 15px;
+  line-height: 1.6;
+}
+
+
+/* ══════════════════════════════════════════════════════
+   AMBIENT PAGE DECORATIONS
+   ══════════════════════════════════════════════════════ */
+.ec-page-glow {
+  position: fixed; top: -220px; left: 50%; transform: translateX(-50%);
+  width: 900px; height: 580px;
+  background: radial-gradient(ellipse, var(--ec-glow-ambient) 0%, transparent 70%);
+  pointer-events: none; z-index: 0;
+}
+.ec-page-grid {
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(var(--ec-border-faint) 1px, transparent 1px),
+    linear-gradient(90deg, var(--ec-border-faint) 1px, transparent 1px);
+  background-size: 64px 64px;
+  pointer-events: none; z-index: 0;
+  mask-image: radial-gradient(ellipse 85% 55% at 50% 0%, black 0%, transparent 80%);
+}
+
+
+/* ══════════════════════════════════════════════════════
+   TYPOGRAPHY UTILITIES
+   ══════════════════════════════════════════════════════ */
+.ec-display {
+  font-family: var(--ec-font-display); font-weight: 800;
+  letter-spacing: -0.03em; line-height: 0.95; color: var(--ec-text-hi);
+}
+.ec-heading {
+  font-family: var(--ec-font-display); font-weight: 700;
+  letter-spacing: -0.02em; line-height: 1.1; color: var(--ec-text-hi);
+}
+.ec-eyebrow {
+  font-family: var(--ec-font-body); font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.14em; color: var(--ec-action);
+  display: flex; align-items: center; gap: 8px;
+}
+.ec-eyebrow::before {
+  content: ''; display: inline-block;
+  width: 18px; height: 2px; background: var(--ec-action); border-radius: 2px;
+}
+.ec-label {
+  font-family: var(--ec-font-body); font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.12em; color: var(--ec-text-subtle);
+}
+.ec-gradient-text {
+  background: linear-gradient(135deg, var(--ec-action) 0%, var(--ec-info) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+
+
+/* ══════════════════════════════════════════════════════
+   CARD
+   ══════════════════════════════════════════════════════ */
+.ec-card {
+  background: var(--ec-surface);
+  border: 1px solid var(--ec-border-subtle);
+  border-radius: var(--ec-r-xl);
+  transition: var(--ec-transition);
+}
+.ec-card:hover {
+  border-color: var(--ec-border-active);
+  box-shadow: var(--ec-shadow-hover);
+}
+
+
+/* ══════════════════════════════════════════════════════
+   BUTTONS
+   ══════════════════════════════════════════════════════ */
+.ec-btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 13px 28px;
+  background: linear-gradient(135deg, var(--ec-action) 0%, var(--ec-action-dark) 100%);
+  border: none; border-radius: var(--ec-r-md);
+  font-family: var(--ec-font-display); font-size: 14px; font-weight: 700;
+  color: var(--ec-bg); cursor: pointer; text-decoration: none;
+  transition: var(--ec-transition);
+}
+.ec-btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px); box-shadow: var(--ec-shadow-cta); filter: brightness(1.06);
+}
+.ec-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.ec-btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 24px;
+  background: var(--ec-tint-action); border: 1px solid var(--ec-border-subtle);
+  border-radius: var(--ec-r-md);
+  font-family: var(--ec-font-body); font-size: 14px; font-weight: 600;
+  color: var(--ec-text-muted); cursor: pointer; text-decoration: none;
+  transition: var(--ec-transition);
+}
+.ec-btn-ghost:hover:not(:disabled) {
+  background: var(--ec-tint-hover); border-color: var(--ec-border-active);
+  color: var(--ec-action); transform: translateY(-1px);
+}
+.ec-btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.ec-btn-danger {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 24px;
+  background: var(--ec-tint-danger); border: 1px solid var(--ec-border-danger);
+  border-radius: var(--ec-r-md);
+  font-family: var(--ec-font-body); font-size: 14px; font-weight: 600;
+  color: var(--ec-danger); cursor: pointer;
+  transition: var(--ec-transition);
+}
+.ec-btn-danger:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.16); border-color: rgba(248, 113, 113, 0.50);
+}
+.ec-btn-danger:disabled { opacity: 0.4; cursor: not-allowed; }
+
+
+/* ══════════════════════════════════════════════════════
+   STATUS BADGES
+   ══════════════════════════════════════════════════════ */
+.ec-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px; border-radius: var(--ec-r-pill);
+  font-family: var(--ec-font-display); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.09em; text-transform: uppercase;
+  backdrop-filter: blur(12px);
+}
+.ec-badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+.ec-badge-live     { background: var(--ec-tint-action);  border: 1px solid var(--ec-border-strong); color: var(--ec-action-text); }
+.ec-badge-upcoming { background: var(--ec-tint-info);    border: 1px solid var(--ec-border-info);   color: var(--ec-info-text);   }
+.ec-badge-ended    { background: var(--ec-ui-hover);     border: 1px solid rgba(248,250,252,0.10);  color: var(--ec-text-muted);  }
+.ec-badge-canceled { background: var(--ec-tint-danger);  border: 1px solid var(--ec-border-danger); color: var(--ec-danger);      }
+.ec-badge-token    { background: var(--ec-tint-info);    border: 1px solid var(--ec-border-info);   color: var(--ec-info);        }
+.ec-badge-live .ec-badge-dot { animation: ec-pulse 2s infinite; }
+
+
+/* ══════════════════════════════════════════════════════
+   META ROWS  (icon well + label + value)
+   ══════════════════════════════════════════════════════ */
+.ec-meta-row   { display: flex; align-items: flex-start; gap: 10px; }
+.ec-meta-icon  {
+  width: 30px; height: 30px; border-radius: var(--ec-r-sm);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.ec-meta-icon svg { width: 14px; height: 14px; fill: none; }
+
+.ec-meta-icon.action  { background: var(--ec-tint-action);  } .ec-meta-icon.action  svg { stroke: var(--ec-action);  }
+.ec-meta-icon.info    { background: var(--ec-tint-info);    } .ec-meta-icon.info    svg { stroke: var(--ec-info);    }
+.ec-meta-icon.warning { background: var(--ec-tint-warning); } .ec-meta-icon.warning svg { stroke: var(--ec-warning); }
+.ec-meta-icon.danger  { background: var(--ec-tint-danger);  } .ec-meta-icon.danger  svg { stroke: var(--ec-danger);  }
+.ec-meta-icon.success { background: var(--ec-tint-success); } .ec-meta-icon.success svg { stroke: var(--ec-success); }
+.ec-meta-icon.neutral { background: var(--ec-tint-neutral); } .ec-meta-icon.neutral svg { stroke: var(--ec-neutral); }
+
+.ec-meta-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ec-text-subtle); margin-bottom: 2px; }
+.ec-meta-value { font-size: 13px; font-weight: 500; color: var(--ec-text-muted); }
+.ec-meta-price { font-family: var(--ec-font-display); font-size: 16px; font-weight: 800; color: var(--ec-action); }
+
+
+/* ══════════════════════════════════════════════════════
+   INFO STRIPS  (eligibility notices, policy rows)
+   ══════════════════════════════════════════════════════ */
+.ec-strip { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: var(--ec-r-md); font-size: 13px; font-weight: 500; }
+.ec-strip svg { fill: none; flex-shrink: 0; width: 15px; height: 15px; }
+
+.ec-strip-action  { background: var(--ec-tint-action);  border: 1px solid var(--ec-border-subtle);  color: var(--ec-action-text); } .ec-strip-action  svg { stroke: var(--ec-action);  }
+.ec-strip-info    { background: var(--ec-tint-info);    border: 1px solid var(--ec-border-info);    color: var(--ec-info-text);   } .ec-strip-info    svg { stroke: var(--ec-info);    }
+.ec-strip-warning { background: var(--ec-tint-warning); border: 1px solid var(--ec-border-warning); color: var(--ec-warning);     } .ec-strip-warning svg { stroke: var(--ec-warning); }
+.ec-strip-danger  { background: var(--ec-tint-danger);  border: 1px solid var(--ec-border-danger);  color: var(--ec-danger);      } .ec-strip-danger  svg { stroke: var(--ec-danger);  }
+.ec-strip-muted   { background: var(--ec-ui-hover);     border: 1px solid rgba(248,250,252,0.08);   color: var(--ec-text-subtle); } .ec-strip-muted   svg { stroke: var(--ec-text-subtle); }
+
+
+/* ══════════════════════════════════════════════════════
+   FORM INPUT
+   ══════════════════════════════════════════════════════ */
+.ec-input {
+  width: 100%; padding: 11px 14px;
+  background: var(--ec-surface-2); border: 1px solid var(--ec-border-subtle);
+  border-radius: var(--ec-r-md); font-family: var(--ec-font-body); font-size: 14px;
+  color: var(--ec-text-hi); outline: none;
+  transition: border-color var(--ec-t-fast) ease, box-shadow var(--ec-t-fast) ease;
+}
+.ec-input::placeholder { color: var(--ec-text-subtle); }
+.ec-input:focus { border-color: var(--ec-border-active); box-shadow: 0 0 0 3px var(--ec-tint-action); }
+
+
+/* ══════════════════════════════════════════════════════
+   LOADING STATES
+   ══════════════════════════════════════════════════════ */
+.ec-loader  { width: 48px; height: 48px; border: 3px solid var(--ec-tint-action); border-top-color: var(--ec-action); border-radius: 50%; animation: ec-spin 0.9s linear infinite; }
+.ec-spinner { width: 15px; height: 15px; border: 2px solid rgba(248,250,252,0.12); border-top-color: currentColor; border-radius: 50%; animation: ec-spin 0.7s linear infinite; flex-shrink: 0; }
+.ec-skeleton { background: linear-gradient(90deg, var(--ec-surface) 25%, var(--ec-surface-2) 50%, var(--ec-surface) 75%); background-size: 200% 100%; animation: ec-shimmer 1.4s infinite; border-radius: var(--ec-r-sm); }
+
+.ec-divider { height: 1px; background: var(--ec-border-faint); }
+
+
+/* ══════════════════════════════════════════════════════
+   ANIMATIONS
+   ══════════════════════════════════════════════════════ */
+@keyframes ec-pulse  { 0%,100%{box-shadow:0 0 0 0 rgba(53,208,127,0.55)} 50%{box-shadow:0 0 0 6px rgba(53,208,127,0)} }
+@keyframes ec-spin   { to { transform: rotate(360deg); } }
+@keyframes ec-shimmer{ 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+@keyframes ec-fade-up{ from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+@keyframes ec-scale-in{from{opacity:0;transform:scale(0.96) translateY(-8px)} to{opacity:1;transform:scale(1) translateY(0)} }
+
+.ec-fade-up  { animation: ec-fade-up   0.5s var(--ec-ease) both; }
+.ec-scale-in { animation: ec-scale-in  0.2s var(--ec-ease) both; }
+
+
+/* ══════════════════════════════════════════════════════
+   MIGRATION MAP
+   Every raw value from the old components → its token
+
+   RAW VALUE                         TOKEN
+   ─────────────────────────────────────────────────────
+   #020617                         → var(--ec-bg)
+   #0F172A  / #0C1A2E              → var(--ec-surface)
+   #1E293B  / #132035              → var(--ec-surface-2)
+   rgba(15,23,42,0.8–0.98)         → var(--ec-surface-3)
+   rgba(9,15,35,0.98)              → var(--ec-surface-3)
+
+   #35D07F                         → var(--ec-action)
+   #28b86d                         → var(--ec-action-dark)
+   #4DDBA0  (new)                  → var(--ec-action-text)
+   #22D3EE                         → var(--ec-info)
+   #67E8F9  (new)                  → var(--ec-info-text)
+
+   #F8FAFC                         → var(--ec-text-hi)
+   rgba(248,250,252, 0.45–0.70)    → var(--ec-text-body)
+   rgba(248,250,252, 0.22–0.45)    → var(--ec-text-muted)
+   rgba(248,250,252, 0.03–0.22)    → var(--ec-text-subtle)
+
+   rgba(53,208,127, 0.02–0.05)     → var(--ec-border-faint)  [dividers]
+   rgba(53,208,127, 0.07–0.15)     → var(--ec-border-subtle) [card borders]
+   rgba(53,208,127, 0.18–0.35)     → var(--ec-border-active) [hover/focus]
+   rgba(53,208,127, 0.40–0.55)     → var(--ec-border-strong) [badge outlines]
+
+   rgba(53,208,127, 0.06–0.10)     → var(--ec-tint-action)   [icon bg, badge bg]
+   rgba(53,208,127, 0.12–0.18)     → var(--ec-tint-hover)    [row hover, card]
+   rgba(34,211,238, 0.07–0.12)     → var(--ec-tint-info)
+   rgba(251,191,36,  0.06–0.12)    → var(--ec-tint-warning)
+   rgba(248,113,113, 0.08–0.12)    → var(--ec-tint-danger)
+   rgba(239,68,68,   0.06–0.14)    → var(--ec-tint-danger)
+   rgba(129,140,248, 0.10–0.12)    → var(--ec-tint-neutral)
+
+   rgba(248,250,252, 0.03–0.07)    → var(--ec-ui-hover)
+   rgba(53,208,127,  0.08–0.12)    → var(--ec-ui-active)
+
+   rgba(53,208,127, 0.28–0.35)     → var(--ec-shadow-cta)    [CTA shadow]
+   rgba(53,208,127, 0.05–0.07)     → var(--ec-glow-card)     [card glow]
+   rgba(53,208,127, 0.06–0.08)     → var(--ec-glow-ambient)  [page glow]
+
+   #0d2a1a / #0a1f14 / #071520     → use ec-surface as gradient stops
+   ══════════════════════════════════════════════════════ */

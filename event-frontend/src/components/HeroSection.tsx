@@ -31,18 +31,21 @@ interface Event {
 export default function HeroSection() {
   const [events, setEvents] = useState<Event[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [mounted, setMounted] = useState(false);
 
-  const { data, error, isLoading, isError, isSuccess } = useReadContract({
+  const { data, isLoading, isError, isSuccess } = useReadContract({
     abi: contractABI.abi,
     address: "0xb9AD5b51fD436b0884A51259E351BA10f913Ef8d",
     functionName: "getAllEvents",
   });
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     if (isSuccess && data) {
       const [indexes, activeEvents] = data as [bigint[], any[]];
-
       const formattedEvents: Event[] = activeEvents.map((event, idx) => ({
         index: Number(indexes[idx]),
         owner: event.owner,
@@ -65,277 +68,809 @@ export default function HeroSection() {
         refundPolicy: Number(event.refundPolicy),
         refundBufferHours: Number(event.refundBufferHours),
       }));
-
       setEvents(formattedEvents);
     }
   }, [isSuccess, data]);
 
-  const filteredEvents = events.filter((event) => {
-    const matchesSearch = event.eventName
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
+  const filteredEvents = events.filter((event) =>
+    event.eventName.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
+
+  const liveCount = events.filter((e) => e.isActive).length;
 
   return (
     <>
-      {/* Hero Section with Enhanced Design */}
-      <section className="relative w-full h-[85vh] flex flex-col items-center justify-center text-center px-6 overflow-hidden">
-        {/* Animated Background Gradient Overlay */}
-        <div className="absolute inset-0 w-full h-full">
-          <div className="absolute inset-0 "></div>
-          <img
-            src="/images/banner.png"
-            alt="Event background"
-            className="w-full h-full object-cover"
-          />
-        </div>
+      <style>{`
+        /* ── EventChain Design System ── */
+        :root {
+          --ec-bg:       #020617;
+          --ec-surface:  #0F172A;
+          --ec-surface2: #1E293B;
+          --ec-border:   rgba(53,208,127,0.12);
+          --ec-green:    #35D07F;
+          --ec-cyan:     #22D3EE;
+          --ec-text:     #F8FAFC;
+          --ec-muted:    rgba(248,250,252,0.45);
+          --ec-dimmed:   rgba(248,250,252,0.18);
+        }
 
-        {/* Floating Elements for Visual Interest */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 left-10 w-72 h-72 bg-purple-500/10 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-20 right-10 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        </div>
 
-        {/* Main Content */}
-        <div className="relative z-10 max-w-4xl text-white space-y-6">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-            </span>
-            <span className="text-sm font-medium">
-              {events.length} Live Events Available
-            </span>
-          </div>
+        .ec-wrap { font-family: var(--ec-font-body); background: var(--ec-bg); color: var(--ec-text); }
 
-          {/* Main Heading */}
-          <h1 className="text-4xl font-black sm:text-5xl md:text-6xl lg:text-7xl leading-tight">
-            Discover Events That
-            <span className="block bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
-              Inspire You
-            </span>
-          </h1>
+        /* ── HERO ── */
+        .hero-section {
+          position: relative;
+          width: 100%;
+          min-height: 92vh;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          padding: 120px 24px 80px;
+          overflow: hidden;
+          isolation: isolate;
+        }
 
-          <p className="mt-6 text-lg sm:text-xl md:text-2xl text-gray-200 max-w-2xl mx-auto leading-relaxed">
-            Experience unforgettable moments at concerts, workshops, and
-            conferences powered by blockchain technology
-          </p>
+        /* Banner image */
+        .hero-bg-img {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          filter: brightness(0.18) saturate(0.8);
+          z-index: -3;
+        }
 
-          {/* CTA Buttons */}
-          <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link href="/create_event">
-              <button className="group relative px-8 py-4 bg-gradient-to-r from-orange-500 to-pink-600 rounded-xl text-lg font-bold hover:shadow-2xl hover:shadow-orange-500/50 transition-all duration-300 hover:scale-105">
-                <span className="relative z-10 flex items-center gap-2">
+        /* Gradient overlay */
+        .hero-overlay {
+          position: absolute;
+          inset: 0;
+          background:
+            radial-gradient(ellipse 80% 60% at 50% 0%, rgba(53,208,127,0.12) 0%, transparent 70%),
+            radial-gradient(ellipse 60% 50% at 80% 80%, rgba(34,211,238,0.07) 0%, transparent 60%),
+            linear-gradient(180deg, rgba(2,6,23,0.2) 0%, rgba(2,6,23,0.85) 60%, #020617 100%);
+          z-index: -2;
+        }
+
+        /* Grid pattern */
+        .hero-grid {
+          position: absolute;
+          inset: 0;
+          background-image:
+            linear-gradient(rgba(53,208,127,0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(53,208,127,0.04) 1px, transparent 1px);
+          background-size: 60px 60px;
+          z-index: -1;
+          mask-image: radial-gradient(ellipse 80% 80% at 50% 0%, black 0%, transparent 70%);
+        }
+
+        /* Orbs */
+        .orb {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(80px);
+          pointer-events: none;
+          z-index: -1;
+        }
+        .orb-1 {
+          width: 500px; height: 500px;
+          background: radial-gradient(circle, rgba(53,208,127,0.12), transparent 70%);
+          top: -100px; left: -100px;
+          animation: orb-drift 12s ease-in-out infinite alternate;
+        }
+        .orb-2 {
+          width: 400px; height: 400px;
+          background: radial-gradient(circle, rgba(34,211,238,0.09), transparent 70%);
+          bottom: 0; right: -80px;
+          animation: orb-drift 9s ease-in-out infinite alternate-reverse;
+        }
+        @keyframes orb-drift {
+          from { transform: translate(0, 0); }
+          to   { transform: translate(30px, 20px); }
+        }
+
+        /* Hero content */
+        .hero-content { position: relative; z-index: 1; max-width: 860px; }
+
+        .hero-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 7px 18px;
+          background: rgba(53,208,127,0.08);
+          border: 1px solid rgba(53,208,127,0.25);
+          border-radius: 100px;
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--ec-green);
+          margin-bottom: 28px;
+        }
+
+        .badge-dot {
+          width: 7px; height: 7px;
+          border-radius: 50%;
+          background: var(--ec-green);
+          animation: pulse-green 2s infinite;
+        }
+        @keyframes pulse-green {
+          0%,100% { box-shadow: 0 0 0 0 rgba(53,208,127,0.5); }
+          50%      { box-shadow: 0 0 0 6px rgba(53,208,127,0); }
+        }
+
+        .hero-title {
+          font-family: var(--ec-font-display);
+          font-size: clamp(42px, 7vw, 88px);
+          font-weight: 800;
+          line-height: 0.95;
+          letter-spacing: -0.03em;
+          color: var(--ec-text);
+          margin-bottom: 24px;
+        }
+
+        .hero-title .gradient-word {
+          background: linear-gradient(135deg, var(--ec-green) 0%, var(--ec-cyan) 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          display: block;
+        }
+
+        .hero-sub {
+          font-size: clamp(15px, 2vw, 18px);
+          font-weight: 400;
+          color: var(--ec-muted);
+          max-width: 520px;
+          margin: 0 auto 40px;
+          line-height: 1.75;
+        }
+
+        /* CTA row */
+        .hero-ctas {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 14px;
+          justify-content: center;
+          margin-bottom: 56px;
+        }
+
+        .btn-primary {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 14px 32px;
+          background: linear-gradient(135deg, var(--ec-green) 0%, #28b86d 100%);
+          border: none;
+          border-radius: 14px;
+          font-family: var(--ec-font-body);
+          font-size: 15px;
+          font-weight: 600;
+          color: #020617;
+          cursor: pointer;
+          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          text-decoration: none;
+        }
+        .btn-primary:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 12px 32px rgba(53,208,127,0.35);
+          filter: brightness(1.07);
+        }
+        .btn-primary svg { width: 18px; height: 18px; transition: transform 0.2s; }
+        .btn-primary:hover svg { transform: translateX(3px); }
+
+        .btn-ghost {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 14px 32px;
+          background: rgba(248,250,252,0.05);
+          border: 1px solid rgba(248,250,252,0.12);
+          border-radius: 14px;
+          font-family: var(--ec-font-body);
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--ec-text);
+          cursor: pointer;
+          transition: all 0.3s ease;
+          text-decoration: none;
+          backdrop-filter: blur(8px);
+        }
+        .btn-ghost:hover {
+          background: rgba(53,208,127,0.08);
+          border-color: rgba(53,208,127,0.3);
+          color: var(--ec-green);
+          transform: translateY(-2px);
+        }
+
+        /* Hero mini-stats row */
+        .hero-stats {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0;
+        }
+
+        .hstat {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 0 28px;
+        }
+        .hstat:not(:last-child) {
+          border-right: 1px solid var(--ec-dimmed);
+        }
+        .hstat-val {
+          font-family: var(--ec-font-display);
+          font-size: 30px;
+          font-weight: 800;
+          color: var(--ec-text);
+          line-height: 1;
+        }
+        .hstat-val.green { color: var(--ec-green); }
+        .hstat-val.cyan  { color: var(--ec-cyan); }
+        .hstat-lbl {
+          font-size: 11px;
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          color: var(--ec-dimmed);
+          margin-top: 4px;
+        }
+
+        /* Scroll cue */
+        .scroll-cue {
+          position: absolute;
+          bottom: 28px;
+          left: 50%;
+          transform: translateX(-50%);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
+          animation: bounce 2s ease-in-out infinite;
+          color: var(--ec-dimmed);
+          cursor: pointer;
+        }
+        .scroll-cue span { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; }
+        @keyframes bounce {
+          0%,100% { transform: translateX(-50%) translateY(0); }
+          50%      { transform: translateX(-50%) translateY(6px); }
+        }
+
+        /* ── STATS BELT ── */
+        .stats-belt {
+          background: var(--ec-surface);
+          border-top: 1px solid var(--ec-border);
+          border-bottom: 1px solid var(--ec-border);
+          padding: 40px 24px;
+        }
+
+        .stats-inner {
+          max-width: 1200px;
+          margin: 0 auto;
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 0;
+        }
+
+        @media (max-width: 640px) {
+          .stats-inner { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .stat-block {
+          text-align: center;
+          padding: 8px 24px;
+          position: relative;
+        }
+        .stat-block:not(:last-child)::after {
+          content: '';
+          position: absolute;
+          right: 0; top: 10%; bottom: 10%;
+          width: 1px;
+          background: var(--ec-border);
+        }
+
+        .stat-num {
+          font-family: var(--ec-font-display);
+          font-size: 36px;
+          font-weight: 800;
+          background: linear-gradient(135deg, var(--ec-green), var(--ec-cyan));
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          line-height: 1;
+          margin-bottom: 6px;
+        }
+
+        .stat-desc {
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--ec-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+        }
+
+        /* ── EVENTS SECTION ── */
+        .events-section {
+          background: var(--ec-bg);
+          padding: 80px 24px 100px;
+        }
+
+        .events-inner { max-width: 1400px; margin: 0 auto; }
+
+        .section-header {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 24px;
+          margin-bottom: 48px;
+          flex-wrap: wrap;
+        }
+
+        .section-eyebrow {
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.15em;
+          color: var(--ec-green);
+          margin-bottom: 8px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .section-eyebrow::before {
+          content: '';
+          display: inline-block;
+          width: 20px; height: 2px;
+          background: var(--ec-green);
+          border-radius: 2px;
+        }
+
+        .section-title {
+          font-family: var(--ec-font-display);
+          font-size: clamp(28px, 4vw, 44px);
+          font-weight: 800;
+          color: var(--ec-text);
+          line-height: 1.05;
+          letter-spacing: -0.02em;
+        }
+
+        /* Search */
+        .search-wrap {
+          position: relative;
+          flex-shrink: 0;
+        }
+        .search-input {
+          width: 260px;
+          padding: 11px 16px 11px 44px;
+          background: var(--ec-surface);
+          border: 1px solid var(--ec-border);
+          border-radius: 12px;
+          font-family: var(--ec-font-body);
+          font-size: 14px;
+          color: var(--ec-text);
+          outline: none;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .search-input::placeholder { color: var(--ec-dimmed); }
+        .search-input:focus {
+          border-color: rgba(53,208,127,0.4);
+          box-shadow: 0 0 0 3px rgba(53,208,127,0.08);
+        }
+        .search-icon {
+          position: absolute;
+          left: 14px; top: 50%;
+          transform: translateY(-50%);
+          color: var(--ec-dimmed);
+          pointer-events: none;
+        }
+
+        /* Grid */
+        .events-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 24px;
+        }
+
+        /* Skeletons */
+        .skel-card {
+          border-radius: 20px;
+          overflow: hidden;
+          background: var(--ec-surface);
+          border: 1px solid var(--ec-border);
+        }
+        .skel-img {
+          height: 220px;
+          background: linear-gradient(90deg, var(--ec-surface) 25%, var(--ec-surface2) 50%, var(--ec-surface) 75%);
+          background-size: 200% 100%;
+          animation: skel-shine 1.4s infinite;
+        }
+        .skel-body { padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .skel-line {
+          border-radius: 6px;
+          background: linear-gradient(90deg, var(--ec-surface) 25%, var(--ec-surface2) 50%, var(--ec-surface) 75%);
+          background-size: 200% 100%;
+          animation: skel-shine 1.4s infinite;
+        }
+        @keyframes skel-shine {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+
+        /* Error */
+        .error-box {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          padding: 20px 28px;
+          background: rgba(239,68,68,0.06);
+          border: 1px solid rgba(239,68,68,0.2);
+          border-radius: 14px;
+          color: #fca5a5;
+          font-size: 14px;
+          font-weight: 500;
+          max-width: 480px;
+          margin: 60px auto;
+        }
+
+        /* Empty */
+        .empty-state {
+          grid-column: 1/-1;
+          text-align: center;
+          padding: 80px 24px;
+        }
+        .empty-icon {
+          width: 72px; height: 72px;
+          border-radius: 20px;
+          background: rgba(53,208,127,0.07);
+          border: 1px solid rgba(53,208,127,0.15);
+          display: flex; align-items: center; justify-content: center;
+          font-size: 30px;
+          margin: 0 auto 20px;
+        }
+        .empty-title {
+          font-family: var(--ec-font-display);
+          font-size: 22px; font-weight: 700;
+          color: var(--ec-text);
+          margin-bottom: 8px;
+        }
+        .empty-sub { font-size: 14px; color: var(--ec-muted); margin-bottom: 24px; }
+
+        .btn-sm {
+          padding: 9px 22px;
+          background: rgba(53,208,127,0.1);
+          border: 1px solid rgba(53,208,127,0.25);
+          border-radius: 10px;
+          font-family: var(--ec-font-body);
+          font-size: 13px; font-weight: 600;
+          color: var(--ec-green);
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .btn-sm:hover { background: rgba(53,208,127,0.18); }
+
+        /* View all */
+        .view-all-wrap { text-align: center; margin-top: 52px; }
+
+        .btn-outline-green {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 14px 36px;
+          background: transparent;
+          border: 1px solid rgba(53,208,127,0.35);
+          border-radius: 14px;
+          font-family: var(--ec-font-body);
+          font-size: 15px; font-weight: 600;
+          color: var(--ec-green);
+          cursor: pointer;
+          transition: all 0.3s ease;
+          text-decoration: none;
+        }
+        .btn-outline-green:hover {
+          background: rgba(53,208,127,0.08);
+          border-color: var(--ec-green);
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(53,208,127,0.15);
+        }
+
+        /* Fade in */
+        .fade-up {
+          animation: fade-up 0.5s cubic-bezier(0.16,1,0.3,1) both;
+        }
+        @keyframes fade-up {
+          from { opacity:0; transform:translateY(18px); }
+          to   { opacity:1; transform:translateY(0); }
+        }
+      `}</style>
+
+      <div className="ec-wrap">
+        {/* ── HERO ── */}
+        <section className="hero-section">
+          <img src="/images/banner.png" alt="" className="hero-bg-img" />
+          <div className="hero-overlay" />
+          <div className="hero-grid" />
+          <div className="orb orb-1" />
+          <div className="orb orb-2" />
+
+          <div className="hero-content">
+            <div className="hero-badge">
+              <div className="badge-dot" />
+              {liveCount > 0
+                ? `${liveCount} Live Events`
+                : "Blockchain Powered"}
+            </div>
+
+            <h1 className="hero-title">
+              Experience Events
+              <span className="gradient-word">On-Chain.</span>
+            </h1>
+
+            <p className="hero-sub">
+              Discover concerts, workshops & conferences. Buy tickets with
+              crypto, get instant refunds — all secured on the Celo blockchain.
+            </p>
+
+            <div className="hero-ctas">
+              <Link href="/create_event">
+                <div className="btn-primary">
                   Create an Event
                   <svg
-                    className="w-5 h-5 group-hover:translate-x-1 transition-transform"
                     fill="none"
-                    stroke="currentColor"
                     viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
                   >
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      strokeWidth={2}
                       d="M12 4v16m8-8H4"
                     />
                   </svg>
-                </span>
-              </button>
-            </Link>
-            <Link href="/view_events">
-              <button className="px-8 py-4 bg-white/10 backdrop-blur-md border-2 border-white/30 rounded-xl text-lg font-bold hover:bg-white/20 transition-all duration-300 hover:scale-105">
-                Explore All Events
-              </button>
-            </Link>
-          </div>
-        </div>
+                </div>
+              </Link>
+              <Link href="/view_events">
+                <div className="btn-ghost">
+                  Explore Events
+                  <svg
+                    width="18"
+                    height="18"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M13 7l5 5m0 0l-5 5m5-5H6"
+                    />
+                  </svg>
+                </div>
+              </Link>
+            </div>
 
-        {/* Scroll Indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-          <svg
-            className="w-6 h-6 text-white/60"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 14l-7 7m0 0l-7-7m7 7V3"
-            />
-          </svg>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section className="py-16 bg-gradient-to-b from-gray-50 to-white">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            <div className="text-center">
-              <div className="text-4xl font-black text-transparent bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text">
-                {events.length}+
+            {!isLoading && (
+              <div className="hero-stats">
+                <div className="hstat">
+                  <span className="hstat-val">{events.length}</span>
+                  <span className="hstat-lbl">Total Events</span>
+                </div>
+                <div className="hstat">
+                  <span className="hstat-val green">{liveCount}</span>
+                  <span className="hstat-lbl">Live Now</span>
+                </div>
+                <div className="hstat">
+                  <span className="hstat-val cyan">CELO</span>
+                  <span className="hstat-lbl">Network</span>
+                </div>
               </div>
-              <div className="text-gray-600 mt-2 font-medium">
-                Active Events
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-black text-transparent bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text">
-                1000+
-              </div>
-              <div className="text-gray-600 mt-2 font-medium">
-                Happy Attendees
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-black text-transparent bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text">
-                24/7
-              </div>
-              <div className="text-gray-600 mt-2 font-medium">
-                Blockchain Secured
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-black text-transparent bg-gradient-to-r from-green-600 to-teal-600 bg-clip-text">
-                100%
-              </div>
-              <div className="text-gray-600 mt-2 font-medium">Transparent</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Events Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-6">
-          {/* Section Header */}
-          <div className="text-center mb-12">
-            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4">
-              Featured Events
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Discover amazing experiences happening near you
-            </p>
+            )}
           </div>
 
-          {/* Loading State */}
-          {isLoading && (
-            <div className="flex justify-center items-center py-20">
-              <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-orange-500"></div>
-            </div>
-          )}
+          <div className="scroll-cue">
+            <span>Scroll</span>
+            <svg
+              width="16"
+              height="16"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </div>
+        </section>
 
-          {/* Error State */}
-          {isError && (
-            <div className="text-center py-20">
-              <div className="inline-flex items-center gap-3 px-6 py-4 bg-red-50 border border-red-200 rounded-xl">
+        {/* ── STATS BELT ── */}
+        <section className="stats-belt">
+          <div className="stats-inner">
+            {[
+              { num: `${events.length}+`, desc: "Active Events" },
+              { num: "1000+", desc: "Happy Attendees" },
+              { num: "24/7", desc: "Blockchain Secured" },
+              { num: "100%", desc: "Transparent" },
+            ].map((s) => (
+              <div key={s.desc} className="stat-block">
+                <div className="stat-num">{s.num}</div>
+                <div className="stat-desc">{s.desc}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── EVENTS ── */}
+        <section className="events-section">
+          <div className="events-inner">
+            <div className="section-header">
+              <div>
+                <div className="section-eyebrow">On-Chain Events</div>
+                <h2 className="section-title">Featured Events</h2>
+              </div>
+
+              <div className="search-wrap">
                 <svg
-                  className="w-6 h-6 text-red-500"
+                  className="search-icon"
+                  width="16"
+                  height="16"
                   fill="none"
-                  stroke="currentColor"
                   viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="2"
                 >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                   />
                 </svg>
-                <p className="text-red-700 font-medium">
-                  Failed to load events. Please try again.
-                </p>
+                <input
+                  className="search-input"
+                  placeholder="Search events…"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
               </div>
             </div>
-          )}
 
-          {/* Events Grid */}
-          {!isLoading && !isError && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {filteredEvents.length > 0 ? (
-                filteredEvents.map((event, index) => (
-                  <div
-                    key={event.index}
-                    className="animate-fadeIn"
-                    style={{ animationDelay: `${index * 100}ms` }}
-                  >
-                    <EventCard event={event} />
-                  </div>
-                ))
-              ) : (
-                <div className="col-span-full text-center py-20">
-                  <svg
-                    className="w-24 h-24 mx-auto text-gray-300 mb-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            {/* Skeleton */}
+            {isLoading && (
+              <div className="events-grid">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div className="skel-card" key={i}>
+                    <div
+                      className="skel-img"
+                      style={{ animationDelay: `${i * 0.1}s` }}
                     />
-                  </svg>
-                  <p className="text-gray-500 text-xl font-medium">
-                    No events found matching your search
-                  </p>
-                  <button
-                    onClick={() => setSearchTerm("")}
-                    className="mt-4 px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition"
-                  >
-                    Clear Search
-                  </button>
+                    <div className="skel-body">
+                      <div
+                        className="skel-line"
+                        style={{ height: 10, width: "38%" }}
+                      />
+                      <div
+                        className="skel-line"
+                        style={{ height: 18, width: "80%" }}
+                      />
+                      <div
+                        className="skel-line"
+                        style={{ height: 18, width: "55%" }}
+                      />
+                      <div
+                        className="skel-line"
+                        style={{ height: 10, width: "50%", marginTop: 8 }}
+                      />
+                      <div
+                        className="skel-line"
+                        style={{ height: 10, width: "65%" }}
+                      />
+                      <div
+                        className="skel-line"
+                        style={{
+                          height: 44,
+                          width: "100%",
+                          marginTop: 12,
+                          borderRadius: 12,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Error */}
+            {isError && (
+              <div className="error-box">
+                <svg
+                  width="20"
+                  height="20"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                  />
+                </svg>
+                Failed to load events. Please refresh.
+              </div>
+            )}
+
+            {/* Grid */}
+            {!isLoading && !isError && (
+              <>
+                <div className="events-grid">
+                  {filteredEvents.length > 0 ? (
+                    filteredEvents.map((event, i) => (
+                      <div
+                        key={event.index}
+                        className="fade-up"
+                        style={{ animationDelay: `${i * 0.07}s` }}
+                      >
+                        <EventCard event={event} />
+                      </div>
+                    ))
+                  ) : (
+                    <div className="empty-state">
+                      <div className="empty-icon">🎭</div>
+                      <h3 className="empty-title">No events found</h3>
+                      <p className="empty-sub">
+                        {searchTerm
+                          ? `No results for "${searchTerm}"`
+                          : "No upcoming events right now. Check back soon!"}
+                      </p>
+                      {searchTerm && (
+                        <button
+                          className="btn-sm"
+                          onClick={() => setSearchTerm("")}
+                        >
+                          Clear search
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          )}
 
-          {/* View All Button */}
-          {filteredEvents.length > 0 && (
-            <div className="text-center mt-12">
-              <Link href="/view_events">
-                <button className="px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-bold hover:shadow-xl hover:shadow-purple-500/50 transition-all duration-300 hover:scale-105">
-                  View All Events →
-                </button>
-              </Link>
-            </div>
-          )}
-        </div>
-      </section>
-
-      <style jsx>{`
-        @keyframes gradient {
-          0%,
-          100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.8;
-          }
-        }
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-gradient {
-          animation: gradient 8s ease infinite;
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.6s ease forwards;
-          opacity: 0;
-        }
-      `}</style>
+                {filteredEvents.length > 0 && (
+                  <div className="view-all-wrap">
+                    <Link href="/view_events">
+                      <div className="btn-outline-green">
+                        View all events
+                        <svg
+                          width="16"
+                          height="16"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M13 7l5 5m0 0l-5 5m5-5H6"
+                          />
+                        </svg>
+                      </div>
+                    </Link>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </section>
+      </div>
     </>
   );
 }

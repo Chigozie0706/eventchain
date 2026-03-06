@@ -135,7 +135,96 @@ export default function EventDetails({
 }: Props) {
   return (
     <>
-      <div className="space-y-4">
+      <style>{`
+        /* ── Drop zone ── */
+        .ec-dropzone {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          padding: 32px 20px;
+          border: 2px dashed rgba(53, 208, 127, 0.25);
+          border-radius: 14px;
+          background: rgba(53, 208, 127, 0.03);
+          cursor: pointer;
+          transition: border-color 0.2s ease, background 0.2s ease;
+          text-align: center;
+        }
+        .ec-dropzone:hover {
+          border-color: rgba(53, 208, 127, 0.50);
+          background: rgba(53, 208, 127, 0.06);
+        }
+        .ec-dropzone-icon {
+          width: 40px; height: 40px;
+          stroke: rgba(53, 208, 127, 0.5);
+          fill: none;
+        }
+        .ec-dropzone-title {
+          font-family: var(--ec-font-body, 'DM Sans', sans-serif);
+          font-size: 14px; font-weight: 500;
+          color: rgba(248, 250, 252, 0.60);
+        }
+        .ec-dropzone-title span {
+          color: #35D07F;
+          cursor: pointer;
+          text-decoration: underline;
+          text-underline-offset: 3px;
+        }
+        .ec-dropzone-sub {
+          font-size: 11px;
+          color: rgba(248, 250, 252, 0.28);
+        }
+        .ec-dropzone-error {
+          font-size: 11px;
+          color: #F87171;
+          margin-top: 4px;
+        }
+
+        /* ── Preview ── */
+        .ec-preview-wrap {
+          position: relative;
+          border-radius: 12px;
+          overflow: hidden;
+          border: 1px solid rgba(53, 208, 127, 0.18);
+        }
+        .ec-preview-wrap img {
+          width: 100%;
+          max-height: 220px;
+          object-fit: cover;
+          display: block;
+        }
+        .ec-preview-remove {
+          position: absolute;
+          top: 10px; right: 10px;
+          display: flex; align-items: center; gap: 5px;
+          padding: 5px 12px;
+          background: rgba(248, 113, 113, 0.12);
+          border: 1px solid rgba(248, 113, 113, 0.3);
+          border-radius: 100px;
+          font-family: var(--ec-font-body, 'DM Sans', sans-serif);
+          font-size: 11px; font-weight: 600;
+          color: #F87171;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .ec-preview-remove:hover {
+          background: rgba(248, 113, 113, 0.22);
+          border-color: rgba(248, 113, 113, 0.55);
+        }
+        .ec-preview-remove svg { width: 12px; height: 12px; stroke: currentColor; fill: none; }
+
+        /* ── Subcategory hint ── */
+        .ec-sub-hint {
+          font-size: 11px;
+          color: rgba(248, 250, 252, 0.28);
+          margin-top: 4px;
+          display: flex; align-items: center; gap: 5px;
+        }
+        .ec-sub-hint svg { width: 11px; height: 11px; stroke: rgba(34,211,238,0.5); fill: none; flex-shrink: 0; }
+      `}</style>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
         <FormInput label="Event Name" required>
           <input
             type="text"
@@ -144,151 +233,157 @@ export default function EventDetails({
             onChange={(e) =>
               setEventData({ ...eventData, eventName: e.target.value })
             }
-            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition ${"border-gray-300"}`}
             placeholder="e.g., Tech Conference 2026"
           />
         </FormInput>
 
-        <FormInput label="Event Category" required>
-          <select
-            name="category"
-            value={eventData.category}
-            onChange={(e) =>
-              setEventData({
-                ...eventData,
-                category: e.target.value,
-                subcategory: "", // reset subcategory when category changes
-              })
-            }
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition"
-          >
-            {CATEGORIES.map((cat) => (
-              <option key={cat.value} value={cat.value}>
-                {cat.label}
-              </option>
-            ))}
-          </select>
-        </FormInput>
-
-        <FormInput label="Event Subcategory" required>
-          <>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "16px",
+          }}
+        >
+          <FormInput label="Category" required>
             <select
-              name="subcategory"
-              value={eventData.subcategory}
+              name="category"
+              value={eventData.category}
               onChange={(e) =>
-                setEventData({ ...eventData, subcategory: e.target.value })
+                setEventData({
+                  ...eventData,
+                  category: e.target.value,
+                  subcategory: "",
+                })
               }
-              disabled={!eventData.category}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <option value="" disabled>
-                Select a subcategory
-              </option>
-              {(SUBCATEGORIES[eventData.category] ?? []).map((sub) => (
-                <option key={sub} value={sub}>
-                  {sub}
+              {CATEGORIES.map((cat) => (
+                <option key={cat.value} value={cat.value}>
+                  {cat.label}
                 </option>
               ))}
             </select>
-            <p className="text-xs text-gray-400 mt-1">
-              Used by our team to review and approve your event. Not shown
-              publicly.
-            </p>
-          </>
-        </FormInput>
+          </FormInput>
 
-        <FormInput label="Event Image " required>
-          <div
-            className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md"
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-          >
-            <div className="space-y-1 text-center">
+          <FormInput label="Subcategory" required>
+            <>
+              <select
+                name="subcategory"
+                value={eventData.subcategory}
+                onChange={(e) =>
+                  setEventData({ ...eventData, subcategory: e.target.value })
+                }
+                disabled={!eventData.category}
+                style={{ opacity: !eventData.category ? 0.45 : 1 }}
+              >
+                <option value="" disabled>
+                  Select subcategory
+                </option>
+                {(SUBCATEGORIES[eventData.category] ?? []).map((sub) => (
+                  <option key={sub} value={sub}>
+                    {sub}
+                  </option>
+                ))}
+              </select>
+              <p className="ec-sub-hint">
+                <svg viewBox="0 0 24 24" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <path strokeLinecap="round" d="M12 16v-4M12 8h.01" />
+                </svg>
+                Used for admin review only — not shown publicly
+              </p>
+            </>
+          </FormInput>
+        </div>
+
+        {/* Upload */}
+        <FormInput label="Event Image" required>
+          {preview ? (
+            <div className="ec-preview-wrap">
+              <img src={preview} alt="Preview" />
+              <button
+                className="ec-preview-remove"
+                type="button"
+                onClick={() => {
+                  setPreview(null);
+                  setFile(null);
+                }}
+              >
+                <svg viewBox="0 0 24 24" strokeWidth="2">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+                Remove
+              </button>
+            </div>
+          ) : (
+            <div
+              className="ec-dropzone"
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+            >
               <svg
-                className="mx-auto h-12 w-12 text-gray-400"
-                stroke="currentColor"
-                fill="none"
-                viewBox="0 0 48 48"
-                aria-hidden="true"
+                className="ec-dropzone-icon"
+                viewBox="0 0 24 24"
+                strokeWidth="1.5"
               >
                 <path
-                  d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                  strokeWidth={2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3 20.25h18M12 3v9m0 0l-3-3m3 3l3-3"
                 />
               </svg>
-              <div className="flex justify-center text-sm text-gray-600">
-                <label
-                  htmlFor="file-upload"
-                  className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none"
-                >
-                  <span>Upload a file</span>
+              <p className="ec-dropzone-title">
+                Drop your image here or{" "}
+                <label htmlFor="ec-file-upload">
+                  <span>browse</span>
                   <input
-                    id="file-upload"
-                    name="file-upload"
+                    id="ec-file-upload"
                     type="file"
                     accept="image/*"
                     onChange={handleFileChange}
-                    className="sr-only"
+                    style={{ display: "none" }}
                   />
                 </label>
-                <p className="pl-1">or drag and drop</p>
-              </div>
-              <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
-              {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
+              </p>
+              <p className="ec-dropzone-sub">PNG, JPG, GIF — max 10 MB</p>
+              {error && <p className="ec-dropzone-error">{error}</p>}
             </div>
-          </div>
+          )}
         </FormInput>
 
-        {preview && (
-          <div className="mt-4">
-            <img
-              src={preview}
-              alt="Preview"
-              className="max-w-full h-auto max-h-60 rounded-lg border border-gray-200"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                setPreview(null);
-                setFile(null);
-              }}
-              className="mt-2 text-sm text-red-600 hover:text-red-500"
-            >
-              Remove image
-            </button>
-          </div>
-        )}
+        <FormInput label="Event Details" required>
+          <textarea
+            name="eventDetails"
+            value={eventData.eventDetails}
+            onChange={(e) =>
+              setEventData({ ...eventData, eventDetails: e.target.value })
+            }
+            placeholder="Describe your event — agenda, speakers, what to expect…"
+            rows={4}
+          />
+        </FormInput>
+
+        <FormInput
+          label="Minimum Age"
+          required
+          hint="Enter 0 for no age restriction"
+        >
+          <input
+            type="number"
+            name="minimumAge"
+            value={eventData.minimumAge}
+            onChange={(e) =>
+              setEventData({ ...eventData, minimumAge: e.target.value })
+            }
+            placeholder="0"
+            min="0"
+            max="120"
+          />
+        </FormInput>
       </div>
-
-      <FormInput label="Event Details" required>
-        <textarea
-          name="eventDetails"
-          value={eventData.eventDetails}
-          onChange={(e) =>
-            setEventData({ ...eventData, eventDetails: e.target.value })
-          }
-          placeholder="Describe your event in detail..."
-          rows={4}
-          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition ${"border-gray-300"}`}
-        ></textarea>
-      </FormInput>
-
-      <FormInput label="Minimum Age" required>
-        <input
-          type="number"
-          name="minimumAge"
-          value={eventData.minimumAge}
-          onChange={(e) =>
-            setEventData({ ...eventData, minimumAge: e.target.value })
-          }
-          placeholder="Enter minimum age (0 for no restriction)"
-          min="0"
-          max="120"
-          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition ${"border-gray-300"}`}
-        />
-      </FormInput>
     </>
   );
 }
