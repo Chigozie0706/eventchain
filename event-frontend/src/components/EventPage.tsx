@@ -736,10 +736,10 @@ export default function EventPage({
                   />
                 </div>
               </div>
-              <AttendeeList
+              {/* <AttendeeList
                 attendees={attendees}
                 maxCapacity={Number(event.maxCapacity)}
-              />
+              /> */}
             </div>
 
             {/* Refund Policy */}
